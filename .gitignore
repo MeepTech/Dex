@@ -1,0 +1,4 @@
+# The build output folders:
+build
+node_modules
+tests/npm-lib

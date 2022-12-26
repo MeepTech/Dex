@@ -1,0 +1,28 @@
+{
+  "files": [
+    "./src/lib.ts", "src/objects/subsets/subset.ts", "src/objects/readonly.ts", "src/objects/readonly.ts", "src/objects/queries/flags.ts"
+  ],
+  "compilerOptions": {
+      "paths": {
+        "tslib" : ["./node_modules/tslib/tslib.d.ts"]
+    },
+    "incremental": true,
+    "target": "es2021",
+    "module": "commonjs",
+    "lib": ["dom", "es2021"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "sourceMap": true,
+    "noImplicitAny": true,
+    "moduleResolution": "node",
+    "declaration": true,
+	  "emitDeclarationOnly": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "importHelpers": true,
+    "strictNullChecks": true,
+    "stripInternal": true,
+    "allowJs": true,
+    "outDir": "./build/prod/types/"
+  }
+}
