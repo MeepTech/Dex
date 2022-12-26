@@ -1,5 +1,5 @@
 import { Flag, LogicFlag, FLAGS } from "./flags";
-import { IBasicQuery, IFirstableQuery, IQuery, QueryConstructor, QueryResults } from "./queries";
+import { IBasicQuery, IFirstableQuery, IFullQuery, QueryConstructor, QueryResults } from "./queries";
 import { IReadOnlyDex } from "../readonly";
 import { Entry } from "../subsets/entries";
 
@@ -10,17 +10,17 @@ export function FirstableQueryConstructor<
   TResults extends QueryResults<TEntry, TDexEntry>,
   TValidFlags extends Flag
 >(
-  base: IBasicQuery<TEntry, TDexEntry, TResults, TValidFlags>,
-  first: IQuery<TEntry, TDexEntry, typeof FLAGS.FIRST | LogicFlag, TEntry>
-): IFirstableQuery<TEntry, TDexEntry, TResults, TValidFlags> {
-  (base as any as IFirstableQuery<TEntry, TDexEntry, TResults, TValidFlags>)
+  base: IBasicQuery<TEntry, TValidFlags, TDexEntry, TResults>,
+  first: IFullQuery<TEntry, typeof FLAGS.FIRST | LogicFlag, TDexEntry, TEntry>
+): IFirstableQuery<TEntry, TValidFlags, TDexEntry, TResults> {
+  (base as any as IFirstableQuery<TEntry, TValidFlags, TDexEntry, TResults>)
     .first = first;
 
-  return base as IFirstableQuery<TEntry, TDexEntry, TResults, TValidFlags>;
+  return base as IFirstableQuery<TEntry, TValidFlags, TDexEntry, TResults>;
 }
 
 /** @internal */
-export function FirstQueryConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry>): IQuery<TEntry, TEntry, typeof FLAGS.FIRST | LogicFlag, TEntry> {
+export function FirstQueryConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry>): IFullQuery<TEntry, typeof FLAGS.FIRST | LogicFlag, TEntry, TEntry> {
   return QueryConstructor<
     TEntry,
     TEntry,
@@ -38,5 +38,6 @@ export function FirstQueryConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TE
           ? b.concat([FLAGS.FIRST])
           : [FLAGS.FIRST]
       ) as any)
+    , dex
   );
 }

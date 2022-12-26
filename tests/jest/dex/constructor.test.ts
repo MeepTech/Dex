@@ -1,6 +1,7 @@
 import { describe, test } from '@jest/globals';
 import Dex from '../../../src/objects/dex';
 import { CHAIN_FLAG, FLAGS } from '../../../src/objects/queries/FLAGS';
+import { Tag } from '../../../src/objects/subsets/tags';
 import {
   expectDex_countsToEqual,
   expectDex_entryHasNoTags,
@@ -16,29 +17,6 @@ describe("constructor(...)", () => {
   test("() => Empty Dex", () => {
     const dex = new Dex<string>();
     expectDex_countsToEqual(dex, 0, 0);
-
-    const _1 = dex.select.not("strictly-without-this-tag");
-    const _2 = dex.query("strictly-with-this-tag");
-    const _2_1 = dex.query(FLAGS.FIRST, "strictly-with-this-tag");
-    const _3 = dex.select.not.or("not-this", "or-this");
-    const _3_1 = dex.select.not.or(FLAGS.FIRST, "not-this", "or-this");
-    const _3_2 = dex.select.not.not(FLAGS.FIRST, "not-this", "or-this");
-    const _3_3 = dex.select.not.not("not-this", "or-this");
-    const _4 = dex.query([CHAIN_FLAG], "without-this").select("with-this-though")
-    const _4_3 = dex.query(CHAIN_FLAG, "without-this").select("with-this-though")
-    const _4_1 = dex.query([FLAGS.CHAIN], FLAGS.OR, "this", "or-this").first("one-that-has-this")
-    const _5 = dex.select.not(FLAGS.CHAIN, "without-this").and("with-this-though");
-    const _6 = dex.select.not(FLAGS.FIRST, "without-this").and("this should be an error");
-    const f_1 = dex.tags.for("eNTRY ID 1");
-    const entries = dex.map.entries();
-    const tags = dex.map.tags();
-    const toObjects = dex.map.tags();
-    const mapObject = dex.map();
-
-    const object = {};
-    dex.for.entries((entry, tags) => {
-      // things
-    });
   });
   describe("(Tag[...])", () => {
     test("([Tag]) => Dex with just one empty Tag", () => {
@@ -507,4 +485,5 @@ describe("constructor(...)", () => {
     expectDex_entryToHaveTags(dex, entry2, [testTag2]);
     expectDex_tagsToHaveEntries(dex, testTag2, [entry, entry2]);
   });
+  // TODO: test creation from an existing dex
 });

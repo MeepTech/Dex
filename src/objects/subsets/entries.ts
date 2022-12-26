@@ -2,8 +2,9 @@ import { HashKey } from "./hashes";
 import IUnique from "../unique";
 import { IDexSubMap } from "./subset";
 import {
-  IQuery,
-  QueryResultCalculator,
+  IFullQuery,
+  NoEntryFound,
+  NO_RESULTS_FOUND_FOR_QUERY,
   QueryConstructor,
   QueryResults
 } from "../queries/queries";
@@ -13,24 +14,129 @@ import {
 } from "../queries/flags";
 import Dex from "../dex";
 import { Break, Breakable } from "../../utilities/breakable";
-import { Tag } from "./tags";
+import { Tag, TagOrTags } from "./tags";
 import { IReadOnlyDex } from "../readonly";
-import { isFunction, isArray } from "../../utilities/validators";
+import { isFunction, isArray, isObject, isTag, isNumber, isString, isSymbol } from "../../utilities/validators";
 
 /**
  * Valid entry types.
  */
 export type Entry
-  = string
-  | number
-  | symbol
-  | Function
+  = SimpleEntry
+  | ComplexEntry
+
+//#region Sub Types
+
+/**
+ * Entries that are not tag-like
+ */
+export type ComplexEntry
+  = Function
   | Array<unknown>
   | {}
   | Object
   | object
   | { [k: string]: unknown }
   | IUnique
+
+/**
+ * Entries that are tag like
+ */
+export type SimpleEntry
+  = string
+  | number
+  | symbol
+
+//#endregion
+
+//#region Dtos
+
+/**
+ * Values that can be used to initialize the entries 
+ */
+export type EntryOrNone<TEntry extends Entry = Entry>
+  = NoEntries | NoEntryFound | TEntry;
+
+/**
+ * Inputable EntryWithTag set types.
+ */
+export type EntryWithTags<TEntry extends Entry = Entry>
+  = { entry?: EntryOrNone<TEntry>, tags?: Set<Tag> }
+
+/**
+ * Standard array type container for a type of entry with all of it's tags.
+ */
+export type EntryWithTagsArray<TEntry extends ComplexEntry = ComplexEntry>
+  = [EntryOrNone<TEntry>, Tag[]]
+
+/**
+ * All ways to input an entry with tags. Used mostly for dex construction and the add function.
+ */
+export type InputEntryWithTags<TEntry extends Entry = Entry>
+  = TEntry extends ComplexEntry
+  ? (InputEntryWithTagsObject<TEntry> | InputEntryWithTagsArray<TEntry>)
+  : InputEntryWithTagsObject<TEntry>
+
+/**
+ * Inputable EntryWithTag array types.
+ */
+export type InputEntryWithTagsArray<TEntry extends Entry = Entry>
+  = [EntryOrNone<TEntry>, ...Tag[]]
+  | [EntryOrNone<TEntry>, Set<Tag>]
+  | [EntryOrNone<TEntry>, Tag]
+  | EntryWithTagsArray
+
+/**
+ * Inputable EntryWithTag object types.
+ */
+export type InputEntryWithTagsObject<TEntry extends Entry = Entry>
+  = EntryWithTags<TEntry> & { tag?: TagOrTags, tags?: TagOrTags }
+
+/**
+ * Used to represent the value of a tag with no entries
+ */
+export const NO_ENTRIES_FOR_TAG = null;
+
+/**
+ * Used to represent the value of a tag with no entries
+ */
+export type NoEntries
+  = typeof NO_ENTRIES_FOR_TAG;
+
+//#endregion
+
+//#region Utility
+
+/**
+ * Represents a guard function for a type of entry.
+ */
+export interface GuardFunction<TEntry extends Entry> {
+  (entry: Entry): entry is TEntry
+}
+
+export function inputEntryWithTagsArrayGuardFunction<TEntry extends Entry = Entry>(
+  value: Entry
+): value is TEntry {
+  return (isArray(value))
+    // if the first item in the array is a potential complex entry or an empty tag value...
+    && ((isObject(value[0]) || value[0] === NO_ENTRIES_FOR_TAG)
+      // if the second item of that array is a potental tag
+      && (isTag(value[1])
+        // or if it's an array of tags or empty array
+        || (isArray(value[1])
+          && (!value[1].length
+            || isTag(value[1][0])))))
+}
+
+export function simpleEntryGuardFunction(
+  value: Entry
+): Value is SimpleEntry {
+  return isString(value) || isNumber(value) || isSymbol(value)
+}
+ 
+//#endregion
+
+//#region Entry Set
 
 /**
  * A set used to contain entries
@@ -41,7 +147,7 @@ export interface IEntrySet<TEntry extends Entry>
     HashKey,
     TEntry
   >,
-  IQuery<TEntry> {
+  IFullQuery<TEntry> {
 
   /**
    * Get all entries as a record indeed by key
@@ -61,7 +167,7 @@ export function EntryMapConstructor<TEntry extends Entry>(
   dex: IReadOnlyDex<TEntry>,
   base: Map<HashKey, TEntry>
 ): IEntrySet<TEntry> {
-  const query: IQuery<TEntry> = QueryConstructor<
+  const query: IFullQuery<TEntry> = QueryConstructor<
     TEntry,
     TEntry,
     Flag,
@@ -69,7 +175,7 @@ export function EntryMapConstructor<TEntry extends Entry>(
     TEntry[],
     QueryResults<TEntry>,
     Flag
-  >(dex.find);
+  >(dex.find, dex);
 
   const entryMap: IEntrySet<TEntry> = query as any;
   Object.defineProperty(entryMap, "map", {
@@ -81,7 +187,7 @@ export function EntryMapConstructor<TEntry extends Entry>(
         let index = 0;
 
         for (const [k, e] of base) {
-          const result = transform(e,index++, k);
+          const result = transform(e, index++, k);
           if (result instanceof Break) {
             if (result.hasReturn) {
               results.push(result.return!);
@@ -108,7 +214,6 @@ export function EntryMapConstructor<TEntry extends Entry>(
       return base.keys();
     },
     enumerable: false,
-    writable: false,
     configurable: false
   });
 
@@ -117,7 +222,6 @@ export function EntryMapConstructor<TEntry extends Entry>(
       return base.values();
     },
     enumerable: false,
-    writable: false,
     configurable: false
   });
 
@@ -126,7 +230,6 @@ export function EntryMapConstructor<TEntry extends Entry>(
       return base.entries();
     },
     enumerable: false,
-    writable: false,
     configurable: false
   });
 
@@ -154,87 +257,86 @@ export function EntryMapConstructor<TEntry extends Entry>(
         return base.size;
       },
       enumerable: false,
-      writable: false,
       configurable: false
     }));
 
   Object.defineProperty(entryMap, "where", {
-    value: function(
-        a: Breakable<[entry: TEntry, index: number], boolean> | Tag[],
-        b?: Flag[]
-      ): TEntry | Set<TEntry> | Dex<TEntry> | undefined {
-        if (isFunction(a)) {
-          if (b?.includes(FLAGS.CHAIN) && !b.includes(FLAGS.FIRST)) {
-            const results = new Dex<TEntry>();
-            let index = 0;
+    value: function (
+      a: Breakable<[entry: TEntry, index: number], boolean> | Tag[],
+      b?: Flag[]
+    ): TEntry | Set<TEntry> | Dex<TEntry> | NoEntryFound {
+      if (isFunction(a)) {
+        if (b?.includes(FLAGS.CHAIN) && !b.includes(FLAGS.FIRST)) {
+          const results = new Dex<TEntry>();
+          let index = 0;
 
-            for (const e of base.keys()) {
-              const result = a(dex.get(e)!, index++);
+          for (const e of base.keys()) {
+            const result = a(dex.get(e)!, index++);
+            if (result instanceof Break) {
+              if (result.hasReturn && result.return) {
+                (results as Dex<TEntry>).copy.from(dex, [e]);
+              }
+
+              break;
+            } else {
+              (results as Dex<TEntry>).copy.from(dex, [e]);
+            }
+          }
+
+          return results;
+        } else {
+          let index = 0;
+
+          if (b?.includes(FLAGS.FIRST)) {
+            for (const e of base.values()) {
+              const result = a(e, index++);
               if (result instanceof Break) {
                 if (result.hasReturn && result.return) {
-                  (results as Dex<TEntry>).copy.from(dex, [e]);
+                  return e;
                 }
 
                 break;
               } else {
-                (results as Dex<TEntry>).copy.from(dex, [e]);
+                return e;
+              }
+            }
+
+            return NO_RESULTS_FOUND_FOR_QUERY;
+          } else {
+            const results: Set<TEntry> = new Set();
+
+            for (const e of base.values()) {
+              const result = a(e, index++);
+              if (result instanceof Break) {
+                if (result.hasReturn && result.return) {
+                  results.add(e);
+                }
+
+                break;
+              } else {
+                results.add(e);
               }
             }
 
             return results;
-          } else {
-            let index = 0;
-
-            if (b?.includes(FLAGS.FIRST)) {
-              for (const e of base.values()) {
-                const result = a(e, index++);
-                if (result instanceof Break) {
-                  if (result.hasReturn && result.return) {
-                    return e;
-                  }
-
-                  break;
-                } else {
-                  return e;
-                }
-              }
-
-              return undefined!;
-            } else {
-              const results: Set<TEntry> = new Set();
-
-              for (const e of base.values()) {
-                const result = a(e, index++);
-                if (result instanceof Break) {
-                  if (result.hasReturn && result.return) {
-                    results.add(e);
-                  }
-
-                  break;
-                } else {
-                  results.add(e);
-                }
-              }
-      
-              return results;
-            }
-          }
-        } else {
-          const results = dex.find(a, b);
-          if (isArray(results) && !b?.includes(FLAGS.FIRST)) {
-            return new Set(results);
-          } else {
-            return results as TEntry | Dex<TEntry>;
           }
         }
-      },
-      enumerable: false,
-      writable: false,
-      configurable: false
+      } else {
+        const results = dex.find(a, b);
+        if (isArray(results) && !b?.includes(FLAGS.FIRST)) {
+          return new Set(results);
+        } else {
+          return results as TEntry | Dex<TEntry>;
+        }
+      }
+    },
+    enumerable: false,
+    writable: false,
+    configurable: false
   });
 
   Object.defineProperty(entryMap, "first", {
-    value: function (where: Breakable<[entry: TEntry, index: number, key: HashKey], boolean>): TEntry | undefined {
+    value: function (where: Breakable<[entry: TEntry, index: number, key: HashKey], boolean>): TEntry | NoEntryFound {
       let index = 0;
       for (const [k, e] of base.entries()) {
         const result = where(e, index++, k);
@@ -249,8 +351,11 @@ export function EntryMapConstructor<TEntry extends Entry>(
         }
       }
 
-      return undefined!;
-    }
+      return NO_RESULTS_FOUND_FOR_QUERY;
+    },
+    enumerable: false,
+    writable: false,
+    configurable: false
   });
 
   Object.defineProperty(entryMap, "filter", {
@@ -272,7 +377,10 @@ export function EntryMapConstructor<TEntry extends Entry>(
       }
 
       return results;
-    }
+    },
+    enumerable: false,
+    writable: false,
+    configurable: false
   });
 
   Object.defineProperty(entryMap, Symbol.toStringTag, {
@@ -287,19 +395,21 @@ export function EntryMapConstructor<TEntry extends Entry>(
       return base[Symbol.iterator]()
     },
     enumerable: false,
-    writable: false,
     configurable: false
   });
 
   Object.defineProperty(entryMap, "get", {
-    value: base.get,
+    value(tag: Tag) {
+      return base.get(tag);
+    },
     enumerable: false,
-    writable: false,
     configurable: false
   });
 
   Object.defineProperty(entryMap, "has", {
-    value: base.has,
+    value(tag: Tag) {
+      return base.has(tag);
+    },
     enumerable: false,
     writable: false,
     configurable: false
@@ -307,3 +417,5 @@ export function EntryMapConstructor<TEntry extends Entry>(
 
   return entryMap;
 }
+
+//#endregion

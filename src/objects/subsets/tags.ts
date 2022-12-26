@@ -13,6 +13,16 @@ import { IDexSubSet } from "./subset";
 export type Tag = string | symbol | number;
 
 /**
+ * A collection of tags for a dex.
+ */
+export type Tags = Tag[] | [] | Set<Tag>;
+
+/**
+ * A single tag, or collection of tags for a dex.
+ */
+export type TagOrTags = Tag | Tags;
+
+/**
  * A collection used to access hashes
  */
 export interface ITagSet<TEntry extends Entry = Entry>
@@ -42,7 +52,6 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry
       return base.size;
     },
     enumerable: false,
-    writable: false,
     configurable: false
   });
 
@@ -51,7 +60,6 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry
       return base.size;
     },
     enumerable: false,
-    writable: false,
     configurable: false
   });
 
@@ -60,7 +68,6 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry
       return base.size;
     },
     enumerable: false,
-    writable: false,
     configurable: false
   });
 
@@ -74,6 +81,15 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry
   });
 
   Object.defineProperty(tagSet, 'of', {
+    value: function get(target: TEntry | HashKey) {
+      return [...(dex as any)._tagsByEntryHash.get(Dex.hash(target))];
+    },
+    enumerable: false,
+    writable: false,
+    configurable: false
+  });
+
+  Object.defineProperty(tagSet, 'for', {
     value: function get(target: TEntry | HashKey) {
       return (dex as any)._tagsByEntryHash.get(Dex.hash(target));
     },
@@ -236,7 +252,6 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry
       return base[Symbol.iterator]()
     },
     enumerable: false,
-    writable: false,
     configurable: false
   });
 
@@ -248,46 +263,44 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry
   });
 
   Object.defineProperty(tagSet, 'forEach', {
-    value: base.forEach,
+    value(callbackfn: (value: Tag, value2: Tag, set: Set<Tag>) => void, thisArg?: any) {
+      base.forEach(callbackfn, thisArg);
+    },
     enumerable: false,
     writable: false,
     configurable: false
   });
 
   Object.defineProperty(tagSet, 'has', {
-    value: base.has,
+    value(tag: Tag) {
+      return base.has(tag);
+    },
     enumerable: false,
     writable: false,
     configurable: false
   });
 
   Object.defineProperty(tagSet, 'entries', {
-    value: base.entries,
     get() {
       return base.entries();
     },
     enumerable: false,
-    writable: false,
     configurable: false
   });
 
   Object.defineProperty(tagSet, 'keys', {
-    value: base.keys,
     get() {
       return base.keys();
     },
     enumerable: false,
-    writable: false,
     configurable: false
   });
 
   Object.defineProperty(tagSet, 'values', {
-    value: base.values,
     get() {
       return base.values();
     },
     enumerable: false,
-    writable: false,
     configurable: false
   });
 

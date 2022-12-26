@@ -6,6 +6,7 @@ import {
   isObject,
   isString,
   isSymbol,
+  isTag,
   isUnique
 } from "../utilities/validators";
 import IUnique from "./unique";
@@ -17,16 +18,27 @@ import {
   QueryChainConstructor
 } from './queries/chain';
 import {
+  ComplexEntry,
   Entry,
   EntryMapConstructor,
-  IEntrySet
+  EntryOrNone,
+  GuardFunction,
+  IEntrySet,
+  InputEntryWithTags,
+  InputEntryWithTagsArray,
+  inputEntryWithTagsArrayGuardFunction,
+  InputEntryWithTagsObject,
+  NoEntries,
+  NoEntryFound
 } from "./subsets/entries";
 import { Looper, LooperConstructor } from "./loops";
 import { Mapper, MapperConstructor } from "./maps";
 import {
   Tag,
   ITagSet,
-  TagSetConstructor
+  TagSetConstructor,
+  TagOrTags,
+  Tags
 } from "./subsets/tags";
 import {
   HashKey,
@@ -39,7 +51,7 @@ import {
   IBasicQuery,
   IQueryChain,
   QueryConstructor,
-  IQuery,
+  IFullQuery,
   IFirstableQuery,
   IQueryResult
 } from "./queries/queries";
@@ -69,6 +81,8 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
   private readonly _entriesByHash
     : Map<HashKey, TEntry>
     = new Map<HashKey, TEntry>();
+  private readonly _guard?
+    : GuardFunction<TEntry>;
 
   private _forLooper?: Looper<TEntry>;
   private _mapLooper?: Mapper<TEntry>;
@@ -90,60 +104,66 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
   constructor(original: Dex<TEntry>)
 
   /**
-   * Make a new dex of just empty tags
+   * Make a new dex with just one empty tag
    */
-  constructor(values: Tag[])
+  constructor(tag: Tag)
 
   /**
-   * Make a new dex of just empty tags
+   * Make a new dex with just empty tags
    */
-  constructor(...values: [TEntry, ...Tag[]][])
+  constructor(...tags: Tags[])
 
   /**
-   * Make a new dex of just empty tags
+   * Make a new dex from entries with their tags. 
    */
-  constructor(...values: [TEntry, Tag[]][])
+  constructor(entriesWithTags: InputEntryWithTagsArray<TEntry>[])
 
   /**
-   * Make a new dex from entries and tags. 
-   * (it's not advised to use this ctor pattern for dexes that can store types that can be Tags as well)
+   * Make a new dex from entries with their tags. 
    */
-  constructor(values: [TEntry, ...Tag[]][])
+  constructor(...entriesWithTags: InputEntryWithTagsArray<TEntry & ComplexEntry>[])
 
   /**
-   * Make a new dex from an array of entries with an array of tags.
+   * Make a new dex from entries with their tags. 
    */
-  constructor(values: [TEntry, (Tag[] | [])][])
-
-  /**
-   * Make a new dex from an object with entries and tags
-   */
-  constructor(values: { entry?: TEntry, tags?: Tag[] | Tag | Set<Tag>, tag?: Tag }[])
+  constructor(entryWithTags: InputEntryWithTagsArray<TEntry & ComplexEntry>)
 
   /**
    * Make a new dex from an object with entries and tags
    */
-  constructor(...values: { entry?: TEntry, tags?: Tag[] | Tag | Set<Tag>, tag?: Tag }[])
+  constructor(entryWithTags: InputEntryWithTagsObject<TEntry>)
+
+  /**
+   * Make a new dex from an object with entries and tags
+   */
+  constructor(entriesWithTags: InputEntryWithTagsObject<TEntry>[])
+
+  /**
+   * Make a new dex from an object with entries and tags
+   */
+  constructor(...entriesWithTags: InputEntryWithTagsObject<TEntry>[])
 
   /**
    * Make a new dex from a map
    */
-  constructor(values: (Map<TEntry, Set<Tag>> | Map<TEntry, Tag[]>))
+  constructor(map: Map<EntryOrNone<TEntry>, TagOrTags>)
 
   /**
    * Make a new dex
    */
-  constructor(values?: (
-    Array<
-      [TEntry, ...Tag[]]
-      | [TEntry, Tag[]]
-      | { entry?: TEntry, tags?: Tag[] | Tag | Set<Tag>, tag?: Tag }
-      | Tag
-    > | Map<TEntry, Set<Tag>>
-    | Map<TEntry, Tag[]>
-    | { entry?: TEntry, tags?: Tag[] | Tag | Set<Tag>, tag?: Tag }
-    | Dex<TEntry>
-  )) {
+  constructor(values?:
+    Dex<TEntry>
+    | Map<EntryOrNone<TEntry>, TagOrTags>
+    | TagOrTags
+    | InputEntryWithTags<TEntry>
+    | InputEntryWithTags<TEntry>[],
+    guardFunctionorMoreValues?:
+      GuardFunction<TEntry>
+      | TagOrTags
+      | InputEntryWithTags<TEntry>
+      | InputEntryWithTags<TEntry>[],
+  ) {
+    this._guard = isFunction(guardFunctionorMoreValues) ? guardFunctionorMoreValues ?? Dex.defaultEntryGuard;
     if (values) {
       // copy an existing dex
       if (values instanceof Dex) {
@@ -152,6 +172,9 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
         this._entriesByHash = values._entriesByHash;
         this._hashesByTag = values._hashesByTag;
         this._tagsByEntryHash = values._tagsByEntryHash;
+      } // if it's a map of values
+      else if (values instanceof Map) {
+        values.forEach((t, e) => e === undefined || e === null ? this.add() : this.add(e, t));
       } else {
         // if it's an array of values
         if (isArray(values)) {
@@ -170,17 +193,20 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
           }
           // just tags
           else {
-            values.forEach((tag) => this.add(tag as Tag));
+            values.forEach((tag) => this.set(tag as Tag));
           }
-        } // if it's a map of values
+        }
         else if (values instanceof Map) {
-          values.forEach((t, e) => this.add(e, t));
         } // if it's a single object
         else {
           this.add(values.entry as TEntry, values.tags || values.tag);
         }
       }
     }
+  }
+
+  static defaultEntryGuard<TEntry extends Entry>(entry: Entry): entry is TEntry {
+    return inputEntryWithTagsArrayGuardFunction<TEntry>(entry);
   }
 
   //#endregion
@@ -246,7 +272,7 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
 
   //#region General
 
-  get(key: HashKey): TEntry | undefined {
+  get(key: HashKey): TEntry | NoEntryFound {
     return this._entriesByHash.get(key);
   }
 
@@ -280,8 +306,8 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
     }
   }
 
-  get query(): IQuery<TEntry> {
-    return QueryConstructor<TEntry>(this.find);
+  get query(): IFullQuery<TEntry> {
+    return QueryConstructor<TEntry>(this.find, this);
   }
 
   //#endregion
@@ -385,19 +411,19 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
 
   select
     : IQueryChain<TEntry>
-    = QueryChainConstructor(this, this.filter)
+    = QueryChainConstructor<TEntry>(this, this.filter)
 
   and
     : IQueryChain<TEntry>
-    = AndQueryChainConstructor(this, this.filter)
+    = AndQueryChainConstructor<TEntry>(this, this.filter)
 
   or
     : IQueryChain<TEntry>
-    = OrQueryChainConstructor(this, this.filter)
+    = OrQueryChainConstructor<TEntry>(this, this.filter)
 
   not
     : IQueryChain<TEntry>
-    = NotQueryChainConstructor(this, this.filter)
+    = NotQueryChainConstructor<TEntry>(this, this.filter)
 
   //#endregion
 
@@ -408,7 +434,7 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
     flags
       : (typeof FLAGS.FIRST | LogicFlag)[]
       = [FLAGS.FIRST, FLAGS.OR]
-  ): TEntry | undefined {
+  ): TEntry | NoEntryFound {
     if (!tags.length) {
       if (!flags.includes(FLAGS.NOT)) {
         for (const [hash, tags] of this._tagsByEntryHash) {
@@ -488,7 +514,7 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
     return undefined;
   }
 
-  values: IFirstableQuery<TEntry, TEntry, TEntry[], typeof FLAGS.VALUES | LogicFlag>
+  values: IFirstableQuery<TEntry, typeof FLAGS.VALUES | LogicFlag, TEntry, TEntry[]>
     = FirstableQueryConstructor<TEntry, TEntry, TEntry[], typeof FLAGS.VALUES | LogicFlag>(
       ((
         tags?: Tag[],
@@ -601,7 +627,7 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
 
   //#region Single Value
 
-  get first(): IQuery<TEntry, TEntry, typeof FLAGS.FIRST | LogicFlag, TEntry> {
+  get first(): IFullQuery<TEntry, typeof FLAGS.FIRST | LogicFlag, TEntry, TEntry> {
     return FirstQueryConstructor<TEntry>(this);
   }
 
@@ -609,12 +635,12 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
 
   //#region Hashes/Keys
 
-  hash: IBasicQuery<HashKey, TEntry, HashKey | undefined, typeof FLAGS.FIRST | LogicFlag> = (
+  hash: IBasicQuery<HashKey, typeof FLAGS.FIRST | LogicFlag, TEntry, HashKey | NoEntryFound> = (
     tags: Tag[],
     flags
       : (typeof FLAGS.FIRST | LogicFlag)[]
       = [FLAGS.FIRST, FLAGS.OR]
-  ): HashKey | undefined => {
+  ): HashKey | NoEntryFound => {
     if (!tags.length) {
       if (!flags.includes(FLAGS.NOT)) {
         for (const [hash, tags] of this._tagsByEntryHash) {
@@ -692,7 +718,7 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
     }
   }
 
-  hashes: IFirstableQuery<HashKey, TEntry, HashKey[], typeof FLAGS.VALUES | LogicFlag>
+  hashes: IFirstableQuery<HashKey, typeof FLAGS.VALUES | LogicFlag, TEntry, HashKey[]>
     = FirstableQueryConstructor<HashKey, TEntry, HashKey[], typeof FLAGS.VALUES | LogicFlag>(
       ((
         tags?: Tag[],
@@ -790,44 +816,48 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
         HashKey,
         TEntry,
         typeof FLAGS.FIRST | LogicFlag,
-        HashKey | undefined,
+        HashKey | NoEntryFound,
         HashKey,
-        HashKey | undefined,
+        HashKey | NoEntryFound,
         typeof FLAGS.FIRST | LogicFlag
-      >(this.hash)
+      >(this.hash, this)
     );
 
   //#endregion
 
   //#region Utility
 
-  any = QueryConstructor<
-    boolean,
-    TEntry,
-    LogicFlag | typeof FLAGS.FIRST,
-    boolean,
-    boolean,
-    boolean,
-    LogicFlag | typeof FLAGS.FIRST
-  >(
-    (tags: Tag[], options?: (typeof FLAGS.FIRST | LogicFlag)[]): boolean => {
-      return !!this.first(tags, options);
-    }
-  );
+  any: IFullQuery<boolean, typeof FLAGS.FIRST | LogicFlag, TEntry, boolean>
+    = QueryConstructor<
+      boolean,
+      TEntry,
+      LogicFlag | typeof FLAGS.FIRST,
+      boolean,
+      boolean,
+      boolean,
+      LogicFlag | typeof FLAGS.FIRST
+    >(
+      (tags: Tag[], options?: (typeof FLAGS.FIRST | LogicFlag)[]): boolean => {
+        return !!this.first(tags, options);
+      },
+      this
+    );
 
-  count = QueryConstructor<
-    number,
-    TEntry,
-    LogicFlag,
-    number,
-    number,
-    number,
-    LogicFlag
-  >(
-    (tags: Tag[], options?: LogicFlag[]): number => {
-      return this.values(tags, options).length;
-    }
-  );
+  count: IFullQuery<number, LogicFlag, TEntry, number>
+    = QueryConstructor<
+      number,
+      TEntry,
+      LogicFlag,
+      number,
+      number,
+      number,
+      LogicFlag
+    >(
+      (tags: Tag[], options?: LogicFlag[]): number => {
+        return this.values(tags, options).length;
+      },
+      this
+    );
 
   //#endregion
 
@@ -840,25 +870,186 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
   //#region Add
 
   /**
-   * Add an empty tag, or a entry with any number of tags to the dex
+   * Add entries with tags to the dex 
+   *
+   * @returns The uniqueid/hashes of the enteies
+   */
+  put(
+    entriesWithTags: InputEntryWithTags<TEntry>[]
+  ): (HashKey | NoEntries)[];
+
+  /**
+   * Add an entry with tags to the dex
+   *
+   * @returns The uniqueid/hash of the entry
+   */
+  put(
+    entryWithTags: InputEntryWithTags<TEntry>
+  ): HashKey | NoEntries;
+
+  /**
+   * Add entries with tags to the dex
+   *
+   * @returns The uniqueid/hashes of the enteies
+   */
+  put(
+    ...entriesWithTags: InputEntryWithTags<TEntry>[]
+  ): (HashKey | NoEntries)[];
+
+  put<TInput extends (InputEntryWithTags<TEntry> | InputEntryWithTags<TEntry>[])>(
+    entryOrEntriesWithTags: TInput
+  ): TInput extends InputEntryWithTags<TEntry>[]
+    ? (HashKey | NoEntries)[]
+    : (HashKey | NoEntries)
+  {
+    // if an array is provided
+    if (isArray(entryOrEntriesWithTags)) {
+      // if the first item in the array is an object...
+      if ((isObject(entryOrEntriesWithTags[0]) || entryOrEntriesWithTags[0] === null) 
+        // if the second item of that array is a potental tag
+        && (isTag(entryOrEntriesWithTags[1])
+        // or if it's an array of tags or empty array
+        || (isArray(entryOrEntriesWithTags[1])
+          && (!entryOrEntriesWithTags[1].length
+            || isTag(entryOrEntriesWithTags[1][0]))))
+      ) {
+        return this._putOneArray(entryOrEntriesWithTags as InputEntryWithTagsArray<TEntry>) as any;
+      }
+
+      return (entryOrEntriesWithTags as InputEntryWithTags<TEntry>[])
+        .map(this._putOne) as any;
+    }
+
+    return this._putOne(entryOrEntriesWithTags as InputEntryWithTags<TEntry>) as any;
+  }
+
+  //#region Internal
+
+  private _putOne(entryInput: InputEntryWithTags<TEntry>): HashKey | NoEntries {
+    if (isArray(entryInput)) {
+      return this._putOneArray(entryInput as InputEntryWithTagsArray<TEntry>);
+    } else {
+      return this._putOneObject(entryInput as InputEntryWithTagsObject<TEntry>);
+    }
+  }
+
+  private _putOneObject(entryWithTags: InputEntryWithTagsObject<TEntry>): HashKey | NoEntries {
+    if (entryWithTags.entry === undefined || entryWithTags.entry === null) {
+      this.set((entryWithTags.tags || entryWithTags.tag)!);
+      return null;
+    } else {
+      return this.add(entryWithTags.entry, (entryWithTags.tags || entryWithTags.tag)!);
+    }
+  }
+
+  private _putOneArray(entryWithTags: InputEntryWithTagsArray<TEntry>): HashKey | NoEntries {
+    if (entryWithTags[0] === undefined || entryWithTags[0] === null) {
+      this.set(entryWithTags.slice(1) as Tag[]);
+      return null;
+    } else {
+      return this.add(entryWithTags[0] as TEntry, entryWithTags.slice(1) as Tag[]);
+    }
+  }
+
+  //#endregion
+
+  /**
+   * Add an empty tag to the dex, or set an existing tag to empty.
+   *
+   * @returns any effected entries' hash keys.
+   */
+  set(tag: Tag): HashKey[];
+
+  /**
+   * Add an empty tag to the dex, or set an existing tag to empty.
+   *
+   * @returns any effected entries' hash keys.
+   */
+  set(tags: TagOrTags): HashKey[];
+
+  /**
+   * Add an empty tag to the dex, or set the tag to empty.
+   * 
+   * @returns any effected entries' hash keys.
+   */
+  set(tag: Tag, entries: []): HashKey[];
+
+  /**
+   * Add empty tags to the dex, or set the tags to empty.
+   *
+   * @returns any effected entries' hash keys.
+   */
+  set(...tags: Tag[]): HashKey[];
+
+  /**
+   * Add empty tags to the dex, or set the tags to empty.
+   * 
+   * @returns any effected entries' hash keys.
+   */
+  set(tags: Tag[] | Set<Tag>): HashKey[];
+
+  /**
+   * Add empty tags to the dex, or set the tags to empty.
+   * 
+   * @returns any effected entries' hash keys.
+   */
+  set(tags: Tag[] | Set<Tag>, entries: []): HashKey[];
+
+  /**
+   * Add a new tag with specific entries to the dex, or override the existing values for an existing tag.
+   * 
+   * @returns any effected entries' hash keys (only entries removed from the tags, not entries added to the tags).
+   */
+  set(tag: Tag, entries: TEntry[] | Set<TEntry>): HashKey[];
+  
+  /**
+   * Add a new tag with specific entries to the dex, or override the existing values for an existing tag.
+   * 
+   * @returns any effected entries' hash keys (only entries removed from the tags, not entries added to the tags).
+   */
+  set(tags: Tags, entries: TEntry[] | Set<TEntry>): HashKey[];
+  
+  /**
+   * Add a new tag with specific entries to the dex, or override the existing values for an existing tag.
+   * 
+   * @returns any effected entries' hash keys (only entries removed from the tags, not entries added to the tags).
+   */
+  set(tags: Tags, ...entries: TEntry[]): HashKey[];
+
+  set(
+    a: TagOrTags,
+    b?: TagOrTags | TEntry[] | TEntry | Set<TEntry> | []
+  ): HashKey[] {
+
+  }
+
+  /**
+   * Add an entry with any number of tags to the dex
    *
    * @returns The uniqueid/hash of the item added to the dex
-   * , or if just an empty tag was added: just the name of the tag is returned.
    */
   add(
-    entry: TEntry | Tag,
+    entry: TEntry,
     ...tags: Tag[]
   ): HashKey;
 
   /**
-   * Add an empty tag, or a entry with any number of tags to the dex
+   * Add an entry with any number of tags to the dex
    *
    * @returns The uniqueid/hash of the item added to the dex
-   * , or if just an empty tag was added: just the name of the tag is returned.
    */
   add(
-    entry: TEntry | Tag,
-    tags?: Tag[] | Set<Tag> | Tag
+    entry: TEntry,
+    tags: TagOrTags
+  ): HashKey;
+
+  /**
+   * Add an entry with no tags to the dex
+   *
+   * @returns The uniqueid/hash of the item added to the dex
+   */
+  add(
+    entry: TEntry,
   ): HashKey;
 
   /**
@@ -868,20 +1059,9 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
    * , or if just an empty tag was added: just the name of the tag is returned.
    */
   add(
-    entry: TEntry | Tag,
-    tag?: Tag
-  ): HashKey
-
-  /**
-   * Add an empty tag, or a entry with any number of tags to the dex
-   *
-   * @returns The uniqueid/hash of the item added to the dex
-   * , or if just an empty tag was added: just the name of the tag is returned.
-   */
-  add(
-    entry: TEntry | Tag,
-    tags?: Tag[] | Tag | Set<Tag>
-  ): HashKey {
+    entry: TEntry | InputEntryWithTags<TEntry> | InputEntryWithTags<TEntry>[],
+    tags?: TagOrTags | InputEntryWithTags<TEntry> | InputEntryWithTags<TEntry>[]
+  ): Tag | HashKey | HashKey[] {
     const hash: HashKey | undefined = Dex.hash(entry);
 
     if (hash === undefined) {
@@ -1043,7 +1223,7 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
         return hashesToRemove.length;
       } else {
         target.forEach((tag: Tag) => {
-          
+
         });
       }
     } // remove by match/hash
@@ -1230,7 +1410,7 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
         break;
       }
     }
-  } 
+  }
 
   //#endregion
 
@@ -1331,7 +1511,7 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
   //#endregion
 
   //#region Static
-  
+
   //#region Helpers
 
   /**
@@ -1386,7 +1566,7 @@ export class DexError extends Error implements Error {
 export class InvalidDexQueryFlagsError extends DexError {
   readonly flags: Flag[];
   constructor(flags: Flag[]) {
-    super(`Invalid Dex Query Flag Combination: (${flags})`);
+    super(`Invalid Dex Query Flag Combination: (${flags.map(f => f.toString())})`);
     this.flags = flags;
   }
 }

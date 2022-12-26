@@ -1,9 +1,9 @@
-import { Entry, IEntrySet } from "./subsets/entries";
+import { Entry, IEntrySet, NoEntryFound } from "./subsets/entries";
 import { Looper } from "./loops";
 import { Mapper } from "./maps";
 import { Tag, ITagSet } from "./subsets/tags";
 import { HashKey, IHashSet } from "./subsets/hashes";
-import { IBasicQuery, IFirstableQuery, IQuery, IQueryChain, QueryResultCalculator, QueryResults } from "./queries/queries";
+import { IBasicQuery, IFirstableQuery, IFullQuery, IQueryChain, QueryResultCalculator, QueryResults } from "./queries/queries";
 import { Breakable } from "../utilities/breakable";
 import Dex from "./dex";
 import {  Flag, LogicFlag, ResultFlag, FLAGS } from "./queries/flags";
@@ -81,7 +81,7 @@ export interface IReadOnlyDex<TEntry extends Entry = Entry> {
   /**
    * Get an entry by it's hash key
    */
-  get(key: HashKey): TEntry | undefined
+  get(key: HashKey): TEntry | NoEntryFound
 
   /**
    * Check if the Dex contains the value or it's hash.
@@ -113,13 +113,13 @@ export interface IReadOnlyDex<TEntry extends Entry = Entry> {
   /**
    * Get an array or dex of all entries that match a given set of tags and the optionally provided settings.
    */
-  query: IQuery<TEntry>;
+  query: IFullQuery<TEntry>;
 
   /**
    * Returns a new dex filtered by the given tags and options.
    * Similar to select, but without sub-methods and less versitile.
    */
-  filter: IBasicQuery<TEntry, TEntry, Dex<TEntry>, typeof FLAGS.CHAIN | LogicFlag>;
+  filter: IBasicQuery<TEntry, typeof FLAGS.CHAIN | LogicFlag, TEntry, Dex<TEntry>>;
 
   /**
    * Get a dex of all entries that match a given set of tags and the optionally provided settings
@@ -149,39 +149,39 @@ export interface IReadOnlyDex<TEntry extends Entry = Entry> {
   /**
    * Get the first entry matching the query tags and options.
    */
-  value: IBasicQuery<TEntry, TEntry, TEntry | undefined, typeof FLAGS.FIRST | LogicFlag>;
+  value: IBasicQuery<TEntry, typeof FLAGS.FIRST | LogicFlag, TEntry, TEntry | NoEntryFound>;
 
   /**
    * Returns an array of values filtered by the given tags and options.
    * Returns all results as an array if no parameters are provided.
    */
-  values: IFirstableQuery<TEntry, TEntry, TEntry[], typeof FLAGS.VALUES | LogicFlag>;
+  values: IFirstableQuery<TEntry, typeof FLAGS.VALUES | LogicFlag, TEntry, TEntry[]>;
 
   /**
    * Get the first hash matching the results of the query values
    */
-  hash: IBasicQuery<HashKey, TEntry, HashKey | undefined, typeof FLAGS.FIRST | LogicFlag>
+  hash: IBasicQuery<HashKey, typeof FLAGS.FIRST | LogicFlag, TEntry, HashKey | NoEntryFound>
 
   /**
    * Get hashes of the entries matching the results of the query.
    * Returns all results as an array if no parameters are provided.
    */
-  hashes: IFirstableQuery<HashKey, TEntry, HashKey[], typeof FLAGS.VALUES | LogicFlag>;
+  hashes: IFirstableQuery<HashKey, typeof FLAGS.VALUES | LogicFlag, TEntry, HashKey[]>;
 
   /**
    * Get the first entry matching the query tags and options.
    */
-  first: IQuery<TEntry, TEntry, typeof FLAGS.FIRST | LogicFlag, TEntry | undefined>;
+  first: IFullQuery<TEntry, typeof FLAGS.FIRST | LogicFlag, TEntry, TEntry | NoEntryFound>;
 
   /**
    * Returns true if any entries match the query.
    */
-  any: IQuery<boolean, TEntry, typeof FLAGS.FIRST | LogicFlag, boolean>
+  any: IFullQuery<boolean, typeof FLAGS.FIRST | LogicFlag, TEntry, boolean>
 
   /**
    * Returns the unique entry count of a given query.
    */
-  count: IQuery<number, TEntry, LogicFlag, number>
+  count: IFullQuery<number, LogicFlag, TEntry, number>
 
   //#endregion
 
@@ -247,6 +247,15 @@ export interface IReadOnlyDex<TEntry extends Entry = Entry> {
   //#endregion
 
   //#endregion
+
+  //#endregion
+
+  //#region Validate
+
+  /**
+   * Check if an item is a valid entry for this dex.
+   */
+  canContain(value: Entry): boolean;
 
   //#endregion
 

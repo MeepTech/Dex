@@ -1,5 +1,7 @@
 import Dex from '../objects/dex';
+import { FLAGS } from '../objects/queries/flags';
 import { Entry } from '../objects/subsets/entries';
+import { Tag } from '../objects/subsets/tags';
 import IUnique from '../objects/unique';
 
 /**
@@ -71,3 +73,14 @@ export const isUnique = (symbol: any)
 export const isDex = (symbol: any)
   : symbol is Dex<Entry> =>
     symbol instanceof Dex;
+    
+/**
+ * Check if it's a Tag
+ */
+export const isTag = (symbol: any)
+  : symbol is Tag =>
+  isString(symbol)
+  || isNumber(symbol)
+  || (isSymbol(symbol)
+    && !FLAGS.contains(symbol)
+  )

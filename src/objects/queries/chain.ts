@@ -16,7 +16,7 @@ import { FirstQueryConstructor } from "./first";
 /** @internal */
 export function QueryChainConstructor<TEntry extends Entry>(
   dex: IReadOnlyDex<TEntry>,
-  base: IBasicQuery<TEntry, TEntry, Dex<TEntry>, typeof FLAGS.CHAIN | LogicFlag>
+  base: IBasicQuery<TEntry, typeof FLAGS.CHAIN | LogicFlag, TEntry, Dex<TEntry>>
 ): IQueryChain<TEntry> {
   const chain = QueryConstructor<
     TEntry,
@@ -27,7 +27,8 @@ export function QueryChainConstructor<TEntry extends Entry>(
     Dex<TEntry>,
     typeof FLAGS.CHAIN | LogicFlag
   > (
-    base
+    base,
+    dex
   ) as IQueryChain<TEntry>;
 
   Object.defineProperty(chain, "not", {
@@ -58,7 +59,7 @@ export function QueryChainConstructor<TEntry extends Entry>(
 /** @internal */
 export function NotQueryChainConstructor<TEntry extends Entry>(
   dex: IReadOnlyDex<TEntry>,
-  base: IBasicQuery<TEntry, TEntry, Dex<TEntry>, typeof FLAGS.CHAIN | LogicFlag>
+  base: IBasicQuery<TEntry, typeof FLAGS.CHAIN | LogicFlag, TEntry, Dex<TEntry>>
 ): IQueryChain<TEntry> {
   return QueryChainConstructor<TEntry>(dex, (a, b) => {
     if (!b?.includes(FLAGS.OR)) {
@@ -72,7 +73,7 @@ export function NotQueryChainConstructor<TEntry extends Entry>(
 /** @internal */
 export function AndQueryChainConstructor<TEntry extends Entry>(
   dex: IReadOnlyDex<TEntry>,
-  base: IBasicQuery<TEntry, TEntry, Dex<TEntry>, typeof FLAGS.CHAIN | LogicFlag>
+  base: IBasicQuery<TEntry, typeof FLAGS.CHAIN | LogicFlag, TEntry, Dex<TEntry>>
 ): IQueryChain<TEntry> {
   return QueryChainConstructor<TEntry>(dex, (a, b) => {
     if (!b?.includes(FLAGS.OR)) {
@@ -86,7 +87,7 @@ export function AndQueryChainConstructor<TEntry extends Entry>(
 /** @internal */
 export function OrQueryChainConstructor<TEntry extends Entry>(
   dex: IReadOnlyDex<TEntry>,
-  base: IBasicQuery<TEntry, TEntry, Dex<TEntry>, typeof FLAGS.CHAIN | LogicFlag>
+  base: IBasicQuery<TEntry, typeof FLAGS.CHAIN | LogicFlag, TEntry, Dex<TEntry>>
 ): IQueryChain<TEntry> {
   return QueryChainConstructor<TEntry>(dex, (a, b) => {
     if (!b?.includes(FLAGS.NOT)) {

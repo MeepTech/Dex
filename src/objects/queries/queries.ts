@@ -3,374 +3,22 @@ import Dex from "../dex";
 import { Flag, ResultFlag, FLAGS, LogicFlag } from "./flags";
 import { Entry } from "../subsets/entries";
 import { Tag } from "../subsets/tags";
+import { IReadOnlyDex } from "../readonly";
 
-/*
-export interface IQuery<
+export type IQuery<
   TEntry extends Entry = Entry,
-  TDexEntry extends Entry | TEntry = TEntry,
   TValidFlags extends Flag = Flag,
-  TDefaultResult extends QueryResults<TEntry, TDexEntry> = IQueryResult<TEntry, TValidFlags, TDexEntry>
-> {
-  // 0 flags
-  //  - one tag
-  (tag: Tag): TDefaultResult;
+  TDexEntry extends Entry | TEntry = TEntry,
+  TDefaultResult extends QueryResults<TEntry, TDexEntry> = IQueryResult<TEntry, TValidFlags, TDexEntry>,
+> = IFullQuery<TEntry, TValidFlags, TDexEntry, TDefaultResult>
+  | IBasicQuery<TEntry, TValidFlags, TDexEntry, TDefaultResult>
+  | IFirstableQuery<TEntry, TValidFlags, TDexEntry, TDefaultResult>
+  | IQueryChain<TEntry, TValidFlags>
 
-  //  - spread of tags
-  (...tags: Tag[]): TDefaultResult;
-
-  //  - tag array
-  (tags: Tag[]): TDefaultResult;
-
-  // # Flags/Options First
-
-  // 1 flag
-  //  - one tag
-  (resultFlag: typeof FLAGS.CHAIN, tag: Tag): Dex<TDexEntry>;
-  (resultFlag: typeof FLAGS.FIRST, tag: Tag): TEntry | undefined;
-  (resultFlag: typeof FLAGS.VALUES, tag: Tag): TEntry[];
-  (logicFlag: LogicFlag, tag: Tag): TDefaultResult;
-  (resultFlag: [typeof FLAGS.CHAIN], tag: Tag): Dex<TDexEntry>;
-  (resultFlag: [typeof FLAGS.FIRST], tag: Tag): TEntry | undefined;
-  (resultFlag: [typeof FLAGS.VALUES], tag: Tag): TEntry[];
-  (logicFlag: [LogicFlag], tag: Tag): TDefaultResult;
-
-  //  - spread of tags
-  (resultFlag: typeof FLAGS.CHAIN, ...tags: Tag[]): Dex<TDexEntry>;
-  (resultFlag: typeof FLAGS.FIRST, ...tags: Tag[]): TEntry | undefined;
-  (resultFlag: typeof FLAGS.VALUES, ...tags: Tag[]): TEntry[];
-  (logicFlag: LogicFlag, ...tags: Tag[]): TDefaultResult;
-  (resultFlag: [typeof FLAGS.CHAIN], ...tags: Tag[]): Dex<TDexEntry>;
-  (resultFlag: [typeof FLAGS.FIRST], ...tags: Tag[]): TEntry | undefined;
-  (resultFlag: [typeof FLAGS.VALUES], ...tags: Tag[]): TEntry[];
-  (logicFlag: [LogicFlag], ...tags: Tag[]): TDefaultResult;
-
-  //  - tag array
-  (resultFlag: typeof FLAGS.CHAIN, tags: Tag[]): Dex<TDexEntry>;
-  (resultFlag: typeof FLAGS.FIRST, tags: Tag[]): TEntry | undefined;
-  (resultFlag: typeof FLAGS.VALUES, tags: Tag[]): TEntry[];
-  (logicFlag: LogicFlag, tags: Tag[]): TDefaultResult;
-  (resultFlag: [typeof FLAGS.CHAIN], tags: Tag[]): Dex<TDexEntry>;
-  (resultFlag: [typeof FLAGS.FIRST], tags: Tag[]): TEntry | undefined;
-  (resultFlag: [typeof FLAGS.VALUES], tags: Tag[]): TEntry[];
-  (logicFlag: [LogicFlag], tags: Tag[]): TDefaultResult;
-
-  // 2 flags
-  //  - one tag
-  (resultFlag: typeof FLAGS.CHAIN, logicFlag: LogicFlag, tag: Tag): Dex<TDexEntry>;
-  (resultFlag: typeof FLAGS.FIRST, logicFlag: LogicFlag, tag: Tag): TEntry | undefined;
-  (resultFlag: typeof FLAGS.VALUES, logicFlag: LogicFlag, tag: Tag): TEntry[];
-  (logicFlag: LogicFlag, resultFlag: typeof FLAGS.CHAIN, tag: Tag): Dex<TDexEntry>;
-  (logicFlag: LogicFlag, resultFlag: typeof FLAGS.FIRST, tag: Tag): TEntry | undefined;
-  (logicFlag: LogicFlag, resultFlag: typeof FLAGS.VALUES, tag: Tag): TEntry[];
-  (logicFlag1: LogicFlag, logicFlag2: LogicFlag, tag: Tag): TDefaultResult;
-  (options: [resultFlag: typeof FLAGS.FIRST, logicFlag: LogicFlag], tag: Tag): TEntry | undefined;
-  (options: [resultFlag: typeof FLAGS.VALUES, logicFlag: LogicFlag], tag: Tag): TEntry[];
-  (options: [logicFlag: LogicFlag, resultFlag: typeof FLAGS.CHAIN], tag: Tag): Dex<TDexEntry>;
-  (options: [logicFlag: LogicFlag, resultFlag: typeof FLAGS.FIRST], tag: Tag): TEntry | undefined;
-  (options: [logicFlag: LogicFlag, resultFlag: typeof FLAGS.VALUES], tag: Tag): TEntry[];
-  (options: [logicFlag1: LogicFlag, logicFlag2: LogicFlag], tag: Tag): TDefaultResult;
-
-  //  - spread of tags
-  (resultFlag: typeof FLAGS.CHAIN, logicFlag: LogicFlag, ...tags: Tag[]): Dex<TDexEntry>;
-  (resultFlag: typeof FLAGS.FIRST, logicFlag: LogicFlag, ...tags: Tag[]): TEntry | undefined;
-  (resultFlag: typeof FLAGS.VALUES, logicFlag: LogicFlag, ...tags: Tag[]): TEntry[];
-  (logicFlag: LogicFlag, resultFlag: typeof FLAGS.CHAIN, ...tags: Tag[]): Dex<TDexEntry>;
-  (logicFlag: LogicFlag, resultFlag: typeof FLAGS.FIRST, ...tags: Tag[]): TEntry | undefined;
-  (logicFlag: LogicFlag, resultFlag: typeof FLAGS.VALUES, ...tags: Tag[]): TEntry[];
-  (logicFlag1: LogicFlag, logicFlag2: LogicFlag, ...tags: Tag[]): TDefaultResult;
-  (options: [resultFlag: typeof FLAGS.CHAIN, logicFlag: LogicFlag], ...tags: Tag[]): Dex<TDexEntry>;
-  (options: [resultFlag: typeof FLAGS.FIRST, logicFlag: LogicFlag], ...tags: Tag[]): TEntry | undefined;
-  (options: [resultFlag: typeof FLAGS.VALUES, logicFlag: LogicFlag], ...tags: Tag[]): TEntry[];
-  (options: [logicFlag: LogicFlag, resultFlag: typeof FLAGS.CHAIN], ...tags: Tag[]): Dex<TDexEntry>;
-  (options: [logicFlag: LogicFlag, resultFlag: typeof FLAGS.FIRST], ...tags: Tag[]): TEntry | undefined;
-  (options: [logicFlag: LogicFlag, resultFlag: typeof FLAGS.VALUES], ...tags: Tag[]): TEntry[];
-  (options: [logicFlag1: LogicFlag, logicFlag2: LogicFlag], ...tags: Tag[]): TDefaultResult;
-
-  //  - tag array
-  (resultFlag: typeof FLAGS.CHAIN, logicFlag: LogicFlag, tags: Tag[]): Dex<TDexEntry>;
-  (resultFlag: typeof FLAGS.FIRST, logicFlag: LogicFlag, tags: Tag[]): TEntry | undefined;
-  (resultFlag: typeof FLAGS.VALUES, logicFlag: LogicFlag, tags: Tag[]): TEntry[];
-  (logicFlag: LogicFlag, resultFlag: typeof FLAGS.CHAIN, tags: Tag[]): Dex<TDexEntry>;
-  (logicFlag: LogicFlag, resultFlag: typeof FLAGS.FIRST, tags: Tag[]): TEntry | undefined;
-  (logicFlag: LogicFlag, resultFlag: typeof FLAGS.VALUES, tags: Tag[]): TEntry[];
-  (logicFlag1: LogicFlag, logicFlag2: LogicFlag, tags: Tag[]): TDefaultResult;
-  (options: [resultFlag: typeof FLAGS.CHAIN, logicFlag: LogicFlag], tags: Tag[]): Dex<TDexEntry>;
-  (options: [resultFlag: typeof FLAGS.FIRST, logicFlag: LogicFlag], tags: Tag[]): TEntry | undefined;
-  (options: [resultFlag: typeof FLAGS.VALUES, logicFlag: LogicFlag], tags: Tag[]): TEntry[];
-  (options: [logicFlag: LogicFlag, resultFlag: typeof FLAGS.CHAIN], tags: Tag[]): Dex<TDexEntry>;
-  (options: [logicFlag: LogicFlag, resultFlag: typeof FLAGS.FIRST], tags: Tag[]): TEntry | undefined;
-  (options: [logicFlag: LogicFlag, resultFlag: typeof FLAGS.VALUES], tags: Tag[]): TEntry[];
-  (options: [logicFlag1: LogicFlag, logicFlag2: LogicFlag], tags: Tag[]): TDefaultResult;
-
-  // 3 flags
-  //  - one tag
-  (resultFlag: typeof FLAGS.CHAIN, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, tag: Tag): Dex<TDexEntry>;
-  (resultFlag: typeof FLAGS.CHAIN, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, tag: Tag): Dex<TDexEntry>;
-  (resultFlag: typeof FLAGS.FIRST, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, tag: Tag): TEntry | undefined;
-  (resultFlag: typeof FLAGS.FIRST, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, tag: Tag): TEntry | undefined;
-  (resultFlag: typeof FLAGS.VALUES, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, tag: Tag): TEntry[];
-  (resultFlag: typeof FLAGS.VALUES, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, tag: Tag): TEntry[];
-  (notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.CHAIN, tag: Tag): Dex<TDexEntry>;
-  (andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.CHAIN, tag: Tag): Dex<TDexEntry>;
-  (notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.FIRST, tag: Tag): TEntry | undefined;
-  (andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.FIRST, tag: Tag): TEntry | undefined;
-  (notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.VALUES, tag: Tag): TEntry[];
-  (andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.VALUES, tag: Tag): TEntry[];
-  (andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.CHAIN, notFlag: typeof FLAGS.NOT, tag: Tag): Dex<TDexEntry>;
-  (notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.CHAIN, andFlag: typeof FLAGS.OR, tag: Tag): Dex<TDexEntry>;
-  (andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.FIRST, notFlag: typeof FLAGS.NOT, tag: Tag): TEntry | undefined;
-  (notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.FIRST, andFlag: typeof FLAGS.OR, tag: Tag): TEntry | undefined;
-  (andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.VALUES, notFlag: typeof FLAGS.NOT, tag: Tag): TEntry[];
-  (notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.VALUES, andFlag: typeof FLAGS.OR, tag: Tag): TEntry[];
-  (options: [resultFlag: typeof FLAGS.CHAIN, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT], tag: Tag): Dex<TDexEntry>;
-  (options: [resultFlag: typeof FLAGS.CHAIN, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR], tag: Tag): Dex<TDexEntry>;
-  (options: [resultFlag: typeof FLAGS.FIRST, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT], tag: Tag): TEntry | undefined;
-  (options: [resultFlag: typeof FLAGS.FIRST, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR], tag: Tag): TEntry | undefined;
-  (options: [resultFlag: typeof FLAGS.VALUES, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT], tag: Tag): TEntry[];
-  (options: [resultFlag: typeof FLAGS.VALUES, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR], tag: Tag): TEntry[];
-  (options: [notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.CHAIN], tag: Tag): Dex<TDexEntry>;
-  (options: [andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.CHAIN], tag: Tag): Dex<TDexEntry>;
-  (options: [notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.FIRST], tag: Tag): TEntry | undefined;
-  (options: [andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.FIRST], tag: Tag): TEntry | undefined;
-  (options: [notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.VALUES], tag: Tag): TEntry[];
-  (options: [andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.VALUES], tag: Tag): TEntry[];
-  (options: [andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.CHAIN, notFlag: typeof FLAGS.NOT], tag: Tag): Dex<TDexEntry>;
-  (options: [notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.CHAIN, andFlag: typeof FLAGS.OR], tag: Tag): Dex<TDexEntry>;
-  (options: [andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.FIRST, notFlag: typeof FLAGS.NOT], tag: Tag): TEntry | undefined;
-  (options: [notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.FIRST, andFlag: typeof FLAGS.OR], tag: Tag): TEntry | undefined;
-  (options: [andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.VALUES, notFlag: typeof FLAGS.NOT], tag: Tag): TEntry[];
-  (options: [notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.VALUES, andFlag: typeof FLAGS.OR], tag: Tag): TEntry[];
-
-  //  - spread of tags
-  (resultFlag: typeof FLAGS.CHAIN, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, ...tags: Tag[]): Dex<TDexEntry>;
-  (resultFlag: typeof FLAGS.CHAIN, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, ...tags: Tag[]): Dex<TDexEntry>;
-  (resultFlag: typeof FLAGS.FIRST, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, ...tags: Tag[]): TEntry | undefined;
-  (resultFlag: typeof FLAGS.FIRST, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, ...tags: Tag[]): TEntry | undefined;
-  (resultFlag: typeof FLAGS.VALUES, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, ...tags: Tag[]): TEntry[];
-  (resultFlag: typeof FLAGS.VALUES, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, ...tags: Tag[]): TEntry[];
-  (notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.CHAIN, ...tags: Tag[]): Dex<TDexEntry>;
-  (andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.CHAIN, ...tags: Tag[]): Dex<TDexEntry>;
-  (notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.FIRST, ...tags: Tag[]): TEntry | undefined;
-  (andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.FIRST, ...tags: Tag[]): TEntry | undefined;
-  (notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.VALUES, ...tags: Tag[]): TEntry[];
-  (andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.VALUES, ...tags: Tag[]): TEntry[];
-  (andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.CHAIN, notFlag: typeof FLAGS.NOT, ...tags: Tag[]): Dex<TDexEntry>;
-  (notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.CHAIN, andFlag: typeof FLAGS.OR, ...tags: Tag[]): Dex<TDexEntry>;
-  (andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.FIRST, notFlag: typeof FLAGS.NOT, ...tags: Tag[]): TEntry | undefined;
-  (notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.FIRST, andFlag: typeof FLAGS.OR, ...tags: Tag[]): TEntry | undefined;
-  (andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.VALUES, notFlag: typeof FLAGS.NOT, ...tags: Tag[]): TEntry[];
-  (notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.VALUES, andFlag: typeof FLAGS.OR, ...tags: Tag[]): TEntry[];
-  (options: [resultFlag: typeof FLAGS.CHAIN, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT], ...tags: Tag[]): Dex<TDexEntry>;
-  (options: [resultFlag: typeof FLAGS.CHAIN, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR], ...tags: Tag[]): Dex<TDexEntry>;
-  (options: [resultFlag: typeof FLAGS.FIRST, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT], ...tags: Tag[]): TEntry | undefined;
-  (options: [resultFlag: typeof FLAGS.FIRST, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR], ...tags: Tag[]): TEntry | undefined;
-  (options: [resultFlag: typeof FLAGS.VALUES, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT], ...tags: Tag[]): TEntry[];
-  (options: [resultFlag: typeof FLAGS.VALUES, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR], ...tags: Tag[]): TEntry[];
-  (options: [notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.CHAIN], ...tags: Tag[]): Dex<TDexEntry>;
-  (options: [andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.CHAIN], ...tags: Tag[]): Dex<TDexEntry>;
-  (options: [notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.FIRST], ...tags: Tag[]): TEntry | undefined;
-  (options: [andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.FIRST], ...tags: Tag[]): TEntry | undefined;
-  (options: [notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.VALUES], ...tags: Tag[]): TEntry[];
-  (options: [andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.VALUES], ...tags: Tag[]): TEntry[];
-  (options: [andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.CHAIN, notFlag: typeof FLAGS.NOT], ...tags: Tag[]): Dex<TDexEntry>;
-  (options: [notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.CHAIN, andFlag: typeof FLAGS.OR], ...tags: Tag[]): Dex<TDexEntry>;
-  (options: [andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.FIRST, notFlag: typeof FLAGS.NOT], ...tags: Tag[]): TEntry | undefined;
-  (options: [notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.FIRST, andFlag: typeof FLAGS.OR], ...tags: Tag[]): TEntry | undefined;
-  (options: [andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.VALUES, notFlag: typeof FLAGS.NOT], ...tags: Tag[]): TEntry[];
-  (options: [notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.VALUES, andFlag: typeof FLAGS.OR], ...tags: Tag[]): TEntry[];
-
-  //  - tag array
-  (resultFlag: typeof FLAGS.CHAIN, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, tags: Tag[]): Dex<TDexEntry>;
-  (resultFlag: typeof FLAGS.CHAIN, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, tags: Tag[]): Dex<TDexEntry>;
-  (resultFlag: typeof FLAGS.FIRST, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, tags: Tag[]): TEntry | undefined;
-  (resultFlag: typeof FLAGS.FIRST, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, tags: Tag[]): TEntry | undefined;
-  (resultFlag: typeof FLAGS.VALUES, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, tags: Tag[]): TEntry[];
-  (resultFlag: typeof FLAGS.VALUES, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, tags: Tag[]): TEntry[];
-  (notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.CHAIN, tags: Tag[]): Dex<TDexEntry>;
-  (andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.CHAIN, tags: Tag[]): Dex<TDexEntry>;
-  (notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.FIRST, tags: Tag[]): TEntry | undefined;
-  (andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.FIRST, tags: Tag[]): TEntry | undefined;
-  (notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.VALUES, tags: Tag[]): TEntry[];
-  (andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.VALUES, tags: Tag[]): TEntry[];
-  (andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.CHAIN, notFlag: typeof FLAGS.NOT, tags: Tag[]): Dex<TDexEntry>;
-  (notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.CHAIN, andFlag: typeof FLAGS.OR, tags: Tag[]): Dex<TDexEntry>;
-  (andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.FIRST, notFlag: typeof FLAGS.NOT, tags: Tag[]): TEntry | undefined;
-  (notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.FIRST, andFlag: typeof FLAGS.OR, tags: Tag[]): TEntry | undefined;
-  (andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.VALUES, notFlag: typeof FLAGS.NOT, tags: Tag[]): TEntry[];
-  (notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.VALUES, andFlag: typeof FLAGS.OR, tags: Tag[]): TEntry[];
-  (options: [resultFlag: typeof FLAGS.CHAIN, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT], tags: Tag[]): Dex<TDexEntry>;
-  (options: [resultFlag: typeof FLAGS.CHAIN, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR], tags: Tag[]): Dex<TDexEntry>;
-  (options: [resultFlag: typeof FLAGS.FIRST, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT], tags: Tag[]): TEntry | undefined;
-  (options: [resultFlag: typeof FLAGS.FIRST, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR], tags: Tag[]): TEntry | undefined;
-  (options: [resultFlag: typeof FLAGS.VALUES, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT], tags: Tag[]): TEntry[];
-  (options: [resultFlag: typeof FLAGS.VALUES, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR], tags: Tag[]): TEntry[];
-  (options: [notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.CHAIN], tags: Tag[]): Dex<TDexEntry>;
-  (options: [andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.CHAIN], tags: Tag[]): Dex<TDexEntry>;
-  (options: [notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.FIRST], tags: Tag[]): TEntry | undefined;
-  (options: [andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.FIRST], tags: Tag[]): TEntry | undefined;
-  (options: [notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.VALUES], tags: Tag[]): TEntry[];
-  (options: [andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.VALUES], tags: Tag[]): TEntry[];
-  (options: [andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.CHAIN, notFlag: typeof FLAGS.NOT], tags: Tag[]): Dex<TDexEntry>;
-  (options: [notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.CHAIN, andFlag: typeof FLAGS.OR], tags: Tag[]): Dex<TDexEntry>;
-  (options: [andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.FIRST, notFlag: typeof FLAGS.NOT], tags: Tag[]): TEntry | undefined;
-  (options: [notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.FIRST, andFlag: typeof FLAGS.OR], tags: Tag[]): TEntry | undefined;
-  (options: [andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.VALUES, notFlag: typeof FLAGS.NOT], tags: Tag[]): TEntry[];
-  (options: [notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.VALUES, andFlag: typeof FLAGS.OR], tags: Tag[]): TEntry[];
-
-  // ? flags
-  //  - one tag
-  (flags: Flag[], tag: Tag): QueryResults<TEntry, TDexEntry>;
-
-  //  - spread of tags
-  (flags: Flag[], ...tags: Tag[]): QueryResults<TEntry, TDexEntry>;
-
-  //  - tag array
-  (flags: Flag[], tags: Tag[]): QueryResults<TEntry, TDexEntry>;
-
-  // # Tags First
-  
-  // 1 flag
-  //  - one tag
-  (tag: Tag, resultFlag?: typeof FLAGS.CHAIN): Dex<TDexEntry>;
-  (tag: Tag, resultFlag?: typeof FLAGS.FIRST): TEntry | undefined;
-  (tag: Tag, resultFlag?: typeof FLAGS.VALUES): TEntry[];
-  (tag: Tag, logicFlag?: LogicFlag): TDefaultResult;
-  (tag: Tag, resultFlag?: [typeof FLAGS.CHAIN]): Dex<TDexEntry>;
-  (tag: Tag, resultFlag?: [typeof FLAGS.FIRST]): TEntry | undefined;
-  (tag: Tag, resultFlag?: [typeof FLAGS.VALUES]): TEntry[];
-  (tag: Tag, logicFlag?: [LogicFlag]): TDefaultResult;
-
-  //  - tag array
-  (tags: Tag[], resultFlag?: typeof FLAGS.CHAIN): Dex<TDexEntry>;
-  (tags: Tag[], resultFlag?: typeof FLAGS.FIRST): TEntry | undefined;
-  (tags: Tag[], resultFlag?: typeof FLAGS.VALUES): TEntry[];
-  (tags: Tag[], logicFlag?: LogicFlag): TDefaultResult;
-  (tags: Tag[], resultFlag?: [typeof FLAGS.CHAIN]): Dex<TDexEntry>;
-  (tags: Tag[], resultFlag?: [typeof FLAGS.FIRST]): TEntry | undefined;
-  (tags: Tag[], resultFlag?: [typeof FLAGS.VALUES]): TEntry[];
-  (tags: Tag[], logicFlag?: [LogicFlag]): TDefaultResult;
-
-  // 2 flags
-  //  - one tag
-  (tag: Tag, resultFlag?: typeof FLAGS.CHAIN, logicFlag?: LogicFlag): Dex<TDexEntry>;
-  (tag: Tag, resultFlag?: typeof FLAGS.FIRST, logicFlag?: LogicFlag): TEntry | undefined;
-  (tag: Tag, resultFlag?: typeof FLAGS.VALUES, logicFlag?: LogicFlag): TEntry[];
-  (tag: Tag, logicFlag?: LogicFlag, resultFlag?: typeof FLAGS.CHAIN): Dex<TDexEntry>;
-  (tag: Tag, logicFlag?: LogicFlag, resultFlag?: typeof FLAGS.FIRST): TEntry | undefined;
-  (tag: Tag, logicFlag?: LogicFlag, resultFlag?: typeof FLAGS.VALUES): TEntry[];
-  (tag: Tag, logicFlag1?: LogicFlag, logicFlag2?: LogicFlag): TDefaultResult;
-  (tag: Tag, options?: [resultFlag: typeof FLAGS.FIRST, logicFlag: LogicFlag]): TEntry | undefined;
-  (tag: Tag, options?: [resultFlag: typeof FLAGS.VALUES, logicFlag: LogicFlag]): TEntry[];
-  (tag: Tag, options?: [logicFlag: LogicFlag, resultFlag: typeof FLAGS.CHAIN]): Dex<TDexEntry>;
-  (tag: Tag, options?: [logicFlag: LogicFlag, resultFlag: typeof FLAGS.FIRST]): TEntry | undefined;
-  (tag: Tag, options?: [logicFlag: LogicFlag, resultFlag: typeof FLAGS.VALUES]): TEntry[];
-  (tag: Tag, options?: [logicFlag1: LogicFlag, logicFlag2: LogicFlag]): TDefaultResult;
-
-  //  - tag array
-  (tags: Tag[], resultFlag?: typeof FLAGS.CHAIN, logicFlag?: LogicFlag): Dex<TDexEntry>;
-  (tags: Tag[], resultFlag?: typeof FLAGS.FIRST, logicFlag?: LogicFlag): TEntry | undefined;
-  (tags: Tag[], resultFlag?: typeof FLAGS.VALUES, logicFlag?: LogicFlag): TEntry[];
-  (tags: Tag[], logicFlag?: LogicFlag, resultFlag?: typeof FLAGS.CHAIN): Dex<TDexEntry>;
-  (tags: Tag[], logicFlag?: LogicFlag, resultFlag?: typeof FLAGS.FIRST): TEntry | undefined;
-  (tags: Tag[], logicFlag?: LogicFlag, resultFlag?: typeof FLAGS.VALUES): TEntry[];
-  (tags: Tag[], logicFlag1?: LogicFlag, logicFlag2?: LogicFlag): TDefaultResult;
-  (tags: Tag[], options?: [resultFlag: typeof FLAGS.CHAIN, logicFlag: LogicFlag]): Dex<TDexEntry>;
-  (tags: Tag[], options?: [resultFlag: typeof FLAGS.FIRST, logicFlag: LogicFlag]): TEntry | undefined;
-  (tags: Tag[], options?: [resultFlag: typeof FLAGS.VALUES, logicFlag: LogicFlag]): TEntry[];
-  (tags: Tag[], options?: [logicFlag: LogicFlag, resultFlag: typeof FLAGS.CHAIN]): Dex<TDexEntry>;
-  (tags: Tag[], options?: [logicFlag: LogicFlag, resultFlag: typeof FLAGS.FIRST]): TEntry | undefined;
-  (tags: Tag[], options?: [logicFlag: LogicFlag, resultFlag: typeof FLAGS.VALUES]): TEntry[];
-  (tags: Tag[], options?: [logicFlag1: LogicFlag, logicFlag2: LogicFlag]): TDefaultResult;
-
-  // 3 flags
-  //  - one tag
-  (tag: Tag, resultFlag?: typeof FLAGS.CHAIN, andFlag?: typeof FLAGS.OR, notFlag?: typeof FLAGS.NOT): Dex<TDexEntry>;
-  (tag: Tag, resultFlag?: typeof FLAGS.CHAIN, notFlag?: typeof FLAGS.NOT, andFlag?: typeof FLAGS.OR): Dex<TDexEntry>;
-  (tag: Tag, resultFlag?: typeof FLAGS.FIRST, andFlag?: typeof FLAGS.OR, notFlag?: typeof FLAGS.NOT): TEntry | undefined;
-  (tag: Tag, resultFlag?: typeof FLAGS.FIRST, notFlag?: typeof FLAGS.NOT, andFlag?: typeof FLAGS.OR): TEntry | undefined;
-  (tag: Tag, resultFlag?: typeof FLAGS.VALUES, andFlag?: typeof FLAGS.OR, notFlag?: typeof FLAGS.NOT): TEntry[];
-  (tag: Tag, resultFlag?: typeof FLAGS.VALUES, notFlag?: typeof FLAGS.NOT, andFlag?: typeof FLAGS.OR): TEntry[];
-  (tag: Tag, notFlag?: typeof FLAGS.NOT, andFlag?: typeof FLAGS.OR, resultFlag?: typeof FLAGS.CHAIN): Dex<TDexEntry>;
-  (tag: Tag, andFlag?: typeof FLAGS.OR, notFlag?: typeof FLAGS.NOT, resultFlag?: typeof FLAGS.CHAIN): Dex<TDexEntry>;
-  (tag: Tag, notFlag?: typeof FLAGS.NOT, andFlag?: typeof FLAGS.OR, resultFlag?: typeof FLAGS.FIRST): TEntry | undefined;
-  (tag: Tag, andFlag?: typeof FLAGS.OR, notFlag?: typeof FLAGS.NOT, resultFlag?: typeof FLAGS.FIRST): TEntry | undefined;
-  (tag: Tag, notFlag?: typeof FLAGS.NOT, andFlag?: typeof FLAGS.OR, resultFlag?: typeof FLAGS.VALUES): TEntry[];
-  (tag: Tag, andFlag?: typeof FLAGS.OR, notFlag?: typeof FLAGS.NOT, resultFlag?: typeof FLAGS.VALUES): TEntry[];
-  (tag: Tag, andFlag?: typeof FLAGS.OR, resultFlag?: typeof FLAGS.CHAIN, notFlag?: typeof FLAGS.NOT): Dex<TDexEntry>;
-  (tag: Tag, notFlag?: typeof FLAGS.NOT, resultFlag?: typeof FLAGS.CHAIN, andFlag?: typeof FLAGS.OR): Dex<TDexEntry>;
-  (tag: Tag, andFlag?: typeof FLAGS.OR, resultFlag?: typeof FLAGS.FIRST, notFlag?: typeof FLAGS.NOT): TEntry | undefined;
-  (tag: Tag, notFlag?: typeof FLAGS.NOT, resultFlag?: typeof FLAGS.FIRST, andFlag?: typeof FLAGS.OR): TEntry | undefined;
-  (tag: Tag, andFlag?: typeof FLAGS.OR, resultFlag?: typeof FLAGS.VALUES, notFlag?: typeof FLAGS.NOT): TEntry[];
-  (tag: Tag, notFlag?: typeof FLAGS.NOT, resultFlag?: typeof FLAGS.VALUES, andFlag?: typeof FLAGS.OR): TEntry[];
-  (tag: Tag, options?: [resultFlag: typeof FLAGS.CHAIN, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT]): Dex<TDexEntry>;
-  (tag: Tag, options?: [resultFlag: typeof FLAGS.CHAIN, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR]): Dex<TDexEntry>;
-  (tag: Tag, options?: [resultFlag: typeof FLAGS.FIRST, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT]): TEntry | undefined;
-  (tag: Tag, options?: [resultFlag: typeof FLAGS.FIRST, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR]): TEntry | undefined;
-  (tag: Tag, options?: [resultFlag: typeof FLAGS.VALUES, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT]): TEntry[];
-  (tag: Tag, options?: [resultFlag: typeof FLAGS.VALUES, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR]): TEntry[];
-  (tag: Tag, options?: [notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.CHAIN]): Dex<TDexEntry>;
-  (tag: Tag, options?: [andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.CHAIN]): Dex<TDexEntry>;
-  (tag: Tag, options?: [notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.FIRST]): TEntry | undefined;
-  (tag: Tag, options?: [andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.FIRST]): TEntry | undefined;
-  (tag: Tag, options?: [notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.VALUES]): TEntry[];
-  (tag: Tag, options?: [andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.VALUES]): TEntry[];
-  (tag: Tag, options?: [andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.CHAIN, notFlag: typeof FLAGS.NOT]): Dex<TDexEntry>;
-  (tag: Tag, options?: [notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.CHAIN, andFlag: typeof FLAGS.OR]): Dex<TDexEntry>;
-  (tag: Tag, options?: [andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.FIRST, notFlag: typeof FLAGS.NOT]): TEntry | undefined;
-  (tag: Tag, options?: [notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.FIRST, andFlag: typeof FLAGS.OR]): TEntry | undefined;
-  (tag: Tag, options?: [andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.VALUES, notFlag: typeof FLAGS.NOT]): TEntry[];
-  (tag: Tag, options?: [notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.VALUES, andFlag: typeof FLAGS.OR]): TEntry[];
-
-  //  - tag array
-  (tags: Tag[], resultFlag?: typeof FLAGS.CHAIN, andFlag?: typeof FLAGS.OR, notFlag?: typeof FLAGS.NOT): Dex<TDexEntry>;
-  (tags: Tag[], resultFlag?: typeof FLAGS.CHAIN, notFlag?: typeof FLAGS.NOT, andFlag?: typeof FLAGS.OR): Dex<TDexEntry>;
-  (tags: Tag[], resultFlag?: typeof FLAGS.FIRST, andFlag?: typeof FLAGS.OR, notFlag?: typeof FLAGS.NOT): TEntry | undefined;
-  (tags: Tag[], resultFlag?: typeof FLAGS.FIRST, notFlag?: typeof FLAGS.NOT, andFlag?: typeof FLAGS.OR): TEntry | undefined;
-  (tags: Tag[], resultFlag?: typeof FLAGS.VALUES, andFlag?: typeof FLAGS.OR, notFlag?: typeof FLAGS.NOT): TEntry[];
-  (tags: Tag[], resultFlag?: typeof FLAGS.VALUES, notFlag?: typeof FLAGS.NOT, andFlag?: typeof FLAGS.OR): TEntry[];
-  (tags: Tag[], notFlag?: typeof FLAGS.NOT, andFlag?: typeof FLAGS.OR, resultFlag?: typeof FLAGS.CHAIN): Dex<TDexEntry>;
-  (tags: Tag[], andFlag?: typeof FLAGS.OR, notFlag?: typeof FLAGS.NOT, resultFlag?: typeof FLAGS.CHAIN): Dex<TDexEntry>;
-  (tags: Tag[], notFlag?: typeof FLAGS.NOT, andFlag?: typeof FLAGS.OR, resultFlag?: typeof FLAGS.FIRST): TEntry | undefined;
-  (tags: Tag[], andFlag?: typeof FLAGS.OR, notFlag?: typeof FLAGS.NOT, resultFlag?: typeof FLAGS.FIRST): TEntry | undefined;
-  (tags: Tag[], notFlag?: typeof FLAGS.NOT, andFlag?: typeof FLAGS.OR, resultFlag?: typeof FLAGS.VALUES): TEntry[];
-  (tags: Tag[], andFlag?: typeof FLAGS.OR, notFlag?: typeof FLAGS.NOT, resultFlag?: typeof FLAGS.VALUES): TEntry[];
-  (tags: Tag[], andFlag?: typeof FLAGS.OR, resultFlag?: typeof FLAGS.CHAIN, notFlag?: typeof FLAGS.NOT): Dex<TDexEntry>;
-  (tags: Tag[], notFlag?: typeof FLAGS.NOT, resultFlag?: typeof FLAGS.CHAIN, andFlag?: typeof FLAGS.OR): Dex<TDexEntry>;
-  (tags: Tag[], andFlag?: typeof FLAGS.OR, resultFlag?: typeof FLAGS.FIRST, notFlag?: typeof FLAGS.NOT): TEntry | undefined;
-  (tags: Tag[], notFlag?: typeof FLAGS.NOT, resultFlag?: typeof FLAGS.FIRST, andFlag?: typeof FLAGS.OR): TEntry | undefined;
-  (tags: Tag[], andFlag?: typeof FLAGS.OR, resultFlag?: typeof FLAGS.VALUES, notFlag?: typeof FLAGS.NOT): TEntry[];
-  (tags: Tag[], notFlag?: typeof FLAGS.NOT, resultFlag?: typeof FLAGS.VALUES, andFlag?: typeof FLAGS.OR): TEntry[];
-  (tags: Tag[], options?: [resultFlag: typeof FLAGS.CHAIN, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT]): Dex<TDexEntry>;
-  (tags: Tag[], options?: [resultFlag: typeof FLAGS.CHAIN, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR]): Dex<TDexEntry>;
-  (tags: Tag[], options?: [resultFlag: typeof FLAGS.FIRST, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT]): TEntry | undefined;
-  (tags: Tag[], options?: [resultFlag: typeof FLAGS.FIRST, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR]): TEntry | undefined;
-  (tags: Tag[], options?: [resultFlag: typeof FLAGS.VALUES, andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT]): TEntry[];
-  (tags: Tag[], options?: [resultFlag: typeof FLAGS.VALUES, notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR]): TEntry[];
-  (tags: Tag[], options?: [notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.CHAIN]): Dex<TDexEntry>;
-  (tags: Tag[], options?: [andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.CHAIN]): Dex<TDexEntry>;
-  (tags: Tag[], options?: [notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.FIRST]): TEntry | undefined;
-  (tags: Tag[], options?: [andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.FIRST]): TEntry | undefined;
-  (tags: Tag[], options?: [notFlag: typeof FLAGS.NOT, andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.VALUES]): TEntry[];
-  (tags: Tag[], options?: [andFlag: typeof FLAGS.OR, notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.VALUES]): TEntry[];
-  (tags: Tag[], options?: [andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.CHAIN, notFlag: typeof FLAGS.NOT]): Dex<TDexEntry>;
-  (tags: Tag[], options?: [notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.CHAIN, andFlag: typeof FLAGS.OR]): Dex<TDexEntry>;
-  (tags: Tag[], options?: [andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.FIRST, notFlag: typeof FLAGS.NOT]): TEntry | undefined;
-  (tags: Tag[], options?: [notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.FIRST, andFlag: typeof FLAGS.OR]): TEntry | undefined;
-  (tags: Tag[], options?: [andFlag: typeof FLAGS.OR, resultFlag: typeof FLAGS.VALUES, notFlag: typeof FLAGS.NOT]): TEntry[];
-  (tags: Tag[], options?: [notFlag: typeof FLAGS.NOT, resultFlag: typeof FLAGS.VALUES, andFlag: typeof FLAGS.OR]): TEntry[];
-
-  // ? flags
-  //  - one tag
-  (tag: Tag, flags: Flag[]): QueryResults<TEntry, TDexEntry>;
-
-  //  - tag array
-  (tags: Tag[], flags: Flag[]): QueryResults<TEntry, TDexEntry>;
-}*/
-
-export interface IQuery<
+export interface IFullQuery<
   TEntry extends Entry = Entry,
-  TDexEntry extends Entry | TEntry = TEntry,
   TValidFlags extends Flag = Flag,
+  TDexEntry extends Entry | TEntry = TEntry,
   TDefaultResult extends QueryResults<TEntry, TDexEntry> = IQueryResult<TEntry, TValidFlags, TDexEntry>
 > {
 
@@ -449,7 +97,7 @@ export interface IQuery<
   /**
    * Query for entries that match a single tag and the provided option flags.
    */
-  <TFlag extends Flag | undefined = undefined>(
+  <TFlag extends Flag | NoEntryFound = NoEntryFound>(
     tags: Tag[],
     flag: TFlag
   ): QueryResultCalculator<
@@ -462,9 +110,9 @@ export interface IQuery<
    * Query for entries that match a single tag and the provided option flags.
    */
   <
-    TFlag1 extends Flag | undefined = undefined,
-    TFlag2 extends Flag | undefined = undefined,
-    TFlag3 extends Flag | undefined = undefined
+    TFlag1 extends Flag | NoEntryFound = NoEntryFound,
+    TFlag2 extends Flag | NoEntryFound = NoEntryFound,
+    TFlag3 extends Flag | NoEntryFound = NoEntryFound
   >(
     tags: Tag[],
     flag1: TFlag1,
@@ -723,9 +371,9 @@ export interface IQuery<
  */
 export interface IBasicQuery<
   TEntry extends Entry = Entry,
+  TValidFlags extends Flag = Flag,
   TDexEntry extends Entry | TEntry = TEntry,
-  TResults extends QueryResults<TEntry, TDexEntry> = QueryResults<TEntry, TDexEntry>,
-  TValidFlags extends Flag = Flag
+  TResults extends QueryResults<TEntry, TDexEntry> = IQueryResult<TEntry, TValidFlags, TDexEntry>
 > {
   (tags: Tag[], options?: TValidFlags[]): TResults;
 }
@@ -738,11 +386,11 @@ export interface IBasicQuery<
 export interface IQueryChain<
   TEntry extends Entry = Entry,
   TValidFlags extends Flag = Flag
-> extends IQuery<TEntry, TEntry, TValidFlags, Dex<TEntry>> {
+> extends IFullQuery<TEntry, TValidFlags, TEntry, Dex<TEntry>> {
   not: IQueryChain<TEntry, ResultFlag | typeof FLAGS.OR | typeof FLAGS.OR | typeof FLAGS.NOT>;
   and: IQueryChain<TEntry, ResultFlag | typeof FLAGS.NOT | typeof FLAGS.OR>;
   or: IQueryChain<TEntry, ResultFlag | typeof FLAGS.NOT | typeof FLAGS.OR>;
-  first: IQuery<TEntry, TEntry, LogicFlag | typeof FLAGS.FIRST, TEntry>;
+  first: IFullQuery<TEntry, LogicFlag | typeof FLAGS.FIRST, TEntry, TEntry>;
 }
 
 /**
@@ -752,13 +400,24 @@ export interface IQueryChain<
  */
 export interface IFirstableQuery<
   TEntry extends Entry = Entry,
+  TValidFlags extends Flag = Flag,
   TDexEntry extends Entry = TEntry,
-  TResults extends QueryResults<TEntry, TDexEntry> = QueryResults<TEntry, TDexEntry>,
-  TValidFlags extends Flag = Flag
-> extends IBasicQuery<TEntry, TDexEntry, TResults, TValidFlags> {
+  TResults extends QueryResults<TEntry, TDexEntry> = IQueryResult<TEntry, TValidFlags, TDexEntry>
+> extends IBasicQuery<TEntry, TValidFlags, TDexEntry, TResults> {
   (tags?: Tag[], options?: TValidFlags[]): TResults;
-  first: IQuery<TEntry, TDexEntry, typeof FLAGS.FIRST | LogicFlag, TEntry>;
+  first: IFullQuery<TEntry, typeof FLAGS.FIRST | LogicFlag, TDexEntry, TEntry>;
 }
+
+/**
+ * Returned when an entry is not found by a query.
+ */
+export const NO_RESULTS_FOUND_FOR_QUERY = undefined;
+
+/**
+ * Returned when an entry is not found by a query.
+ */
+export type NoEntryFound
+  = typeof NO_RESULTS_FOUND_FOR_QUERY;
 
 /**
  * Get the specific query result type for a given set of flags.
@@ -769,7 +428,7 @@ export type IQueryResult<
   TDexEntry extends Entry = TEntry,
   TDefaultResult extends QueryResults<TEntry, TDexEntry> = TEntry[],
 > = TFlag extends typeof FLAGS.FIRST
-  ? (TEntry | undefined)
+  ? (TEntry | NoEntryFound)
   : TFlag extends typeof FLAGS.CHAIN
   ? Dex<TDexEntry>
   : TFlag extends typeof FLAGS.VALUES
@@ -780,7 +439,7 @@ export type IQueryResult<
  * All the types of query results
  */
 export type QueryResults<TEntry extends Entry = Entry, TDexEntry extends Entry = TEntry>
-  = TEntry | Dex<TDexEntry> | TEntry[] | undefined;
+  = TEntry | Dex<TDexEntry> | TEntry[] | NoEntryFound;
 
 /** @internal */
 export type QueryResultCalculator<
@@ -811,9 +470,10 @@ export function QueryConstructor<
   TBaseValidResults extends QueryResults<TEntry, TDexEntry> = QueryResults<TEntry, TDexEntry>,
   TBaseValidFlags extends Flag = TValidFlags
 >(
-  base: IBasicQuery<TEntry, TDexEntry, TBaseValidResults, TBaseValidFlags>
-): IQuery<TEntry, TDexEntry, TValidFlags, TDefaultResult> {
-  const query: IQuery<TEntry, TDexEntry, TValidFlags, TDefaultResult> = function <
+  base: IBasicQuery<TEntry, TBaseValidFlags, TDexEntry, TBaseValidResults>,
+  dex: IReadOnlyDex<TDexEntry>
+): IFullQuery<TEntry, TValidFlags, TDexEntry, TDefaultResult> {
+  const query: IFullQuery<TEntry, TValidFlags, TDexEntry, TDefaultResult> = function <
     TFlag1 extends Flag | undefined = undefined,
     TFlag2 extends Flag | undefined = undefined,
     TFlag3 extends Flag | undefined = undefined
@@ -840,7 +500,12 @@ export function QueryConstructor<
       index++;
     }
 
-    return base(tags, flags) as TValidResults extends TDefaultResult ? TValidResults : TDefaultResult;
+    return base.bind(dex)(
+      tags,
+      flags
+    ) as TValidResults extends TDefaultResult
+      ? TValidResults
+      : TDefaultResult;
   }
 
   return query;

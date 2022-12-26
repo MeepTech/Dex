@@ -1,52 +1,11 @@
-import { describe, test, expect } from '@jest/globals';
+import { describe, test } from '@jest/globals';
 import Dex, { InvalidDexQueryFlagsError } from '../../../src/objects/dex';
 import { FLAGS } from '../../../src/objects/queries/flags';
 import { Tag } from '../../../src/objects/subsets/tags';
-import { isArray, isObject } from '../../../src/utilities/validators';
-
-/**
- * A test case for Find.
- */
-export type TestCase = {
-
-  /**
-   * The names of the types of the params.
-   */
-  params: string[],
-
-  /**
-   * The args to pass in
-   */
-  args: [...any],
-
-  /**
-   * The expected entries returned
-   */
-  expected: ({ key: number } | undefined)[],
-  
-  /**
-   * The text to print for what the test should return.
-   */
-  results: string,
-  
-  /**
-   * Any extra context for this test
-   */
-  extraContext?: any[],
-
-  /**
-   * If this test returns a dex instead of an array of items.
-   */
-  instanceof?: Dex | {},
-
-  /**
-   * Make sure it throws a given error.
-   */
-  throws?: Error;
-}
+import { expect_queryFunctionTestCaseSuccess, QueryTestCase as TestCase} from './shared';
 
 describe("find(...)", () => {
-  // mock
+  // mocks
   const entry = { key: 1 };
   const entry2 = { key: 2 };
   const entry3 = { key: 3 };
@@ -68,6 +27,7 @@ describe("find(...)", () => {
   const hash5 = dex.add(entry5, []);
   const tag5Hash = dex.add(tag5);
 
+  // cases
   const invalidFlagsTestCases = (tag: Tag) => [
     {
       params: [`["Tag"]`, "[FLAGS.CHAIN, FLAGS.FIRST]"],
@@ -316,37 +276,9 @@ describe("find(...)", () => {
     ...noTagsTestCases
   ];
 
+  // tests
   test.each(testCases)(
     "($params) => $results; $extraContext",
-    (test: TestCase) => {
-      const result = dex.find(...(test.args as [any, any]));
-
-      if (!test.instanceof) {
-        expect(isArray(result)).toStrictEqual(true);
-        test.expected.forEach(expected => {
-          expect((result as { key: number }[])
-            .find(e => e.key === expected!.key)
-          ).toStrictEqual(expected);
-        });
-      } else if (test.instanceof === Dex) {
-        expect(result).toBeInstanceOf(Dex);
-        test.expected.forEach(expected => {
-          const found = (result as Dex<{ key: number }>)
-            .entries
-            .first(e => e.key === expected!.key);
-          
-          expect(found).toStrictEqual(expected);
-        });
-      } else if (isObject(test.instanceof)) {
-        if (test.expected[0] === undefined) {
-          expect(result).toBeUndefined();
-        } else {
-          expect(result).toBeInstanceOf(Object);
-          expect(result).toHaveProperty("key");
-          expect((result as { key: number }).key)
-            .toStrictEqual(test.expected[0].key);
-        }
-      }
-    }
+    (test) => expect_queryFunctionTestCaseSuccess(dex.find, test)
   )
 });

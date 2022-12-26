@@ -20,7 +20,7 @@
   "scripts": {
     "dev": "tsc -skipLibCheck -p \"tsconfig-dev.json\" && node esbuild.config.mjs dev",
     "lib": "tsc -skipLibCheck -p \"tsconfig.json\" && node esbuild.config.mjs lib",
-    "test": "tsc -noEmit -skipLibCheck -p \"tsconfig-dev.json\" && jest"
+    "test": "tsc -skipLibCheck -p \"tsconfig-dev.json\" && jest"
   },
   "private": true,
   "dependencies": {

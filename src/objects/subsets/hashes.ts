@@ -3,7 +3,7 @@ import { isArray, isFunction } from "../../utilities/validators";
 import Dex from "../dex";
 import { Entry } from "./entries";
 import {
-  IQuery,
+  IFullQuery,
   QueryConstructor,
   QueryResults
 } from "../queries/queries";
@@ -25,7 +25,7 @@ export type HashKey = string | number | symbol;
  */
 export interface IHashSet<TEntry extends Entry>
   extends IDexSubSet<HashKey, TEntry>,
-  IQuery<HashKey, TEntry, Flag, HashKey[]> { }
+  IFullQuery<HashKey, Flag, TEntry, HashKey[]> { }
 
 /** @internal */
 export function HashSetConstructor<TEntry extends Entry>(
@@ -36,7 +36,7 @@ export function HashSetConstructor<TEntry extends Entry>(
   /**
    * Basic query function
    */
-  const query: IQuery<HashKey, TEntry, Flag, HashKey[]> = QueryConstructor<
+  const query: IFullQuery<HashKey, Flag, TEntry, HashKey[]> = QueryConstructor<
     HashKey,
     TEntry,
     Flag,
@@ -44,19 +44,22 @@ export function HashSetConstructor<TEntry extends Entry>(
     HashKey[],
     QueryResults<HashKey, TEntry>,
     Flag
-  >((tags, flags) => {
-    if (flags?.includes(FLAGS.CHAIN)) {
-      const hashes = dex.hashes(tags, flags as any);
-      const result = new Dex<TEntry>();
-      result.copy.from(dex, hashes);
+  >(
+    (tags, flags) => {
+      if (flags?.includes(FLAGS.CHAIN)) {
+        const hashes = dex.hashes(tags, flags as any);
+        const result = new Dex<TEntry>();
+        result.copy.from(dex, hashes);
 
-      return result;
-    } else if (flags?.includes(FLAGS.FIRST)) {
-      return dex.hashes.first(tags, flags);
-    } else {
-      return dex.hashes(tags, flags as any);
-    }
-  });
+        return result;
+      } else if (flags?.includes(FLAGS.FIRST)) {
+        return dex.hashes.first(tags, flags);
+      } else {
+        return dex.hashes(tags, flags as any);
+      }
+    },
+    dex
+  );
 
   /**
    * Sub functions
@@ -68,7 +71,6 @@ export function HashSetConstructor<TEntry extends Entry>(
       return base.size;
     },
     enumerable: false,
-    writable: false,
     configurable: false
   });
 
@@ -77,7 +79,6 @@ export function HashSetConstructor<TEntry extends Entry>(
       return base.size;
     },
     enumerable: false,
-    writable: false,
     configurable: false
   });
 
@@ -86,7 +87,6 @@ export function HashSetConstructor<TEntry extends Entry>(
       return base.size;
     },
     enumerable: false,
-    writable: false,
     configurable: false
   });
 
@@ -267,7 +267,6 @@ export function HashSetConstructor<TEntry extends Entry>(
       return base[Symbol.iterator]()
     },
     enumerable: false,
-    writable: false,
     configurable: false
   });
 
@@ -279,46 +278,44 @@ export function HashSetConstructor<TEntry extends Entry>(
   });
 
   Object.defineProperty(hashSet, 'forEach', {
-    value: base.forEach,
+    value(callbackfn: (value: HashKey, value2: HashKey, set: Set<HashKey>) => void, thisArg?: any) {
+      base.forEach(callbackfn, thisArg);
+    },
     enumerable: false,
     writable: false,
     configurable: false
   });
 
   Object.defineProperty(hashSet, 'has', {
-    value: base.has,
+    value(tag: Tag) {
+      return base.has(tag);
+    },
     enumerable: false,
     writable: false,
     configurable: false
   });
 
   Object.defineProperty(hashSet, 'entries', {
-    value: base.entries,
     get() {
       return base.entries();
     },
     enumerable: false,
-    writable: false,
     configurable: false
   });
 
   Object.defineProperty(hashSet, 'keys', {
-    value: base.keys,
     get() {
       return base.keys();
     },
     enumerable: false,
-    writable: false,
     configurable: false
   });
 
   Object.defineProperty(hashSet, 'values', {
-    value: base.values,
     get() {
       return base.values();
     },
     enumerable: false,
-    writable: false,
     configurable: false
   });
 
