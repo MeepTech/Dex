@@ -608,7 +608,6 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
     _logicMultiQuery<TEntry>(
       this,
       tags,
-      dropFlags(flags, FLAGS.CHAIN),
       hashes => results.copy.from(this, hashes),
       {
         onEmptyNot: () => results.copy.from(this, { tags: this.tags }),
@@ -1677,7 +1676,7 @@ export class NotImplementedError extends DexError {
  */
 export class InvalidQueryParamError extends DexError {
   readonly arg: any;
-  constructor(arg: any, index: number) {
+  constructor(arg: any, index: number | string) {
     super(`Missing or Invalid Query Parameter: ${arg ?? 'undefined'}, at index: ${index}`);
   }
 }

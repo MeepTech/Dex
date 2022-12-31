@@ -10,19 +10,22 @@ export type IQueryFilter<TEntry extends IEntry>
      * X and Y and Z
      */
     and: boolean | ITagOrTagsWithFilters<TEntry>
-    not?: boolean | ITagOrTagsWithFilters<TEntry>
+    not?: boolean | ITagOrTagsWithFilters<TEntry>,
+    or: never
   } | {
     /**
      * X or Y or Z
      */
     or: ITagOrTagsWithFilters<TEntry>
-    not?: boolean | ITagOrTagsWithFilters<TEntry>
+    not?: boolean | ITagOrTagsWithFilters<TEntry>,
+    and: never
   } | {
     /**
      * X or Y or Z
      */
     or?: boolean | ITagOrTagsWithFilters<TEntry>
-    not: ITagOrTagsWithFilters<TEntry>
+    not: ITagOrTagsWithFilters<TEntry>,
+    and: never
   };
 
 export type ITagOrTagsWithFilters<TEntry extends IEntry> =

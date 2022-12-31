@@ -4,8 +4,8 @@ import { ITag, ITagOrTags, toSet } from "../subsets/tags";
 import { IReadOnlyDex } from "../readonly";
 import { IHashKey } from "../subsets/hashes";
 import { IResult, ResultType } from "./results";
-import { IQueryFilter } from "./params";
-import { InvalidQueryParamError, NotImplementedError } from "../dex";
+import { IFilter, IQueryFilter } from "./params";
+import Dex, { InvalidQueryParamError, NotImplementedError } from "../dex";
 
 /**
  * 
@@ -32,7 +32,7 @@ export interface IFullQuery<
   <TResultType extends ResultType = TDefaultResult>(
     tag: ITag,
     options: {
-      filters?: IQueryFilter<TEntry>,
+      filters?: IQueryFilter<TEntry>[] | IQueryFilter<TEntry>,
       result: TResultType
     }
   ): IResult<TEntry, TResultType>
@@ -45,7 +45,7 @@ export interface IFullQuery<
   <TResultType extends ResultType = TDefaultResult>(
     tags: ITagOrTags,
     options: {
-      filters?: IQueryFilter<TEntry>,
+      filters?: IQueryFilter<TEntry>[] | IQueryFilter<TEntry>,
       result: TResultType
     }
   ): IResult<TEntry, TResultType>
@@ -106,14 +106,14 @@ interface IQueryBase<TEntry extends IEntry, TResult extends ResultType> {
   (
     tag: ITag,
     options?: {
-      filters?: IQueryFilter<TEntry>
+      filters?: IQueryFilter<TEntry>[] | IQueryFilter<TEntry>
     }
   ): IResult<TEntry, TResult>
 
   (
     tags: ITagOrTags,
     options?: {
-      filters?: IQueryFilter<TEntry>
+      filters?: IQueryFilter<TEntry>[] | IQueryFilter<TEntry>
     }
   ): IResult<TEntry, TResult>
 
@@ -201,28 +201,101 @@ export function QueryConstructor<
   return query;
 }*/
 
-enum OPERATIONS {
-  NOT = 1,
-  AND = 2,
-  OR = 4
-}
 
 /** @internal */
-export const FullQueryConstructor = <TEntry extends IEntry, TDefaultResult extends ResultType>(
-  defaultResult: TDefaultResult
+type QueryFilterLogicOverrides = {
+  onEmpty?: ((tags: Set<ITag>) => void) | undefined;
+  onEmptyNot?: ((tags: Set<ITag>) => void) | undefined;
+  onAnd?: ((tags: Set<ITag>) => void) | undefined;
+  onAndNot?: ((tags: Set<ITag>) => void) | undefined;
+  onOr?: ((tags: Set<ITag>) => void) | undefined;
+  onOrNot?: ((tags: Set<ITag>) => void) | undefined;
+};
+
+/** @internal */
+export const FullQueryConstructor = <TEntry extends IEntry, TDefaultResult extends ResultType, TDexEntry extends IEntry = TEntry>(
+  dex: IReadOnlyDex<TDexEntry>,
+  defaultResult: TDefaultResult,
+  overrides?: QueryFilterLogicOverrides & {
+    transform?: (hash: IHashKey) => TEntry
+  }
 ): IFullQuery<TEntry, TDefaultResult> => function <
   TEntry extends IEntry,
   TResultType extends ResultType
 >(
-  this: IReadOnlyDex<TEntry>,
+  this: IReadOnlyDex<TDexEntry>,
   ...args: any
-): IResult<TEntry, TResultType> {
+): IResult<TEntry, TResultType, TDexEntry> {
+  // sort params to filters
   const {
     filters,
-    result = defaultResult
+    result: resultType = defaultResult
   } = _convertQueryParamsToFilters(...args);
 
+  // switch based on requested return type.
+  overrides ??= {};
+  let results: IResult<TEntry, typeof resultType, TDexEntry>;
+  let collectMatches: ((matches: IHashKey[]) => void);
+  let transform
+    = overrides?.transform
+    ?? (hash => dex.get(hash!));
   
+  switch (resultType) {
+    // array
+    case ResultType.Array:
+      collectMatches = hashes => results =
+        hashes.map(transform);
+      
+      break;
+    // first
+    case ResultType.First:
+      // first only logic
+      _logicFirstQuery(this, filters, hash =>
+        results = hash === undefined
+          ? undefined
+          : transform(hash));
+          
+      return results as IResult<TEntry, TResultType, TDexEntry>;
+    // set
+    case ResultType.Set:
+      results = new Set<TEntry>();
+      collectMatches = hashes => {
+        for (const hash of hashes) {
+          (results as Set<TEntry>).add(transform(hash));
+        }
+      }
+
+      break;
+    // dex
+    case ResultType.Dex:
+      results = new Dex<TDexEntry>();
+      collectMatches = hashes => (results as Dex<TDexEntry>)
+        .copy
+        .from(this, hashes)
+      
+      overrides = {
+        onEmptyNot: () => (results as Dex<TDexEntry>)
+          .copy
+          .from(this, { tags: this.tags }),
+        onEmpty: () => (results as Dex<TDexEntry>)
+          .copy
+          .from(this, { tags: [] }),
+        onOr: tags => (results as Dex<TDexEntry>)
+          .copy
+          .from(this, { tags }),
+        ...overrides
+      }
+      
+      break;
+    // vauge
+    case ResultType.Vauge:
+      throw new InvalidQueryParamError(resultType, "resultType")
+  }
+
+  // multi-result logic
+  _logicMultiQuery(this, filters, collectMatches, overrides);
+
+  return results as IResult<TEntry, TResultType, TDexEntry>;
 };
 
 /** @internal */
@@ -348,14 +421,18 @@ function _convertQueryParamsToFilters<TEntry extends IEntry>(
 
 function _addQueryOptionsToFilters<TEntry extends IEntry>(
   options: {
-    filters?: IQueryFilter<TEntry>,
+    filters?: IQueryFilter<TEntry>[] | IQueryFilter<TEntry>,
     result?: ResultType
   },
   currentFilters: IQueryFilter<TEntry>[],
   currentResult: ResultType | undefined
 ): ResultType | undefined {
   if (options.filters) {
-    throw new NotImplementedError("_addQueryOptionsToFilters");
+    if (isArray(options.filters)) {
+      options.filters.forEach(f => currentFilters.push(f));
+    } else {
+      currentFilters.push(options.filters);
+    }
   }
 
   if (options.result) {
@@ -369,8 +446,7 @@ function _addQueryOptionsToFilters<TEntry extends IEntry>(
 /** @internal */
 export function _logicMultiQuery<TEntry extends IEntry>(
   dex: IReadOnlyDex<TEntry>,
-  tagOrTags: ITagOrTags,
-  flagOrFlags: IFlagOrFlags<ILogicFlag>,
+  filters: IQueryFilter<TEntry>[],
   /**
    * A single logic function to use for all results, or one for each type of result. 
    *     (onComplete is the default in the second case.)
@@ -433,140 +509,153 @@ export function _logicMultiQuery<TEntry extends IEntry>(
       onOrNot?: (matches: IHashKey[]) => void
     };
   }
+  let matches: IHashKey[] = [];
 
-  let matchingEntryKeys: IHashKey[] = [];
+  for (const filter of filters) {
+    let matchesForFilter: IHashKey[];
 
-  // []
-  if (!tags.size) {
-    // NOT []
-    if (hasFlag(flagOrFlags, FLAGS.NOT)) {
-      // Get items with any tags at all
-      if (overrides?.onEmptyNot) {
-        overrides.onEmptyNot(tags);
-      } else {
-        for (const hash in dex.hashes) {
-          const tagsForHash = ((dex as any)._tagsByEntryHash as Map<IHashKey, Set<ITag>>).get(hash);
-          if (tagsForHash && tagsForHash.size) {
-            matchingEntryKeys.push(hash);
-          }
-        }
-
-        return onEmptyNot(matchingEntryKeys);
+    switch(filter) {
+      case filter.and: {
+        matchesForFilter = _queryAllForAnd(filter, overrides);
       }
-    } // [] []
-    else {
-      // Get items with no tags at all
-      if (overrides?.onEmpty) {
-        overrides.onEmpty(tags);
-      } else {
-        for (const [hash, tagsForHash] of (dex as any)._tagsByEntryHash as Map<IHashKey, Set<ITag>>) {
-          if (!tagsForHash || !tagsForHash.size) {
-            matchingEntryKeys.push(hash);
-          }
-        }
-
-        return onEmpty(matchingEntryKeys);
+      case filter.or: {
+        matchesForFilter = _queryAllForOr(filter, overrides);
       }
     }
-  } else {
-    // OR
-    if (hasFlag(flagOrFlags, FLAGS.OR)) {
-      // OR NOT
+
+
+    // []
+    if (!tags.size) {
+      // NOT []
       if (hasFlag(flagOrFlags, FLAGS.NOT)) {
-        if (overrides?.onOrNot) {
-          overrides.onOrNot(tags);
+        // Get items with any tags at all
+        if (overrides?.onEmptyNot) {
+          overrides.onEmptyNot(tags);
         } else {
-          matchingEntryKeys = dex.keys([]);
-          const validTags = [...dex.tags.filter(f => !tags.has(f))];
-          const hashes = dex.keys(validTags, FLAGS.OR);
-
-          for (const hash of hashes) {
-            const entryTags = (dex as any)._tagsByEntryHash.get(hash)! as Set<ITag>;
-            let hasInvalidTags: boolean = false;
-            for (const tag of tags) {
-              if (entryTags.has(tag)) {
-                hasInvalidTags = true;
-                break;
-              }
-            }
-
-            if (!hasInvalidTags) {
-              matchingEntryKeys.push(hash);
+          for (const hash in dex.hashes) {
+            const tagsForHash = ((dex as any)._tagsByEntryHash as Map<IHashKey, Set<ITag>>).get(hash);
+            if (tagsForHash && tagsForHash.size) {
+              matchesForFilter.push(hash);
             }
           }
 
-          return onOrNot(matchingEntryKeys);
+          return onEmptyNot(matchesForFilter);
         }
-      } // OR OR
+      } // [] []
       else {
-        if (overrides?.onOr) {
-          overrides.onOr(tags);
-        } else {
-          for (const tag in tags) {
-            const hashesForTag: Set<IHashKey> | undefined = (dex as any)._hashesByTag.get(tag)!;
-            if (hashesForTag) {
-              for (const hash in hashesForTag) {
-                matchingEntryKeys.push(hash);
-              }
-            }
-          }
-
-          return onOr(matchingEntryKeys);
-        }
-      }
-    } // AND 
-    else {
-      // AND NOT
-      if (hasFlag(flagOrFlags, FLAGS.NOT)) {
-        if (overrides?.onAndNot) {
-          overrides.onAndNot(tags);
+        // Get items with no tags at all
+        if (overrides?.onEmpty) {
+          overrides.onEmpty(tags);
         } else {
           for (const [hash, tagsForHash] of (dex as any)._tagsByEntryHash as Map<IHashKey, Set<ITag>>) {
-            let count = 0;
-            for (const tag of tags) {
-              if (tagsForHash.has(tag)) {
-                count++;
-              }
-            }
-
-            if (count != tags.size) {
-              matchingEntryKeys.push(hash);
+            if (!tagsForHash || !tagsForHash.size) {
+              matchesForFilter.push(hash);
             }
           }
 
-          return onAndNot(matchingEntryKeys);
+          return onEmpty(matchesForFilter);
         }
-      } // AND AND
-      else {
-        if (overrides?.onAnd) {
-          overrides.onAnd(tags);
-        } else {
-          let potentialResults = new Set<IHashKey>();
-          let isFirstLoop: boolean = true;
+      }
+    } else {
+      // OR
+      if (hasFlag(flagOrFlags, FLAGS.OR)) {
+        // OR NOT
+        if (hasFlag(flagOrFlags, FLAGS.NOT)) {
+          if (overrides?.onOrNot) {
+            overrides.onOrNot(tags);
+          } else {
+            matchesForFilter = dex.keys([]);
+            const validTags = [...dex.tags.filter(f => !tags.has(f))];
+            const hashes = dex.keys(validTags, FLAGS.OR);
 
-          for (const tag of tags) {
-            const hashesForTag
-              = ((dex as any)._hashesByTag as Map<ITag, Set<IHashKey>>).get(tag)
-              ?? new Set<IHashKey>();
+            for (const hash of hashes) {
+              const entryTags = (dex as any)._tagsByEntryHash.get(hash)! as Set<ITag>;
+              let hasInvalidTags: boolean = false;
+              for (const tag of tags) {
+                if (entryTags.has(tag)) {
+                  hasInvalidTags = true;
+                  break;
+                }
+              }
 
-            if (isFirstLoop) {
-              potentialResults = hashesForTag;
-            } else {
-              for (const key of potentialResults) {
-                if (!hashesForTag.has(key)) {
-                  potentialResults.delete(key);
+              if (!hasInvalidTags) {
+                matchesForFilter.push(hash);
+              }
+            }
+
+            return onOrNot(matchesForFilter);
+          }
+        } // OR OR
+        else {
+          if (overrides?.onOr) {
+            overrides.onOr(tags);
+          } else {
+            for (const tag in tags) {
+              const hashesForTag: Set<IHashKey> | undefined = (dex as any)._hashesByTag.get(tag)!;
+              if (hashesForTag) {
+                for (const hash in hashesForTag) {
+                  matchesForFilter.push(hash);
                 }
               }
             }
 
-            if (!potentialResults.size) {
-              break;
+            return onOr(matchesForFilter);
+          }
+        }
+      } // AND 
+      else {
+        // AND NOT
+        if (hasFlag(flagOrFlags, FLAGS.NOT)) {
+          if (overrides?.onAndNot) {
+            overrides.onAndNot(tags);
+          } else {
+            for (const [hash, tagsForHash] of (dex as any)._tagsByEntryHash as Map<IHashKey, Set<ITag>>) {
+              let count = 0;
+              for (const tag of tags) {
+                if (tagsForHash.has(tag)) {
+                  count++;
+                }
+              }
+
+              if (count != tags.size) {
+                matchesForFilter.push(hash);
+              }
             }
 
-            isFirstLoop = false;
+            return onAndNot(matchesForFilter);
           }
+        } // AND AND
+        else {
+          if (overrides?.onAnd) {
+            overrides.onAnd(tags);
+          } else {
+            let potentialResults = new Set<IHashKey>();
+            let isFirstLoop: boolean = true;
 
-          return onAnd([...potentialResults]);
+            for (const tag of tags) {
+              const hashesForTag
+                = ((dex as any)._hashesByTag as Map<ITag, Set<IHashKey>>).get(tag)
+                ?? new Set<IHashKey>();
+
+              if (isFirstLoop) {
+                potentialResults = hashesForTag;
+              } else {
+                for (const key of potentialResults) {
+                  if (!hashesForTag.has(key)) {
+                    potentialResults.delete(key);
+                  }
+                }
+              }
+
+              if (!potentialResults.size) {
+                break;
+              }
+
+              isFirstLoop = false;
+            }
+
+            return onAnd([...potentialResults]);
+          }
         }
       }
     }
@@ -576,8 +665,7 @@ export function _logicMultiQuery<TEntry extends IEntry>(
 /** @internal */
 export function _logicFirstQuery<TEntry extends IEntry>(
   dex: IReadOnlyDex<TEntry>,
-  tagOrTags: ITagOrTags,
-  flagOrFlags: IFlagOrFlags<ILogicFlag>,
+  filters: IQueryFilter<TEntry>[],
   /**
    * A single logic function to use for all results, or one for each type of result. 
    *     (onComplete is the default in the second case.)
@@ -773,3 +861,22 @@ export function _logicFirstQuery<TEntry extends IEntry>(
     }
   }
 }
+
+function _queryAllForOr<TEntry extends IEntry>(filter: IQueryFilter<TEntry>, overrides: { onEmpty?: ((tags: Set<ITag>) => void) | undefined; onEmptyNot?: ((tags: Set<ITag>) => void) | undefined; onAnd?: ((tags: Set<ITag>) => void) | undefined; onAndNot?: ((tags: Set<ITag>) => void) | undefined; onOr?: ((tags: Set<ITag>) => void) | undefined; onOrNot?: ((tags: Set<ITag>) => void) | undefined; } | undefined): IHashKey[] {
+  throw new Error("Function not implemented.");
+}
+
+function _queryAllForAnd<TEntry extends IEntry>(filter: IQueryFilter<TEntry>, overrides: QueryFilterLogicOverrides): IHashKey[] {
+  throw new Error("Function not implemented.");
+}
+
+function _queryFirstForOr<TEntry extends IEntry>(
+  filter: IQueryFilter<TEntry>,
+  overrides: { onEmpty?: ((tags: Set<ITag>) => void) | undefined; onEmptyNot?: ((tags: Set<ITag>) => void) | undefined; onAnd?: ((tags: Set<ITag>) => void) | undefined; onAndNot?: ((tags: Set<ITag>) => void) | undefined; onOr?: ((tags: Set<ITag>) => void) | undefined; onOrNot?: ((tags: Set<ITag>) => void) | undefined; } | undefined): IHashKey[] {
+  throw new Error("Function not implemented.");
+}
+
+function _queryFirstForAnd<TEntry extends IEntry>(filter: IQueryFilter<TEntry>, overrides: { onEmpty?: ((tags: Set<ITag>) => void) | undefined; onEmptyNot?: ((tags: Set<ITag>) => void) | undefined; onAnd?: ((tags: Set<ITag>) => void) | undefined; onAndNot?: ((tags: Set<ITag>) => void) | undefined; onOr?: ((tags: Set<ITag>) => void) | undefined; onOrNot?: ((tags: Set<ITag>) => void) | undefined; } | undefined): IHashKey[] {
+  throw new Error("Function not implemented.");
+}
+

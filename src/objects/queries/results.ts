@@ -59,13 +59,13 @@ export type NoEntryFound
 /**
  * A result of a query.
  */
-export type IResult<TEntry extends IEntry, TResultType extends ResultType = ResultType.Vauge>
+export type IResult<TEntry extends IEntry, TResultType extends ResultType = ResultType.Vauge, TDexEntry extends IEntry = TEntry>
   = ResultType extends ResultType.Vauge
-  ? IVaugeResult<TEntry>
-  : ISpecificResult<TEntry, TResultType>;
+  ? IVaugeResult<TEntry, TDexEntry>
+  : ISpecificResult<TEntry, TResultType, TDexEntry>;
 
 /** @internal */
-type ISpecificResult<TEntry extends IEntry, TResultType extends ResultType>
+type ISpecificResult<TEntry extends IEntry, TResultType extends ResultType, TDexEntry extends IEntry = TEntry>
   = TResultType extends ResultType.First
   ? (TEntry | NoEntryFound)
   : TResultType extends ResultType.Array
@@ -73,12 +73,12 @@ type ISpecificResult<TEntry extends IEntry, TResultType extends ResultType>
   : TResultType extends ResultType.Set
   ? Set<TEntry>
   : TResultType extends ResultType.Dex
-  ? Dex<TEntry>
+  ? Dex<TDexEntry>
   : never;
 
 /** @internal */
-type IVaugeResult<TEntry extends IEntry>
+type IVaugeResult<TEntry extends IEntry, TDexEntry extends IEntry = TEntry>
   = TEntry[]
-  | Dex<TEntry>
+  | Dex<TDexEntry>
   | Set<TEntry>
   | (TEntry | undefined);
