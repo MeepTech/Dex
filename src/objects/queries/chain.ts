@@ -3,29 +3,28 @@ import {
   IBasicQuery,
   IQueryChain,
   QueryConstructor,
-  QueryResultCalculator,
 } from "./queries";
 import {
   FLAGS,
-  LogicFlag
+  ILogicFlag
   } from "./flags";
 import { IReadOnlyDex } from "../readonly";
-import { Entry } from "../subsets/entries";
+import { IEntry } from "../subsets/entries";
 import { FirstQueryConstructor } from "./first";
 
 /** @internal */
-export function QueryChainConstructor<TEntry extends Entry>(
+export function QueryChainConstructor<TEntry extends IEntry>(
   dex: IReadOnlyDex<TEntry>,
-  base: IBasicQuery<TEntry, typeof FLAGS.CHAIN | LogicFlag, TEntry, Dex<TEntry>>
+  base: IBasicQuery<TEntry, typeof FLAGS.CHAIN | ILogicFlag, TEntry, Dex<TEntry>>
 ): IQueryChain<TEntry> {
   const chain = QueryConstructor<
     TEntry,
     TEntry,
-    typeof FLAGS.CHAIN | LogicFlag,
+    typeof FLAGS.CHAIN | ILogicFlag,
     Dex<TEntry>,
     Dex<TEntry>,
     Dex<TEntry>,
-    typeof FLAGS.CHAIN | LogicFlag
+    typeof FLAGS.CHAIN | ILogicFlag
   > (
     base,
     dex
@@ -57,43 +56,55 @@ export function QueryChainConstructor<TEntry extends Entry>(
 }
 
 /** @internal */
-export function NotQueryChainConstructor<TEntry extends Entry>(
+export function NotQueryChainConstructor<TEntry extends IEntry>(
   dex: IReadOnlyDex<TEntry>,
-  base: IBasicQuery<TEntry, typeof FLAGS.CHAIN | LogicFlag, TEntry, Dex<TEntry>>
+  base: IBasicQuery<TEntry, typeof FLAGS.CHAIN | ILogicFlag, TEntry, Dex<TEntry>>
 ): IQueryChain<TEntry> {
-  return QueryChainConstructor<TEntry>(dex, (a, b) => {
-    if (!b?.includes(FLAGS.OR)) {
-      return base(a, b?.concat([FLAGS.OR]) ?? [FLAGS.OR]);
+  return QueryChainConstructor<TEntry>(dex, (tags, flags) => {
+    if (!flags) {
+      return base(tags, [FLAGS.NOT]);
+    }
+
+    if (!FLAGS.has(flags, FLAGS.NOT)) {
+      return base(tags, FLAGS.add(flags, FLAGS.NOT));
     } else {
-      return base(a, b?.filter(f => f !== FLAGS.OR).concat([FLAGS.OR]));
+      return base(tags, FLAGS.drop(flags, FLAGS.NOT));
     }
   });
 }
 
 /** @internal */
-export function AndQueryChainConstructor<TEntry extends Entry>(
+export function AndQueryChainConstructor<TEntry extends IEntry>(
   dex: IReadOnlyDex<TEntry>,
-  base: IBasicQuery<TEntry, typeof FLAGS.CHAIN | LogicFlag, TEntry, Dex<TEntry>>
+  base: IBasicQuery<TEntry, typeof FLAGS.CHAIN | ILogicFlag, TEntry, Dex<TEntry>>
 ): IQueryChain<TEntry> {
-  return QueryChainConstructor<TEntry>(dex, (a, b) => {
-    if (!b?.includes(FLAGS.OR)) {
-      return base(a, b?.concat([FLAGS.OR]) ?? [FLAGS.OR]);
+  return QueryChainConstructor<TEntry>(dex, (tags,flags) => {
+    if (!flags) {
+      return base(tags, [FLAGS.AND]);
+    }
+
+    if (!FLAGS.has(flags, FLAGS.OR)) {
+      return base(tags, FLAGS.add(flags, FLAGS.AND));
     } else {
-      return base(a, b?.filter(f => f !== FLAGS.OR).concat([FLAGS.OR]));
+      return base(tags, FLAGS.add(FLAGS.drop(flags, FLAGS.OR), FLAGS.AND));
     }
   });
 }
 
 /** @internal */
-export function OrQueryChainConstructor<TEntry extends Entry>(
+export function OrQueryChainConstructor<TEntry extends IEntry>(
   dex: IReadOnlyDex<TEntry>,
-  base: IBasicQuery<TEntry, typeof FLAGS.CHAIN | LogicFlag, TEntry, Dex<TEntry>>
+  base: IBasicQuery<TEntry, typeof FLAGS.CHAIN | ILogicFlag, TEntry, Dex<TEntry>>
 ): IQueryChain<TEntry> {
-  return QueryChainConstructor<TEntry>(dex, (a, b) => {
-    if (!b?.includes(FLAGS.NOT)) {
-      return base(a, b?.concat([FLAGS.NOT]) ?? [FLAGS.NOT]);
+  return QueryChainConstructor<TEntry>(dex, (tags,flags) => {
+    if (!flags) {
+      return base(tags, [FLAGS.OR]);
+    }
+
+    if (!FLAGS.has(flags, FLAGS.OR)) {
+      return base(tags, FLAGS.add(flags, FLAGS.OR));
     } else {
-      return base(a, b?.filter(f => f !== FLAGS.NOT));
+      return base(tags, FLAGS.add(FLAGS.drop(flags, FLAGS.AND), FLAGS.OR));
     }
   });
 }

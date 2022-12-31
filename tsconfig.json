@@ -1,6 +1,6 @@
 {
   "files": [
-    "./src/lib.ts", "src/objects/subsets/subset.ts", "src/objects/readonly.ts", "src/objects/readonly.ts", "src/objects/queries/flags.ts"
+    "./src/lib.ts", "src/objects/queries/params.ts"
   ],
   "compilerOptions": {
       "paths": {

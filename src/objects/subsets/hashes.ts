@@ -1,61 +1,63 @@
-import { Break, Breakable } from "../../utilities/breakable";
+import { Break, IBreakable } from "../../utilities/breakable";
 import { isArray, isFunction } from "../../utilities/validators";
 import Dex from "../dex";
-import { Entry } from "./entries";
+import { IEntry } from "./entries";
 import {
   IFullQuery,
+  NO_RESULT_FOUND_FOR_QUERY,
   QueryConstructor,
   QueryResults
 } from "../queries/queries";
 import {
   FLAGS,
-  Flag
+  hasFlag,
+  IFlag
 } from "../queries/flags";
 import { IDexSubSet } from "./subset";
-import { Tag } from "./tags";
+import { ITag } from "./tags";
 import { IReadOnlyDex } from "../readonly";
 
 /**
  * A hash key for a dex item.
  */
-export type HashKey = string | number | symbol;
+export type IHashKey = string | number | symbol;
+
+export type IHashOrHashes = IHashKey | IHashKey[] | Set<IHashKey>
 
 /**
  * A collection used to access hashes
  */
-export interface IHashSet<TEntry extends Entry>
-  extends IDexSubSet<HashKey, TEntry>,
-  IFullQuery<HashKey, Flag, TEntry, HashKey[]> { }
+export interface IHashSet<TEntry extends IEntry>
+  extends IDexSubSet<IHashKey, TEntry>,
+  IFullQuery<IHashKey, IFlag, TEntry, IHashKey[]> { }
 
 /** @internal */
-export function HashSetConstructor<TEntry extends Entry>(
+export function HashSetConstructor<TEntry extends IEntry>(
   dex: IReadOnlyDex<TEntry>,
-  base: Set<HashKey>
+  base: Set<IHashKey>
 ): IHashSet<TEntry> {
 
-  /**
-   * Basic query function
-   */
-  const query: IFullQuery<HashKey, Flag, TEntry, HashKey[]> = QueryConstructor<
-    HashKey,
+  // Basic query function
+  const query: IFullQuery<IHashKey, IFlag, TEntry, IHashKey[]> = QueryConstructor<
+    IHashKey,
     TEntry,
-    Flag,
-    QueryResults<HashKey, TEntry>,
-    HashKey[],
-    QueryResults<HashKey, TEntry>,
-    Flag
+    IFlag,
+    QueryResults<IHashKey, TEntry>,
+    IHashKey[],
+    QueryResults<IHashKey, TEntry>,
+    IFlag
   >(
     (tags, flags) => {
-      if (flags?.includes(FLAGS.CHAIN)) {
-        const hashes = dex.hashes(tags, flags as any);
+      if (flags && hasFlag(flags, FLAGS.CHAIN)) {
+        const hashes = dex.keys(tags, flags as any);
         const result = new Dex<TEntry>();
         result.copy.from(dex, hashes);
 
         return result;
-      } else if (flags?.includes(FLAGS.FIRST)) {
-        return dex.hashes.first(tags, flags);
+      } else if (flags && hasFlag(flags, FLAGS.FIRST)) {
+        return dex.keys.first(tags, flags);
       } else {
-        return dex.hashes(tags, flags as any);
+        return dex.keys(tags, flags as any);
       }
     },
     dex
@@ -101,7 +103,7 @@ export function HashSetConstructor<TEntry extends Entry>(
 
   Object.defineProperty(hashSet, 'of', {
     value: function get(target: TEntry) {
-      const hash = Dex.hash(target);
+      const hash = dex.hash(target);
       if (hash !== undefined && base.has(hash)) {
         return hash;
       }
@@ -115,9 +117,9 @@ export function HashSetConstructor<TEntry extends Entry>(
 
   Object.defineProperty(hashSet, 'where', {
     value: function where(
-      a: Breakable<[entry: TEntry, index: number], boolean> | Tag[],
-      b?: Flag[]
-    ): HashKey | Set<HashKey> | Dex<TEntry> | undefined {
+      a: IBreakable<[entry: TEntry, index: number], boolean> | ITag[],
+      b?: IFlag[]
+    ): IHashKey | Set<IHashKey> | Dex<TEntry> | undefined {
       if (isFunction(a)) {
         if (b?.includes(FLAGS.CHAIN) && !b.includes(FLAGS.FIRST)) {
           const results = new Dex<TEntry>();
@@ -131,7 +133,7 @@ export function HashSetConstructor<TEntry extends Entry>(
               }
 
               break;
-            } else {
+            } else if (result) {
               (results as Dex<TEntry>).copy.from(dex, [e]);
             }
           }
@@ -149,14 +151,14 @@ export function HashSetConstructor<TEntry extends Entry>(
                 }
 
                 break;
-              } else {
+              } else if (result) {
                 return e;
               }
             }
 
-            return undefined!;
+            return NO_RESULT_FOUND_FOR_QUERY;
           } else {
-            const results: Set<HashKey> = new Set();
+            const results: Set<IHashKey> = new Set();
 
             for (const e of base.values()) {
               const result = a(dex.get(e)!, index++);
@@ -166,7 +168,7 @@ export function HashSetConstructor<TEntry extends Entry>(
                 }
 
                 break;
-              } else {
+              } else if (result) {
                 results.add(e);
               }
             }
@@ -175,11 +177,11 @@ export function HashSetConstructor<TEntry extends Entry>(
           }
         }
       } else {
-        const results = dex.keys(a, b);
+        const results = dex.hashes(a, b);
         if (isArray(results)) {
           return new Set(results);
         } else {
-          return results as HashKey | Dex<TEntry>;
+          return results as IHashKey | Dex<TEntry>;
         }
       }
     },
@@ -189,7 +191,7 @@ export function HashSetConstructor<TEntry extends Entry>(
   });
 
   Object.defineProperty(hashSet, 'map', {
-    value: function <TResult>(transform: Breakable<[item: HashKey, index: number], TResult>): Array<TResult> {
+    value: function <TResult>(transform: IBreakable<[item: IHashKey, index: number], TResult>): Array<TResult> {
       let index = 0;
       const results: Array<TResult> = [];
 
@@ -214,7 +216,7 @@ export function HashSetConstructor<TEntry extends Entry>(
   });
 
   Object.defineProperty(hashSet, 'first', {
-    value: function (where: Breakable<[item: HashKey, index: number], boolean>): HashKey | undefined {
+    value: function (where: IBreakable<[item: IHashKey, index: number], boolean>): IHashKey | undefined {
       let index = 0;
 
       for (const e of base.values()) {
@@ -225,12 +227,12 @@ export function HashSetConstructor<TEntry extends Entry>(
           }
 
           break;
-        } else {
+        } else if (result) {
           return e;
         }
       }
 
-      return undefined;
+      return NO_RESULT_FOUND_FOR_QUERY;
     },
     enumerable: false,
     writable: false,
@@ -238,9 +240,9 @@ export function HashSetConstructor<TEntry extends Entry>(
   });
 
   Object.defineProperty(hashSet, 'filter', {
-    value: function (where: Breakable<[item: HashKey, index: number], boolean>): Set<HashKey> {
+    value: function (where: IBreakable<[item: IHashKey, index: number], boolean>): Set<IHashKey> {
       let index = 0;
-      const results: Set<HashKey> = new Set();
+      const results: Set<IHashKey> = new Set();
 
       for (const e of base.values()) {
         const result = where(e, index++);
@@ -250,7 +252,7 @@ export function HashSetConstructor<TEntry extends Entry>(
           }
 
           break;
-        } else {
+        } else if (result) {
           results.add(e);
         }
       }
@@ -263,8 +265,8 @@ export function HashSetConstructor<TEntry extends Entry>(
   });
 
   Object.defineProperty(hashSet, Symbol.iterator, {
-    get(): IterableIterator<HashKey> {
-      return base[Symbol.iterator]()
+    get(): () => IterableIterator<IHashKey> {
+      return base[Symbol.iterator].bind(base);
     },
     enumerable: false,
     configurable: false
@@ -278,7 +280,7 @@ export function HashSetConstructor<TEntry extends Entry>(
   });
 
   Object.defineProperty(hashSet, 'forEach', {
-    value(callbackfn: (value: HashKey, value2: HashKey, set: Set<HashKey>) => void, thisArg?: any) {
+    value(callbackfn: (value: IHashKey, value2: IHashKey, set: Set<IHashKey>) => void, thisArg?: any) {
       base.forEach(callbackfn, thisArg);
     },
     enumerable: false,
@@ -287,7 +289,7 @@ export function HashSetConstructor<TEntry extends Entry>(
   });
 
   Object.defineProperty(hashSet, 'has', {
-    value(tag: Tag) {
+    value(tag: ITag) {
       return base.has(tag);
     },
     enumerable: false,

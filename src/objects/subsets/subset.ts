@@ -1,18 +1,16 @@
-import { Breakable } from "../../utilities/breakable";
+import { IBreakable } from "../../utilities/breakable";
 import Dex from "../dex";
-import { Flag, FLAGS } from "../queries/flags";
-import { Entry } from "./entries";
-import { HashKey } from "./hashes";
-import { Tag } from "./tags";
+import { IFlag, FLAGS } from "../queries/flags";
+import { IEntry } from "./entries";
+import { IHashKey } from "./hashes";
+import { ITag } from "./tags";
 
 /**
  * Dex uses these to store tags, hashes, and entries.
- *
- * @internal
  */
-export interface IDexSubCollection<
-  TValue extends Entry | HashKey | Tag,
-  TEntry extends Entry,
+interface IDexSubCollection<
+  TValue extends IEntry | IHashKey | ITag,
+  TEntry extends IEntry,
   TArrayReturn = TValue[],
   TIteratorIndex extends [item: TValue, ...args: any] = [item: TValue, index: number],
 > {
@@ -41,7 +39,7 @@ export interface IDexSubCollection<
    * Fetch all the hashes that match a given target.
    */
   where(
-    target: Breakable<[entry: TEntry, index: number], boolean>,
+    target: IBreakable<[entry: TEntry, index: number], boolean>,
     options?: ((typeof FLAGS.NOT | typeof FLAGS.CHAIN) | (typeof FLAGS.NOT | typeof FLAGS.FIRST))[]
   ): Set<TValue> | Dex<TEntry> | TValue | undefined;
 
@@ -49,29 +47,29 @@ export interface IDexSubCollection<
    * Fetch all the hashes that match a given query.
    */
   where(
-    tags: Tag[],
-    options?: Flag[]
+    tags: ITag[],
+    options?: IFlag[]
   ): Set<TValue> | Dex<TEntry> | TValue | undefined;
 
   /**
    * Get all entries as a record indeed by key
    */
   map<TResult>(
-    transform: Breakable<TIteratorIndex, TResult>
+    transform: IBreakable<TIteratorIndex, TResult>
   ): TResult[];
 
   /**
    * Get the first matching entry
    */
   first(
-    where: Breakable<TIteratorIndex, boolean>
+    where: IBreakable<TIteratorIndex, boolean>
   ): TValue | undefined;
 
   /**
    * Get all matching entries
    */
   filter(
-    where: Breakable<TIteratorIndex, boolean>
+    where: IBreakable<TIteratorIndex, boolean>
   ): Set<TValue>;
 }
 
@@ -81,9 +79,9 @@ export interface IDexSubCollection<
  * @internal
  */
 export interface IDexSubMap<
-  TValue extends Entry | HashKey | Tag,
-  TKey extends HashKey | Tag,
-  TEntry extends Entry,
+  TValue extends IEntry | IHashKey | ITag,
+  TKey extends IHashKey | ITag,
+  TEntry extends IEntry,
   TIteratorIndex extends [item: TValue, ...args: any] = [entry: TValue, index: number, tags: TKey],
 > extends IDexSubCollection<TValue, TEntry, TValue[], TIteratorIndex> {
   
@@ -131,8 +129,8 @@ export interface IDexSubMap<
  * @internal
  */
 export interface IDexSubSet<
-  TValue extends Entry | HashKey | Tag,
-  TEntry extends Entry,
+  TValue extends IEntry | IHashKey | ITag,
+  TEntry extends IEntry,
 > extends Readonly<Omit<Set<TValue>, 'add' | 'delete' | 'clear'>>,
   IDexSubCollection<TValue, TEntry, TValue[], [item: TValue, index: number]>
 {

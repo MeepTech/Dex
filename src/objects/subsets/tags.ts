@@ -1,50 +1,61 @@
-import { Break, Breakable } from "../../utilities/breakable";
-import { isArray, isFunction } from "../../utilities/validators";
+import { Break, IBreakable } from "../../utilities/breakable";
+import { isArray, isFunction, isTag } from "../../utilities/validators";
 import Dex from "../dex";
-import { FLAGS, Flag } from "../queries/flags";
+import { FLAGS, IFlag } from "../queries/flags";
+import { NO_RESULT_FOUND_FOR_QUERY } from "../queries/queries";
 import { IReadOnlyDex } from "../readonly";
-import { Entry } from "./entries";
-import { HashKey } from "./hashes";
+import { IEntry } from "./entries";
+import { IHashKey } from "./hashes";
 import { IDexSubSet } from "./subset";
 
 /**
  * A Tag for a dex.
  */
-export type Tag = string | symbol | number;
+export type ITag = string | symbol | number;
 
 /**
  * A collection of tags for a dex.
  */
-export type Tags = Tag[] | [] | Set<Tag>;
+export type ITags = ITag[] | [] | Set<ITag> | ITagSet;
 
 /**
  * A single tag, or collection of tags for a dex.
  */
-export type TagOrTags = Tag | Tags;
+export type ITagOrTags = ITag | ITags;
+
+/**
+ * Turn a tag or tags into an easy to use Set<ITag>
+ */
+export function toSet(tags: ITagOrTags, ...otherTags: ITag[]): Set<ITag> {
+  tags = tags instanceof Set ? tags : isTag(tags) ? new Set<ITag>([tags]) : new Set<ITag>(tags);
+  otherTags.forEach(tags.add);
+
+  return tags;
+}
 
 /**
  * A collection used to access hashes
  */
-export interface ITagSet<TEntry extends Entry = Entry>
-  extends IDexSubSet<Tag, TEntry> {
+export interface ITagSet<TEntry extends IEntry = IEntry>
+  extends IDexSubSet<ITag, TEntry> {
   
     /**
      * Fetch all the items that match a given entry.
      */
     of(
-      target: TEntry | HashKey
-    ): Tag[] | undefined;
+      target: TEntry | IHashKey
+    ): ITag[] | undefined;
   
     /**
      * Fetch all the items that match a given entry into a set.
      */
     for(
-      target: TEntry | HashKey
-    ): Set<Tag> | undefined;
+      target: TEntry | IHashKey
+    ): Set<ITag> | undefined;
   }
 
 /** @internal */
-export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry>, base: Set<Tag>): ITagSet<TEntry> {
+export function TagSetConstructor<TEntry extends IEntry>(dex: IReadOnlyDex<TEntry>, base: Set<ITag>): ITagSet<TEntry> {
   const tagSet = {} as any as ITagSet<TEntry>;
 
   Object.defineProperty(tagSet, 'size', {
@@ -81,8 +92,8 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry
   });
 
   Object.defineProperty(tagSet, 'of', {
-    value: function get(target: TEntry | HashKey) {
-      return [...(dex as any)._tagsByEntryHash.get(Dex.hash(target))];
+    value: function get(target: TEntry | IHashKey) {
+      return [...(dex as any)._tagsByEntryHash.get(dex.hash(target))];
     },
     enumerable: false,
     writable: false,
@@ -90,8 +101,8 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry
   });
 
   Object.defineProperty(tagSet, 'for', {
-    value: function get(target: TEntry | HashKey) {
-      return (dex as any)._tagsByEntryHash.get(Dex.hash(target));
+    value: function get(target: TEntry | IHashKey) {
+      return (dex as any)._tagsByEntryHash.get(dex.hash(target));
     },
     enumerable: false,
     writable: false,
@@ -100,9 +111,9 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry
 
   Object.defineProperty(tagSet, 'where', {
     value: function where(
-      a: Breakable<[entry: TEntry, index: number], boolean> | Tag[],
-      b?: Flag[]
-    ): Tag | Set<Tag> | Dex<TEntry> | undefined {
+      a: IBreakable<[entry: TEntry, index: number], boolean> | ITag[],
+      b?: IFlag[]
+    ): ITag | Set<ITag> | Dex<TEntry> | undefined {
       if (isFunction(a)) {
         if (b?.includes(FLAGS.CHAIN) && !b.includes(FLAGS.FIRST)) {
           const results = new Dex<TEntry>();
@@ -116,7 +127,7 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry
               }
 
               break;
-            } else {
+            } else if (result) {
               (results as Dex<TEntry>).copy.from(dex, [e]);
             }
           }
@@ -134,14 +145,14 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry
                 }
 
                 break;
-              } else {
+              } else if (result) {
                 return e;
               }
             }
 
-            return undefined!;
+            return NO_RESULT_FOUND_FOR_QUERY;
           } else {
-            const results: Set<Tag> = new Set();
+            const results: Set<ITag> = new Set();
 
             for (const e of base.values()) {
               const result = a(dex.get(e)!, index++);
@@ -151,7 +162,7 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry
                 }
 
                 break;
-              } else {
+              } else if (result) {
                 results.add(e);
               }
             }
@@ -160,11 +171,11 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry
           }
         }
       } else {
-        const results = dex.hashes(a, b as Flag[] as any);
+        const results = dex.keys(a, b as IFlag[] as any);
         if (isArray(results)) {
           return new Set(results);
         } else {
-          return results as Tag | Dex<TEntry>;
+          return results as ITag | Dex<TEntry>;
         }
       }
     },
@@ -174,7 +185,7 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry
   });
 
   Object.defineProperty(tagSet, 'map', {
-    value: function <TResult>(transform: Breakable<[item: Tag, index: number], TResult>): Array<TResult> {
+    value: function <TResult>(transform: IBreakable<[item: ITag, index: number], TResult>): Array<TResult> {
       let index = 0;
       const results: Array<TResult> = [];
 
@@ -199,7 +210,7 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry
   });
 
   Object.defineProperty(tagSet, 'first', {
-    value: function (where: Breakable<[item: Tag, index: number], boolean>): Tag | undefined {
+    value: function (where: IBreakable<[item: ITag, index: number], boolean>): ITag | undefined {
       let index = 0;
 
       for (const e of base.values()) {
@@ -210,7 +221,7 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry
           }
 
           break;
-        } else {
+        } else if (result) {
           return e;
         }
       }
@@ -223,9 +234,9 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry
   });
 
   Object.defineProperty(tagSet, 'filter', {
-    value: function (where: Breakable<[item: Tag, index: number], boolean>): Set<Tag> {
+    value: function (where: IBreakable<[item: ITag, index: number], boolean>): Set<ITag> {
       let index = 0;
-      const results: Set<Tag> = new Set();
+      const results: Set<ITag> = new Set();
 
       for (const e of base.values()) {
         const result = where(e, index++);
@@ -235,7 +246,7 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry
           }
 
           break;
-        } else {
+        } else if (result) {
           results.add(e);
         }
       }
@@ -248,8 +259,8 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry
   });
 
   Object.defineProperty(tagSet, Symbol.iterator, {
-    get(): IterableIterator<Tag> {
-      return base[Symbol.iterator]()
+    get(): () => IterableIterator<ITag> {
+      return base[Symbol.iterator].bind(base);
     },
     enumerable: false,
     configurable: false
@@ -263,7 +274,7 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry
   });
 
   Object.defineProperty(tagSet, 'forEach', {
-    value(callbackfn: (value: Tag, value2: Tag, set: Set<Tag>) => void, thisArg?: any) {
+    value(callbackfn: (value: ITag, value2: ITag, set: Set<ITag>) => void, thisArg?: any) {
       base.forEach(callbackfn, thisArg);
     },
     enumerable: false,
@@ -272,7 +283,7 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry
   });
 
   Object.defineProperty(tagSet, 'has', {
-    value(tag: Tag) {
+    value(tag: ITag) {
       return base.has(tag);
     },
     enumerable: false,

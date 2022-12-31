@@ -1,17 +1,17 @@
-import { Flag, LogicFlag, FLAGS } from "./flags";
+import { IFlag, ILogicFlag, FLAGS, hasFlag } from "./flags";
 import { IBasicQuery, IFirstableQuery, IFullQuery, QueryConstructor, QueryResults } from "./queries";
 import { IReadOnlyDex } from "../readonly";
-import { Entry } from "../subsets/entries";
+import { IEntry } from "../subsets/entries";
 
 /** @internal */
 export function FirstableQueryConstructor<
-  TEntry extends Entry,
-  TDexEntry extends Entry,
+  TEntry extends IEntry,
+  TDexEntry extends IEntry,
   TResults extends QueryResults<TEntry, TDexEntry>,
-  TValidFlags extends Flag
+  TValidFlags extends IFlag
 >(
   base: IBasicQuery<TEntry, TValidFlags, TDexEntry, TResults>,
-  first: IFullQuery<TEntry, typeof FLAGS.FIRST | LogicFlag, TDexEntry, TEntry>
+  first: IFullQuery<TEntry, typeof FLAGS.FIRST | ILogicFlag, TDexEntry, TEntry>
 ): IFirstableQuery<TEntry, TValidFlags, TDexEntry, TResults> {
   (base as any as IFirstableQuery<TEntry, TValidFlags, TDexEntry, TResults>)
     .first = first;
@@ -20,24 +20,24 @@ export function FirstableQueryConstructor<
 }
 
 /** @internal */
-export function FirstQueryConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry>): IFullQuery<TEntry, typeof FLAGS.FIRST | LogicFlag, TEntry, TEntry> {
+export function FirstQueryConstructor<TEntry extends IEntry>(dex: IReadOnlyDex<TEntry>): IFullQuery<TEntry, typeof FLAGS.FIRST | ILogicFlag, TEntry, TEntry> {
   return QueryConstructor<
     TEntry,
     TEntry,
-    typeof FLAGS.FIRST | LogicFlag,
+    typeof FLAGS.FIRST | ILogicFlag,
     TEntry | undefined,
     TEntry,
     TEntry | undefined,
-    Flag
+    IFlag
   >(
     (a, b) => dex.value(
       a,
-      (b?.includes(FLAGS.VALUES) || b?.includes(FLAGS.CHAIN))
-        ? b?.filter(f => f !== FLAGS.VALUES && f !== FLAGS.CHAIN).concat([FLAGS.FIRST])
-        : (b
-          ? b.concat([FLAGS.FIRST])
-          : [FLAGS.FIRST]
-      ) as any)
-    , dex
+      b
+        ? (hasFlag(b, FLAGS.VALUES) || hasFlag(b, FLAGS.CHAIN))
+          ? FLAGS.add(FLAGS.drop(b, [FLAGS.VALUES, FLAGS.CHAIN]), FLAGS.FIRST)
+          : FLAGS.add(b, FLAGS.FIRST)
+        : [FLAGS.FIRST] as any
+    ),
+    dex
   );
 }

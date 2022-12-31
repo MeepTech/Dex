@@ -1,7 +1,6 @@
 import { describe, test } from '@jest/globals';
 import Dex from '../../../src/objects/dex';
-import { CHAIN_FLAG, FLAGS } from '../../../src/objects/queries/FLAGS';
-import { Tag } from '../../../src/objects/subsets/tags';
+import { ITag } from '../../../src/objects/subsets/tags';
 import {
   expectDex_countsToEqual,
   expectDex_entryHasNoTags,
@@ -51,10 +50,10 @@ describe("constructor(...)", () => {
       expectDex_tagsToHaveEntries(dex, testTag, [entry]);
       expectDex_tagsToHaveEntries(dex, testTag2, [entry]);
     });
-    test("([TEntry, Tag], [TEntry, Tag]) => Dex with muiliple item with one tag each", () => {
+    test("([[TEntry, Tag], [TEntry, Tag]]) => Dex with muiliple item with one tag each", () => {
       const entry = {};
       const entry2 = {};
-      const dex = new Dex<{}>([entry, testTag], [entry2, testTag2]);
+      const dex = new Dex<{}>([[entry, testTag], [entry2, testTag2]]);
 
       expectDex_countsToEqual(dex, 2, 2);
       expectDex_entryToHaveTags(dex, entry, [testTag])
@@ -62,10 +61,10 @@ describe("constructor(...)", () => {
       expectDex_tagsToHaveEntries(dex, testTag, [entry]);
       expectDex_tagsToHaveEntries(dex, testTag2, [entry2]);
     });
-    test("([TEntry, Tag], [TEntry, Tag, Tag]) => Dex with muiliple item with one tag or multiple tags", () => {
+    test("([[TEntry, Tag], [TEntry, Tag, Tag]]) => Dex with muiliple item with one tag or multiple tags", () => {
       const entry = {};
       const entry2 = {};
-      const dex = new Dex<{}>([entry, testTag], [entry2, testTag, testTag2]);
+      const dex = new Dex<{}>([[entry, testTag], [entry2, testTag, testTag2]]);
 
       expectDex_countsToEqual(dex, 2, 2);
       expectDex_entryToHaveTags(dex, entry, [testTag])
@@ -73,10 +72,10 @@ describe("constructor(...)", () => {
       expectDex_tagsToHaveEntries(dex, testTag, [entry, entry2]);
       expectDex_tagsToHaveEntries(dex, testTag2, [entry2]);
     });
-    test("([TEntry, Tag, Tag], [TEntry, Tag, Tag]) => Dex with multiple items with multiple tags", () => {
+    test("([[TEntry, Tag, Tag], [TEntry, Tag, Tag]]) => Dex with multiple items with multiple tags", () => {
       const entry = {};
       const entry2 = {};
-      const dex = new Dex<{}>([entry, testTag, testTag2], [entry2, testTag, testTag2]);
+      const dex = new Dex<{}>([[entry, testTag, testTag2], [entry2, testTag, testTag2]]);
 
       expectDex_countsToEqual(dex, 2, 2);
       expectDex_entryToHaveTags(dex, entry, [testTag, testTag2])
@@ -136,24 +135,6 @@ describe("constructor(...)", () => {
     });
   });
   describe("([TEntry, Tag[]][])", () => {
-    test("([TEntry, [Tag]]) => Dex with one item with one tag", () => {
-      const entry = {};
-      const dex = new Dex<{}>([entry, [testTag]]);
-
-      expectDex_countsToEqual(dex, 1, 1);
-      expectDex_entryToHaveTags(dex, entry, [testTag])
-      expectDex_tagsToHaveEntries(dex, testTag, [entry]);
-    });
-    test("([TEntry, [Tag, Tag]]) => Dex with one item with multiple tags", () => {
-      const entry = {};
-      const dex = new Dex<{}>([entry, [testTag, testTag2]]);
-
-      expectDex_countsToEqual(dex, 1, 2);
-
-      expectDex_entryToHaveTags(dex, entry, [testTag, testTag2])
-      expectDex_tagsToHaveEntries(dex, testTag, [entry]);
-      expectDex_tagsToHaveEntries(dex, testTag2, [entry]);
-    });
     test("([[TEntry, [Tag]]]) => Dex with one item with one tag", () => {
       const entry = {};
       const dex = new Dex<{}>([[entry, [testTag]]]);
@@ -173,7 +154,7 @@ describe("constructor(...)", () => {
     });
     test("([[TEntry1, [Tag1]], [TEntry1, [Tag2]]]) => Dex with one item with multiple tags, split into multiple array items", () => {
       const entry = {};
-      const dex = new Dex<{}>([[entry, [testTag], [entry, [testTag2]]]]);
+      const dex = new Dex<{}>([[entry, [testTag]], [entry, [testTag2]]]);
 
       expectDex_countsToEqual(dex, 1, 2);
 
@@ -181,20 +162,20 @@ describe("constructor(...)", () => {
       expectDex_tagsToHaveEntries(dex, testTag, [entry]);
       expectDex_tagsToHaveEntries(dex, testTag2, [entry]);
     });
-    test("([TEntry1, [Tag]], [TEntry2, [Tag]]) => Dex with multiple items with one tag each", () => {
+    test("([[TEntry1, [Tag]], [TEntry2, [Tag]]]) => Dex with multiple items with one tag each", () => {
       const entry = {};
       const entry2 = {};
-      const dex = new Dex<{}>([entry, [testTag]], [entry2, [testTag]]);
+      const dex = new Dex<{}>([[entry, [testTag]], [entry2, [testTag]]]);
 
       expectDex_countsToEqual(dex, 2, 1);
       expectDex_entryToHaveTags(dex, entry, [testTag])
       expectDex_entryToHaveTags(dex, entry2, [testTag])
       expectDex_tagsToHaveEntries(dex, testTag, [entry, entry2]);
     });
-    test("([TEntry, [Tag, Tag]], [TEntry, [Tag, Tag]]) => Dex with multiple items with multiple tags each", () => {
+    test("([[TEntry, [Tag, Tag]], [TEntry, [Tag, Tag]]]) => Dex with multiple items with multiple tags each", () => {
       const entry = {};
       const entry2 = {};
-      const dex = new Dex<{}>([entry, [testTag, testTag2]], [entry2, [testTag, testTag2]]);
+      const dex = new Dex<{}>([[entry, [testTag, testTag2]], [entry2, [testTag, testTag2]]]);
 
       expectDex_countsToEqual(dex, 2, 2);
 
@@ -457,7 +438,7 @@ describe("constructor(...)", () => {
   test("(Map<TEntry, Tag[]>) => Dex made of Map Entries", () => {
     const entry = {};
     const entry2 = {};
-    const map = new Map<{}, Tag[]>();
+    const map = new Map<{}, ITag[]>();
 
     map.set(entry, [testTag]);
     map.set(entry2, [testTag, testTag2]);
@@ -467,13 +448,13 @@ describe("constructor(...)", () => {
     expectDex_countsToEqual(dex, 2, 2);
     expectDex_entryToHaveTags(dex, entry, [testTag]);
     expectDex_entryToHaveTags(dex, entry2, [testTag, testTag2]);
-    expectDex_tagsToHaveEntries(dex, testTag, [entry]);
-    expectDex_tagsToHaveEntries(dex, testTag2, [entry, entry2]);
+    expectDex_tagsToHaveEntries(dex, testTag, [entry, entry2]);
+    expectDex_tagsToHaveEntries(dex, testTag2, [entry2]);
   });
   test("(Map<TEntry, Set<Tag>) => Dex made of Map Entries", () => {
     const entry = {};
     const entry2 = {};
-    const map = new Map<{}, Set<Tag>>();
+    const map = new Map<{}, Set<ITag>>();
 
     map.set(entry, new Set([testTag2]));
     map.set(entry2, new Set([testTag2]));

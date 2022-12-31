@@ -1,3 +1,5 @@
+import { isArray } from "../../utilities/validators";
+
 /**
  * The strict query flag (and)
  */
@@ -16,7 +18,7 @@ export const NOT_FLAG: unique symbol = Symbol("not");
 /**
  * Flags that change the logic of the query
  */
-const LOGIC_FLAGS : {
+const LOGIC_FLAGS: {
   AND: typeof AND_FLAG,
   OR: typeof OR_FLAG,
   NOT: typeof NOT_FLAG
@@ -56,7 +58,7 @@ export const FIRST_FLAG: unique symbol = Symbol("first");
 /**
  * Flags that indicate a potential result.
  */
-const RESULT_FLAGS  : {
+const RESULT_FLAGS: {
   VALUES: typeof VALUES_FLAG,
   FIRST: typeof FIRST_FLAG,
   CHAIN: typeof CHAIN_FLAG
@@ -82,16 +84,44 @@ const RESULT_FLAGS  : {
  * Options for Dex queries like the select function.
  */
 const FLAGS:
-  typeof LOGIC_FLAGS &
-  typeof RESULT_FLAGS &
-{
-  LOGIC: typeof LOGIC_FLAGS;
-  RESULT: typeof RESULT_FLAGS;
-  contains(symbol: any): boolean;
-} = {
-  ...LOGIC_FLAGS,
-  ...RESULT_FLAGS
-} as any;
+  typeof LOGIC_FLAGS
+  & typeof RESULT_FLAGS
+  & {
+    LOGIC: typeof LOGIC_FLAGS;
+    RESULT: typeof RESULT_FLAGS;
+
+    /**
+     * Check if the given symbol is a type of flag
+     */
+    is(symbol: any): symbol is IFlag;
+    has<TValidFlags extends IFlag, TFlagsToCheck extends IFlag>(
+      currentFlags: IFlagOrFlags<TValidFlags>,
+      flagOrFlagsToCheckFor: IFlagOrFlags<TFlagsToCheck>
+    ): currentFlags is IFlagOrFlags<TFlagsToCheck> & IFlagOrFlags<TValidFlags>
+
+    add<
+      TCurrentFlags extends IFlag,
+      TFlagsToAdd extends IFlag
+    >(
+      currentFlags: IFlagOrFlags<TCurrentFlags>,
+      flagsToAdd: IFlagOrFlags<TFlagsToAdd>
+    ): IFlagOrFlags<TCurrentFlags | TFlagsToAdd> & Set<TCurrentFlags | TFlagsToAdd>
+    drop<
+      TCurrentFlags extends IFlag,
+      TFlagsToRemove extends IFlag
+    >(
+      currentFlags: IFlagOrFlags<TCurrentFlags>,
+      flagsToDrop: IFlagOrFlags<TFlagsToRemove>
+    ): IFlagOrFlags<Exclude<TCurrentFlags, TFlagsToRemove>> & Set<Exclude<TCurrentFlags, TFlagsToRemove>>
+
+    toSet<TFlag extends IFlag>(
+      flags: IFlagOrFlags<TFlag>
+    ): Set<TFlag>;
+  } = {
+    ...LOGIC_FLAGS,
+    ...RESULT_FLAGS
+  } as any;
+
 const FLAG_SET: Set<symbol> = new Set<any>(Object.values(FLAGS));
 Object.defineProperty(FLAGS, "LOGIC", {
   value: FLAGS.LOGIC,
@@ -105,7 +135,7 @@ Object.defineProperty(FLAGS, "RESULT", {
   writable: false,
   configurable: false
 });
-Object.defineProperty(FLAGS, "contains", {
+Object.defineProperty(FLAGS, "is", {
   value(symbol: any): boolean {
     return FLAG_SET.has(symbol);
   },
@@ -113,12 +143,36 @@ Object.defineProperty(FLAGS, "contains", {
   writable: false,
   configurable: false
 });
+Object.defineProperty(FLAGS, "has", {
+  value: hasFlag,
+  enumerable: false,
+  writable: false,
+  configurable: false
+});
+Object.defineProperty(FLAGS, "add", {
+  value: addFlags,
+  enumerable: false,
+  writable: false,
+  configurable: false
+});
+Object.defineProperty(FLAGS, "drop", {
+  value: dropFlags,
+  enumerable: false,
+  writable: false,
+  configurable: false
+});
+Object.defineProperty(FLAGS, "toSet", {
+  value: toSet,
+  enumerable: false,
+  writable: false,
+  configurable: false
+});
 export { FLAGS };
-  
+
 /**
  * Used to check if an entry is a logic flag.
  */
-export type LogicFlag = typeof FLAGS.OR
+export type ILogicFlag = typeof FLAGS.OR
   | typeof FLAGS.NOT
   | typeof FLAGS.AND
   | typeof OR_FLAG
@@ -128,7 +182,7 @@ export type LogicFlag = typeof FLAGS.OR
 /**
  * Used to check if an entry is a result flag.
  */
-export type ResultFlag = typeof FLAGS.FIRST
+export type IResultFlag = typeof FLAGS.FIRST
   | typeof FLAGS.CHAIN
   | typeof FLAGS.VALUES
   | typeof FIRST_FLAG
@@ -139,4 +193,158 @@ export type ResultFlag = typeof FLAGS.FIRST
  * Used to check if an entry is a flag.
  */
 
-export type Flag = LogicFlag | ResultFlag;
+export type IFlag = ILogicFlag | IResultFlag;
+
+/**
+ * A single flag or set of flags.
+ */
+export type IFlagOrFlags<TValidFlags extends IFlag = IFlag>
+  = TValidFlags | TValidFlags[] | Set<TValidFlags> | [];
+
+/**
+ * Gets a set from an IFlagOrFlags
+ */
+export function toSet<TFlag extends IFlag>(flags: IFlagOrFlags<TFlag>): Set<TFlag> {
+  return flags instanceof Set
+    ? new Set<TFlag>(flags)
+    : isArray(flags)
+      ? new Set<TFlag>(flags)
+      : new Set<TFlag>([flags])
+}
+
+/**
+ * Used to easily add sets of flags together
+ */
+export function addFlags<
+  TCurrentFlags extends IFlag,
+  TFlagsToAdd extends IFlag
+>(
+  currentFlags: IFlagOrFlags<TCurrentFlags>,
+  flagsToAdd: IFlagOrFlags<TFlagsToAdd>
+): IFlagOrFlags<TCurrentFlags | TFlagsToAdd> & Set<TCurrentFlags | TFlagsToAdd> {
+  if (isArray(currentFlags)) {
+    if (!currentFlags.length) {
+      return toSet<TCurrentFlags | TFlagsToAdd>(flagsToAdd);
+    } else {
+      const flags = toSet<TCurrentFlags | TFlagsToAdd>(flagsToAdd);
+      currentFlags.forEach(f => flags.add(f));
+
+      return flags;
+    }
+  }
+
+  if (currentFlags instanceof Set) {
+    if (!currentFlags.size) {
+      return toSet<TCurrentFlags | TFlagsToAdd>(flagsToAdd);
+    } else {
+      const flags = toSet<TCurrentFlags | TFlagsToAdd>(currentFlags);
+      if (FLAGS.is(flagsToAdd)) {
+        flags.add(flagsToAdd);
+      } else {
+        flagsToAdd.forEach(f => flags.add(f));
+      }
+
+      return flags;
+    }
+  }
+
+  const flags = toSet<TCurrentFlags | TFlagsToAdd>(flagsToAdd);
+  flags.add(currentFlags);
+
+  return flags;
+}
+
+/**
+ * Remove flags from an IFlagOrFlags
+ */
+export function dropFlags<
+  TCurrentFlags extends IFlag,
+  TFlagsToRemove extends IFlag
+>(
+  currentFlags: IFlagOrFlags<TCurrentFlags>,
+  flagsToDrop: IFlagOrFlags<TFlagsToRemove>
+): IFlagOrFlags<Exclude<TCurrentFlags, TFlagsToRemove>> & Set<Exclude<TCurrentFlags, TFlagsToRemove>> {
+  const flags = toSet(currentFlags);
+  if (!flags.size) {
+    return flags as any;
+  }
+
+  const toDrop = toSet(flagsToDrop);
+  if (!toDrop.size) {
+    return flags as any;
+  }
+
+  toDrop.forEach(f => flags.delete(f as any));
+
+  return flags as any;
+}
+
+/**
+ * Check if a flag or flags has the given options.
+ */
+export function hasFlag<
+  TValidFlags extends IFlag,
+  TFlagsToCheck extends IFlag
+>(
+  currentFlags: IFlagOrFlags<TValidFlags>,
+  flagOrFlagsToCheckFor: IFlagOrFlags<TFlagsToCheck>
+): currentFlags is IFlagOrFlags<TFlagsToCheck> & IFlagOrFlags<TValidFlags> {
+  if (isArray(flagOrFlagsToCheckFor)) {
+    if (!flagOrFlagsToCheckFor.length) {
+      return true;
+    } else {
+      if (isArray(currentFlags)) {
+        return flagOrFlagsToCheckFor.every(flagToCheck => (currentFlags as TValidFlags[]).includes(flagToCheck as any))
+      } // or set
+      else if (currentFlags instanceof Set) {
+        return flagOrFlagsToCheckFor.every(flagToCheck => (currentFlags as Set<TValidFlags>).has(flagToCheck as any))
+      }// check if the only item is this
+      else if (flagOrFlagsToCheckFor.length === 1) {
+        return (currentFlags as any) === flagOrFlagsToCheckFor[0];
+      } // not the same # of items.
+      else {
+        return false;
+      }
+    }
+  } else if (flagOrFlagsToCheckFor instanceof Set) {
+    if (!flagOrFlagsToCheckFor.size) {
+      return true;
+    } else {
+      if (isArray(currentFlags)) {
+        for (const flagToCheck of flagOrFlagsToCheckFor) {
+          if (!(currentFlags as TValidFlags[]).includes(flagToCheck as any)) {
+            return false;
+          }
+        }
+
+        return true;
+      } // or set
+      else if (currentFlags instanceof Set) {
+        for (const flagToCheck of flagOrFlagsToCheckFor) {
+          if (!(currentFlags as Set<TValidFlags>).has(flagToCheck as any)) {
+            return false;
+          }
+        }
+
+        return true;
+      }// check if the only item is this
+      else if (flagOrFlagsToCheckFor.size === 1) {
+        return currentFlags === flagOrFlagsToCheckFor.entries().next().value;
+      } // not the same # of items.
+      else {
+        return false;
+      }
+    }
+  } else {
+    if (isArray(currentFlags)) {
+      return (currentFlags as TValidFlags[]).includes(flagOrFlagsToCheckFor as any);
+    } // or set
+    else if (currentFlags instanceof Set) {
+      return (currentFlags as Set<TValidFlags>).has(flagOrFlagsToCheckFor as any);
+    }// check if the only item is this
+    else {
+      return (currentFlags as any) === flagOrFlagsToCheckFor;
+    }
+  }
+}
+

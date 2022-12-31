@@ -14,6 +14,6 @@ export class Break<TResult = void> {
 /**
  * A method that can signal it's outer loop should be be broken
  */
-export interface Breakable<TArgs extends [...any], TResult = void> {
+export interface IBreakable<TArgs extends [...any], TResult = void> {
   (...args: TArgs): TResult | Break<TResult> | Break;
 }
