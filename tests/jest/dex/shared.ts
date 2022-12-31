@@ -1,5 +1,5 @@
 import { expect } from '@jest/globals';
-import Dex, { InvalidQueryArgsError } from '../../../src/objects/dex';
+import Dex, { InvalidQueryParamError } from '../../../src/objects/dex';
 import { CHAIN_FLAG, IFlag, FLAGS } from '../../../src/objects/queries/flags';
 import { QueryResults, IQueryResult, IQuery } from '../../../src/objects/queries/queries';
 import { IReadOnlyDex } from '../../../src/objects/readonly';

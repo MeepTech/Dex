@@ -4,7 +4,7 @@ import { IDexSubMap } from "./subset";
 import {
   IFullQuery,
   NoEntryFound,
-  NO_RESULT_FOUND_FOR_QUERY,
+  NO_RESULT,
   QueryConstructor,
   QueryResults
 } from "../queries/queries";
@@ -304,7 +304,7 @@ export function EntryMapConstructor<TEntry extends IEntry>(
               }
             }
 
-            return NO_RESULT_FOUND_FOR_QUERY;
+            return NO_RESULT;
           } else {
             const results: Set<TEntry> = new Set();
 
@@ -354,7 +354,7 @@ export function EntryMapConstructor<TEntry extends IEntry>(
         }
       }
 
-      return NO_RESULT_FOUND_FOR_QUERY;
+      return NO_RESULT;
     },
     enumerable: false,
     writable: false,

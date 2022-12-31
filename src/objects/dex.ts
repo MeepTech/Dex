@@ -57,7 +57,7 @@ import {
   IFullQuery,
   IFirstableQuery,
   IQueryResult,
-  NO_RESULT_FOUND_FOR_QUERY,
+  NO_RESULT,
   NoEntryFound,
   _logicMultiQuery,
   _logicFirstQuery
@@ -333,7 +333,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
       if (values instanceof Map) {
         values.forEach((t, e) =>
           (e === NO_ENTRIES_FOR_TAG
-            || e === NO_RESULT_FOUND_FOR_QUERY)
+            || e === NO_RESULT)
             ? this.set(t)
             : this.add(e, t)
         );
@@ -567,19 +567,19 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
   ): IQueryResult<TEntry, TFlag> {
     if (hasFlag(options, FLAGS.FIRST)) {
       if (hasFlag(options, FLAGS.CHAIN) || hasFlag(options, FLAGS.VALUES)) {
-        throw new InvalidQueryArgsError(options);
+        throw new InvalidQueryParamError(options);
       }
 
       return this.value(tags, options) as IQueryResult<TEntry, TFlag>;
     } else if (hasFlag(options, FLAGS.CHAIN)) {
       if (hasFlag(options, FLAGS.FIRST) || hasFlag(options, FLAGS.VALUES)) {
-        throw new InvalidQueryArgsError(options);
+        throw new InvalidQueryParamError(options);
       }
 
       return this.filter(tags, options) as IQueryResult<TEntry, TFlag>;
     } else {
       if (hasFlag(options, FLAGS.CHAIN) || hasFlag(options, FLAGS.FIRST)) {
-        throw new InvalidQueryArgsError(options);
+        throw new InvalidQueryParamError(options);
       }
 
       return this.values(
@@ -653,7 +653,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
       IFlagOrFlags<typeof FLAGS.FIRST | ILogicFlag>
       = [FLAGS.FIRST, FLAGS.AND]
   ): TEntry | NoEntryFound {
-    let result: TEntry | undefined = NO_RESULT_FOUND_FOR_QUERY;
+    let result: TEntry | undefined = NO_RESULT;
 
     _logicFirstQuery<TEntry>(
       this,
@@ -716,7 +716,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
       : IFlagOrFlags<typeof FLAGS.FIRST | ILogicFlag>
       = [FLAGS.FIRST, FLAGS.AND]
   ): IHashKey | NoEntryFound => {
-    let result: IHashKey | undefined = NO_RESULT_FOUND_FOR_QUERY;
+    let result: IHashKey | undefined = NO_RESULT;
 
     _logicFirstQuery<TEntry>(
       this,
@@ -1675,12 +1675,10 @@ export class NotImplementedError extends DexError {
 /**
  * An error signifying an invalid combination of flags were passed to a Dex Query
  */
-export class InvalidQueryArgsError extends DexError {
-  readonly flags: IFlag[];
-  constructor(flags: IFlagOrFlags) {
-    flags = [...FLAGS.toSet(flags)];
-    super(`Invalid Dex Query Flag Combination: (${flags.map(f => f.toString())})`);
-    this.flags = flags;
+export class InvalidQueryParamError extends DexError {
+  readonly arg: any;
+  constructor(arg: any, index: number) {
+    super(`Missing or Invalid Query Parameter: ${arg ?? 'undefined'}, at index: ${index}`);
   }
 }
 

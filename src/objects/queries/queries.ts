@@ -1,391 +1,92 @@
-import { isArray, isFunction } from "../../utilities/validators";
-import Dex from "../dex";
-import { IFlag, IResultFlag, FLAGS, ILogicFlag, IFlagOrFlags, hasFlag } from "./flags";
+import { isArray, isFunction, isObject, isTag } from "../../utilities/validators";
 import { IEntry } from "../subsets/entries";
 import { ITag, ITagOrTags, toSet } from "../subsets/tags";
 import { IReadOnlyDex } from "../readonly";
 import { IHashKey } from "../subsets/hashes";
+import { IResult, ResultType } from "./results";
+import { IQueryFilter } from "./params";
+import { InvalidQueryParamError, NotImplementedError } from "../dex";
 
-export type IQuery<
-  TEntry extends IEntry = IEntry,
-  TValidFlags extends IFlag = IFlag,
-  TDexEntry extends IEntry | TEntry = TEntry,
-  TDefaultResult extends QueryResults<TEntry, TDexEntry> = IQueryResult<TEntry, TValidFlags, TDexEntry>,
-> = IFullQuery<TEntry, TValidFlags, TDexEntry, TDefaultResult>
-  | IBasicQuery<TEntry, TValidFlags, TDexEntry, TDefaultResult>
-  | IFirstableQuery<TEntry, TValidFlags, TDexEntry, TDefaultResult>
-  | IQueryChain<TEntry, TValidFlags>
+/**
+ * 
+ */
+export type IQuery<TEntry extends IEntry, TResult extends ResultType>
+  = ISpecificQuery<TEntry, TResult>
+  | IFullQuery<TEntry, TResult>;
 
+/**
+ * A query that just returns one type of value
+ */
+export interface ISpecificQuery
+  <TEntry extends IEntry, TResult extends ResultType>
+  extends IQueryBase<TEntry, TResult> { }
+
+/**
+ * A query that can return many different types, and has more options than a specific query
+ */
 export interface IFullQuery<
-  TEntry extends IEntry = IEntry,
-  TValidFlags extends IFlag = IFlag,
-  TDexEntry extends IEntry | TEntry = TEntry,
-  TDefaultResult extends QueryResults<TEntry, TDexEntry> = IQueryResult<TEntry, TValidFlags, TDexEntry>
-> {
+  TEntry extends IEntry,
+  TDefaultResult extends ResultType
+> extends IQueryBase<TEntry, TDefaultResult> {
 
-  /**
-   * Query for entries that match a single tag.
-   */
-  (
-    tag: ITag
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult
-  >;
-
-  /**
-   * Query for entries that match a single tag and the provided option flags.
-   */
-  <TFlag extends IFlag>(
+  <TResultType extends ResultType = TDefaultResult>(
     tag: ITag,
-    flag: TFlag
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult,
-    TFlag
-  >;
+    options: {
+      filters?: IQueryFilter<TEntry>,
+      result: TResultType
+    }
+  ): IResult<TEntry, TResultType>
 
-  /**
-   * Query for entries that match a single tag and the provided option flags.
-   */
-  <
-    TFlag1 extends IFlag,
-    TFlag2 extends IFlag,
-    TFlag3 extends IFlag
-  >(
+  <TResultType extends ResultType>(
     tag: ITag,
-    flag1: TFlag1,
-    flag2: TFlag2,
-    flag3?: TFlag3,
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult,
-    TFlag1,
-    TFlag2,
-    TFlag3
-  >;
+    result: TResultType
+  ): IResult<TEntry, TResultType>
 
-  /**
-   * Query for entries that match a single tag and flag options.
-   */
-  <
-    TFlag1 extends IFlag,
-    TFlag2 extends IFlag,
-    TFlag3 extends IFlag
-  >(
-    tag: ITag,
-    flags: [TFlag1, TFlag2?, TFlag3?]
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult,
-    TFlag1,
-    TFlag2,
-    TFlag3
-  >;
-
-  (
-    tags: ITagOrTags
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult
-  >
-
-  /**
-   * Query for entries that match a single tag and the provided option flags.
-   */
-  <TFlag extends IFlag | NoEntryFound = NoEntryFound>(
+  <TResultType extends ResultType = TDefaultResult>(
     tags: ITagOrTags,
-    flag: TFlag
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult
-  >
+    options: {
+      filters?: IQueryFilter<TEntry>,
+      result: TResultType
+    }
+  ): IResult<TEntry, TResultType>
 
-  /**
-   * Query for entries that match a single tag and the provided option flags.
-   */
-  <
-    TFlag1 extends IFlag | NoEntryFound = NoEntryFound,
-    TFlag2 extends IFlag | NoEntryFound = NoEntryFound,
-    TFlag3 extends IFlag | NoEntryFound = NoEntryFound
-  >(
+  <TResultType extends ResultType>(
     tags: ITagOrTags,
-    flag1: TFlag1,
-    flag2: TFlag2,
-    flag3?: TFlag3,
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult,
-    TFlag1,
-    TFlag2,
-    TFlag3
-  >;
+    result: TResultType
+  ): IResult<TEntry, TResultType>
 
-  <
-    TFlag1 extends IFlag,
-    TFlag2 extends IFlag,
-    TFlag3 extends IFlag
-  >(
-    tags: ITagOrTags,
-    flags: [TFlag1?, TFlag2?, TFlag3?]
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult,
-    TFlag1,
-    TFlag2,
-    TFlag3
-  >;
-
-  <
-    TFlag1 extends IFlag,
-    TFlag2 extends IFlag,
-    TFlag3 extends IFlag
-  >(
-    tags: ITagOrTags,
-    flags: IFlag[]
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult,
-    typeof flags[0],
-    typeof flags[1],
-    typeof flags[2]
-  >;
-
-  (
-    tags: ITagOrTags,
-    flags?: IFlagOrFlags
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult,
-    typeof flags extends IFlag ? typeof flags : undefined
-  >;
-
-  <
-    TFlag1 extends IFlag,
-    TFlag2 extends IFlag,
-    TFlag3 extends IFlag
-  >(
-    tags: ITagOrTags,
-    flags?: IFlag[]
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult
-  >;
-
-  <TFlag extends IFlag>(
-    flag: TFlag,
+  <TResultType extends ResultType>(
+    result: TResultType,
     tag: ITag
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult,
-    TFlag
-  >
+  ): IResult<TEntry, TResultType>
 
-  <TFlag extends IFlag>(
-    flag: TFlag,
+  <TResultType extends ResultType>(
+    result: TResultType,
     ...tags: ITag[]
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult,
-    TFlag
-  >
+  ): IResult<TEntry, TResultType>
 
-  <TFlag extends IFlag>(
-    flag: TFlag,
-    tags: ITagOrTags
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult,
-    TFlag
-  >
+  <TResultType extends ResultType>(
+    result: TResultType,
+    ...filters: IQueryFilter<TEntry>[]
+  ): IResult<TEntry, TResultType>
 
-  <TFlag1 extends IFlag, TFlag2 extends IFlag>(
-    flag1: TFlag1,
-    flag2: TFlag2,
-    tag: ITag
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult,
-    TFlag1,
-    TFlag2
-  >;
+  <TResultType extends ResultType>(
+    ...tagsAndResult: [...ITag[], TResultType]
+  ): IResult<TEntry, TResultType>
 
-  <TFlag1 extends IFlag, TFlag2 extends IFlag>(
-    flag1: TFlag1,
-    flag2: TFlag2,
-    ...tags: ITag[]
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult,
-    TFlag1,
-    TFlag2
-  >;
+  <TResultType extends ResultType = TDefaultResult>(
+    filter: IQueryFilter<TEntry>,
+    result: TResultType
+  ): IResult<TEntry, TResultType>
 
-  <TFlag1 extends IFlag, TFlag2 extends IFlag>(
-    flag1: TFlag1,
-    flag2: TFlag2,
-    tags: ITagOrTags
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult,
-    TFlag1,
-    TFlag2
-  >;
+  <TResultType extends ResultType = TDefaultResult>(
+    filters: IQueryFilter<TEntry>[],
+    result: TResultType
+  ): IResult<TEntry, TResultType>
 
-  //
-  <
-    TFlag1 extends IFlag,
-    TFlag2 extends IFlag,
-    TFlag3 extends IFlag
-  >(
-    flag1: TFlag1,
-    flag2: TFlag2,
-    flag3: TFlag3,
-    tag: ITag
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult,
-    TFlag1,
-    TFlag2,
-    TFlag3
-  >;
-
-  <
-    TFlag1 extends IFlag,
-    TFlag2 extends IFlag,
-    TFlag3 extends IFlag
-  >(
-    flag1: TFlag1,
-    flag2: TFlag2,
-    flag3: TFlag3,
-    ...tags: ITag[]
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult,
-    TFlag1,
-    TFlag2,
-    TFlag3
-  >;
-
-  <
-    TFlag1 extends IFlag,
-    TFlag2 extends IFlag,
-    TFlag3 extends IFlag
-  >(
-    flag1: TFlag1,
-    flag2: TFlag2,
-    flag3: TFlag3,
-    tags: ITagOrTags
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult,
-    TFlag1,
-    TFlag2,
-    TFlag3
-  >;
-
-  <
-    TFlag1 extends IFlag,
-    TFlag2 extends IFlag | undefined = undefined,
-    TFlag3 extends IFlag | undefined = undefined
-  >(
-    flags: [TFlag1, TFlag2?, TFlag3?],
-    ...tags: ITag[]
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult,
-    TFlag1,
-    TFlag2,
-    TFlag3
-  >;
-
-  <
-    TFlag1 extends IFlag,
-    TFlag2 extends IFlag | undefined = undefined,
-    TFlag3 extends IFlag | undefined = undefined
-  >(
-    flags: [TFlag1, TFlag2?, TFlag3?],
-    tags: ITagOrTags
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult,
-    TFlag1,
-    TFlag2,
-    TFlag3
-  >;
-
-  <
-    TFlag1 extends IFlag,
-    TFlag2 extends IFlag | undefined = undefined,
-    TFlag3 extends IFlag | undefined = undefined
-  >(
-    flags: [TFlag1, TFlag2?, TFlag3?],
-    tag: ITag
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult,
-    TFlag1,
-    TFlag2,
-    TFlag3
-  >;
-
-  (
-    ...tags: ITag[]
-  ): QueryResultCalculator<
-    TEntry,
-    TDexEntry,
-    TDefaultResult
-  >
-}
-
-/**
- * The base of other more complex QueryMethods.
- */
-export interface IBasicQuery<
-  TEntry extends IEntry = IEntry,
-  TValidFlags extends IFlag = IFlag,
-  TDexEntry extends IEntry | TEntry = TEntry,
-  TResults extends QueryResults<TEntry, TDexEntry> = IQueryResult<TEntry, TValidFlags, TDexEntry>
-> {
-  (tags: ITagOrTags, options?: IFlagOrFlags<TValidFlags>): TResults;
-}
-
-/**
- * Represents a special kind of query that selects and returns a sub-Dex
- *
- * @internal
- */
-export interface IQueryChain<
-  TEntry extends IEntry = IEntry,
-  TValidFlags extends IFlag = IFlag
-> extends IFullQuery<TEntry, TValidFlags, TEntry, Dex<TEntry>> {
-  not: IQueryChain<TEntry, IResultFlag | typeof FLAGS.OR | typeof FLAGS.OR | typeof FLAGS.NOT>;
-  and: IQueryChain<TEntry, IResultFlag | typeof FLAGS.NOT | typeof FLAGS.OR>;
-  or: IQueryChain<TEntry, IResultFlag | typeof FLAGS.NOT | typeof FLAGS.OR>;
-  first: IFullQuery<TEntry, ILogicFlag | typeof FLAGS.FIRST, TEntry, TEntry>;
+  <TResultType extends ResultType>(
+    ...filtersAndResult: [...IQueryFilter<TEntry>[], TResultType]
+  ): IResult<TEntry, TDefaultResult>
 }
 
 /**
@@ -394,68 +95,50 @@ export interface IQueryChain<
  * @internal
  */
 export interface IFirstableQuery<
-  TEntry extends IEntry = IEntry,
-  TValidFlags extends IFlag = IFlag,
-  TDexEntry extends IEntry = TEntry,
-  TResults extends QueryResults<TEntry, TDexEntry> = IQueryResult<TEntry, TValidFlags, TDexEntry>
-> extends IBasicQuery<TEntry, TValidFlags, TDexEntry, TResults> {
-  (tags?: ITagOrTags, options?: TValidFlags[] | TValidFlags): TResults;
-  first: IFullQuery<TEntry, typeof FLAGS.FIRST | ILogicFlag, TDexEntry, TEntry>;
+  TEntry extends IEntry,
+  TDefaultResult extends ResultType,
+> extends ISpecificQuery<TEntry, TDefaultResult> {
+  first: IFullQuery<TEntry, ResultType.First>;
 }
 
-/**
- * Returned when an entry is not found by a query.
- */
-export const NO_RESULT_FOUND_FOR_QUERY = undefined;
-
-/**
- * Returned when an entry is not found by a query.
- */
-export type NoEntryFound
-  = typeof NO_RESULT_FOUND_FOR_QUERY;
-
-/**
- * Get the specific query result type for a given set of flags.
- */
-export type IQueryResult<
-  TEntry extends IEntry,
-  TFlag extends IFlag | undefined = typeof FLAGS.VALUES,
-  TDexEntry extends IEntry = TEntry,
-  TDefaultResult extends QueryResults<TEntry, TDexEntry> = TEntry[],
-> = TFlag extends typeof FLAGS.FIRST
-  ? (TEntry | NoEntryFound)
-  : TFlag extends typeof FLAGS.CHAIN
-  ? Dex<TDexEntry>
-  : TFlag extends typeof FLAGS.VALUES
-  ? TEntry[]
-  : TDefaultResult;
-
-/**
- * All the types of query results
- */
-export type QueryResults<TEntry extends IEntry = IEntry, TDexEntry extends IEntry = TEntry>
-  = TEntry | Dex<TDexEntry> | TEntry[] | NoEntryFound;
-
 /** @internal */
-export type QueryResultCalculator<
-  TEntry extends IEntry,
-  TDexEntry extends IEntry = TEntry,
-  TDefaultResult extends QueryResults<TEntry, TDexEntry> = TEntry[],
-  TFlag1 extends IFlag | undefined = undefined,
-  TFlag2 extends IFlag | undefined = undefined,
-  TFlag3 extends IFlag | undefined = undefined
-> = IQueryResult<
-  TEntry,
-  TFlag1 extends IResultFlag
-  ? TFlag1
-  : TFlag2 extends IResultFlag
-  ? TFlag2
-  : TFlag3,
-  TDexEntry,
-  TDefaultResult
->;
+interface IQueryBase<TEntry extends IEntry, TResult extends ResultType> {
+  (
+    tag: ITag,
+    options?: {
+      filters?: IQueryFilter<TEntry>
+    }
+  ): IResult<TEntry, TResult>
 
-/** @internal */
+  (
+    tags: ITagOrTags,
+    options?: {
+      filters?: IQueryFilter<TEntry>
+    }
+  ): IResult<TEntry, TResult>
+
+  (filter: IQueryFilter<TEntry>)
+    : IResult<TEntry, TResult>
+
+  (filters: IQueryFilter<TEntry>[])
+    : IResult<TEntry, TResult>
+
+  (...filters: IQueryFilter<TEntry>[])
+    : IResult<TEntry, TResult>
+}
+
+
+const testQuery: IFullQuery<IEntry, ResultType.Array> = {} as any;
+
+const _1 = testQuery(["a", "e", 1, 5]);
+const _2 = testQuery(["a", "e", 1, 5], ResultType.Dex);
+const _3 = testQuery(ResultType.Set, { and: ["one", "two"] });
+const _3_1 = testQuery(ResultType.First, { and: ["one", "two"] });
+const _4 = testQuery({ and: ["one", "two"] }, ResultType.First);
+const _5 = testQuery({ and: ["one", "two"] }, { not: { hashes: ["ID:KW$#kj3tijergwigg"] } });
+const _6 = testQuery({ not: { hashes: ["ID:KW$#kj3tijergwigg"] } });
+
+/*
 export function QueryConstructor<
   TEntry extends IEntry,
   TDexEntry extends IEntry | TEntry = TEntry,
@@ -516,8 +199,173 @@ export function QueryConstructor<
   }
 
   return query;
+}*/
+
+enum OPERATIONS {
+  NOT = 1,
+  AND = 2,
+  OR = 4
 }
 
+/** @internal */
+export const FullQueryConstructor = <TEntry extends IEntry, TDefaultResult extends ResultType>(
+  defaultResult: TDefaultResult
+): IFullQuery<TEntry, TDefaultResult> => function <
+  TEntry extends IEntry,
+  TResultType extends ResultType
+>(
+  this: IReadOnlyDex<TEntry>,
+  ...args: any
+): IResult<TEntry, TResultType> {
+  const {
+    filters,
+    result = defaultResult
+  } = _convertQueryParamsToFilters(...args);
+
+  
+};
+
+/** @internal */
+function _convertQueryParamsToFilters<TEntry extends IEntry>(
+  ...args: any[]
+): { filters: IQueryFilter<TEntry>[], result: ResultType | undefined } {
+  let filters: IQueryFilter<TEntry>[] = [];
+  let result: ResultType | undefined;
+
+  if (args[0] in ResultType) {
+    // 0: result
+    result = args.shift();
+
+    if (isArray(args[0])) {
+      const tagOrFilters: ITag[] | IQueryFilter<TEntry>[] = args[0];
+      // 1: filters
+      if (isObject(tagOrFilters[0])) {
+        filters = tagOrFilters as IQueryFilter<TEntry>[];
+      } // 1: tags
+      else {
+        filters.push(
+          { or: { tags: tagOrFilters as ITag[] } }
+        )
+      }
+    } else {
+      // ...1: filters:
+      if (isObject(args[0])) {
+        filters = args as IQueryFilter<TEntry>[];
+      } // ...1: tags:
+      else if (args[0] !== undefined) {
+        filters.push({
+          or: { tags: args as ITag[] }
+        });
+      }
+    }
+
+    return { filters, result };
+  } else if (isArray(args[0])) {
+    const tagOrFilters: ITag[] | IQueryFilter<TEntry>[] = args[0];
+    // 0: filters
+    if (isObject(tagOrFilters[0])) {
+      filters = tagOrFilters as IQueryFilter<TEntry>[];
+    } // 0: tags
+    else {
+      filters.push(
+        { or: { tags: tagOrFilters as ITag[] } }
+      )
+    }
+
+    // 1: result
+    if (args[1] in ResultType) {
+      result = args[1];
+    } // 1: options
+    else if (isObject(args[1])) {
+      result = _addQueryOptionsToFilters<TEntry>(args[1], filters, result);
+    }
+
+    return { filters, result };
+  } else if (isObject(args[0])) {
+    // 0: tags
+    if (args[0] instanceof Set) {
+      filters.push(
+        { or: { tags: args[0] as Set<ITag> } }
+      )
+
+      // 1: result
+      if (args[1] in ResultType) {
+        result = args[1];
+      } // 1: options
+      else if (isObject(args[1])) {
+        result = _addQueryOptionsToFilters<TEntry>(args[1], filters, result);
+      }
+
+      return { filters, result };
+    } else {
+      // 0: options:
+      if (args[0].hasOwnProperty("result") || args[0].hasOwnProperty("filters")) {
+        result = _addQueryOptionsToFilters<TEntry>(args[0], filters, result);
+
+        return { filters, result };
+      } // 0: filter
+      else {
+        filters.push(args.shift() as IQueryFilter<TEntry>);
+
+        // 1: result
+        if (args[0] as any in ResultType) {
+          result = args[0] as any as ResultType;
+        } else if (isObject(args[0])) {
+          (args as IQueryFilter<TEntry>[])
+            .forEach(f =>
+              filters.push(f));
+        }
+
+        return { filters, result };
+      }
+    }
+  } // 0: tag
+  else if (isTag(args[0])) {// 1: result
+    if (args[1] in ResultType) {
+      filters.push(
+        { or: { tag: args[0] as ITag } }
+      )
+      result = args[1];
+    } // 1: options:
+    else if (isObject(args[1])) {
+      filters.push(
+        { or: { tag: args[0] as ITag } }
+      );
+      result = _addQueryOptionsToFilters<TEntry>(args[1], filters, result);
+    } // ...1: tags:
+    else if (args[1] !== undefined) {
+      filters.push({
+        or: { tags: args as ITag[] }
+      });
+    }
+
+    return { filters, result };
+  }
+  else {
+    throw new InvalidQueryParamError(args[0], 0);
+  }
+}
+
+function _addQueryOptionsToFilters<TEntry extends IEntry>(
+  options: {
+    filters?: IQueryFilter<TEntry>,
+    result?: ResultType
+  },
+  currentFilters: IQueryFilter<TEntry>[],
+  currentResult: ResultType | undefined
+): ResultType | undefined {
+  if (options.filters) {
+    throw new NotImplementedError("_addQueryOptionsToFilters");
+  }
+
+  if (options.result) {
+    return options.result;
+  }
+
+  return currentResult;
+}
+
+// TODO: fix the two functions below.
 /** @internal */
 export function _logicMultiQuery<TEntry extends IEntry>(
   dex: IReadOnlyDex<TEntry>,
@@ -805,8 +653,8 @@ export function _logicFirstQuery<TEntry extends IEntry>(
             return onEmptyNot(hash);
           }
         }
-        
-        return onEmptyNot(NO_RESULT_FOUND_FOR_QUERY);
+
+        return onEmptyNot(NO_RESULT);
       }
     } else { // [] []
       if (overrides?.onEmpty) {
@@ -818,7 +666,7 @@ export function _logicFirstQuery<TEntry extends IEntry>(
           }
         }
 
-        return onEmpty(NO_RESULT_FOUND_FOR_QUERY);
+        return onEmpty(NO_RESULT);
       }
     }
   } else {
@@ -848,7 +696,7 @@ export function _logicFirstQuery<TEntry extends IEntry>(
             }
           }
 
-          return onOrNot(NO_RESULT_FOUND_FOR_QUERY);
+          return onOrNot(NO_RESULT);
         }
       } // OR OR
       else {
@@ -864,7 +712,7 @@ export function _logicFirstQuery<TEntry extends IEntry>(
             }
           }
 
-          return onOr(NO_RESULT_FOUND_FOR_QUERY);
+          return onOr(NO_RESULT);
         }
       }
     } // AND 
@@ -887,7 +735,7 @@ export function _logicFirstQuery<TEntry extends IEntry>(
             }
           }
 
-          return onAndNot(NO_RESULT_FOUND_FOR_QUERY);
+          return onAndNot(NO_RESULT);
         }
       } // AND AND
       else {
@@ -919,7 +767,7 @@ export function _logicFirstQuery<TEntry extends IEntry>(
             isFirstLoop = false;
           }
 
-          return onAnd(potentialResults.size ? potentialResults.entries().next().value : NO_RESULT_FOUND_FOR_QUERY);
+          return onAnd(potentialResults.size ? potentialResults.entries().next().value : NO_RESULT);
         }
       }
     }

@@ -43,7 +43,7 @@ export {
   IQueryChain,
   IQueryResult,
   QueryResults,
-  NO_RESULT_FOUND_FOR_QUERY as NO_RESULTS_FOUND_FOR_QUERY,
+  NO_RESULT as NO_RESULTS_FOUND_FOR_QUERY,
   NoEntryFound
 } from './objects/queries/queries'
 

@@ -1,5 +1,5 @@
 import { describe, test } from '@jest/globals';
-import Dex, { InvalidQueryArgsError } from '../../../src/objects/dex';
+import Dex, { InvalidQueryParamError } from '../../../src/objects/dex';
 import { FLAGS } from '../../../src/objects/queries/flags';
 import { ITag } from '../../../src/objects/subsets/tags';
 import { expect_queryFunctionTestCaseSuccess, QueryTestCase as TestCase } from './shared';
@@ -34,21 +34,21 @@ describe("search(...)", () => {
       args: [[tag], [FLAGS.CHAIN, FLAGS.FIRST]],
       expected: [],
       results: "throws InvalidDexQueryFlagsError: (Chain | First) is an invalid set of flags",
-      throws: new InvalidQueryArgsError([FLAGS.CHAIN, FLAGS.FIRST])
+      throws: new InvalidQueryParamError([FLAGS.CHAIN, FLAGS.FIRST])
     },
     {
       params: [`["Tag"]`, "[FLAGS.CHAIN , FLAGS.FIRST , FLAGS.OR]"],
       args: [[tag], [FLAGS.CHAIN, FLAGS.FIRST, FLAGS.OR]],
       expected: [],
       results: "throws InvalidDexQueryFlagsError: (Chain | First | Or) is an invalid set of flags",
-      throws: new InvalidQueryArgsError([FLAGS.CHAIN, FLAGS.FIRST, FLAGS.OR])
+      throws: new InvalidQueryParamError([FLAGS.CHAIN, FLAGS.FIRST, FLAGS.OR])
     },
     {
       params: [`["Tag"]`, "[FLAGS.CHAIN , , FLAGS.OR | FLAGS.NOT]"],
       args: [[tag], [FLAGS.CHAIN, FLAGS.FIRST, FLAGS.OR, FLAGS.NOT]],
       expected: [],
       results: "throws InvalidDexQueryFlagsError: (Chain | First | Or | Not) is an invalid set of flags",
-      throws: new InvalidQueryArgsError([FLAGS.CHAIN, FLAGS.FIRST, FLAGS.OR, FLAGS.NOT])
+      throws: new InvalidQueryParamError([FLAGS.CHAIN, FLAGS.FIRST, FLAGS.OR, FLAGS.NOT])
     },
   ]
 

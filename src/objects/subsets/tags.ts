@@ -2,7 +2,7 @@ import { Break, IBreakable } from "../../utilities/breakable";
 import { isArray, isFunction, isTag } from "../../utilities/validators";
 import Dex from "../dex";
 import { FLAGS, IFlag } from "../queries/flags";
-import { NO_RESULT_FOUND_FOR_QUERY } from "../queries/queries";
+import { NO_RESULT } from "../queries/queries";
 import { IReadOnlyDex } from "../readonly";
 import { IEntry } from "./entries";
 import { IHashKey } from "./hashes";
@@ -150,7 +150,7 @@ export function TagSetConstructor<TEntry extends IEntry>(dex: IReadOnlyDex<TEntr
               }
             }
 
-            return NO_RESULT_FOUND_FOR_QUERY;
+            return NO_RESULT;
           } else {
             const results: Set<ITag> = new Set();
 

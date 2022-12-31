@@ -4,7 +4,7 @@ import Dex from "../dex";
 import { IEntry } from "./entries";
 import {
   IFullQuery,
-  NO_RESULT_FOUND_FOR_QUERY,
+  NO_RESULT,
   QueryConstructor,
   QueryResults
 } from "../queries/queries";
@@ -156,7 +156,7 @@ export function HashSetConstructor<TEntry extends IEntry>(
               }
             }
 
-            return NO_RESULT_FOUND_FOR_QUERY;
+            return NO_RESULT;
           } else {
             const results: Set<IHashKey> = new Set();
 
@@ -232,7 +232,7 @@ export function HashSetConstructor<TEntry extends IEntry>(
         }
       }
 
-      return NO_RESULT_FOUND_FOR_QUERY;
+      return NO_RESULT;
     },
     enumerable: false,
     writable: false,
