@@ -1,4 +1,4 @@
-import { IBreakable } from "../../utilities/breakable";
+import { IBreakable } from "../../utilities/loops";
 import { IReadOnlyDex } from "../readonly";
 import { IEntry } from "../subsets/entries";
 import { ITag } from "../subsets/tags";

@@ -65,7 +65,7 @@ export type IResult<TEntry extends IEntry, TResultType extends ResultType = Resu
   : ISpecificResult<TEntry, TResultType, TDexEntry>;
 
 /** @internal */
-type ISpecificResult<TEntry extends IEntry, TResultType extends ResultType, TDexEntry extends IEntry = TEntry>
+export type ISpecificResult<TEntry extends IEntry, TResultType extends ResultType, TDexEntry extends IEntry = TEntry>
   = TResultType extends ResultType.First
   ? (TEntry | NoEntryFound)
   : TResultType extends ResultType.Array

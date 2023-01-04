@@ -1,6 +1,6 @@
 {
   "files": [
-    "./src/lib.ts", "src/objects/queries/params.ts"
+    "./src/lib.ts", "src/objects/queries/filters.ts"
   ],
   "compilerOptions": {
       "paths": {

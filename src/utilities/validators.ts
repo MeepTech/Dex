@@ -79,6 +79,13 @@ export const isArray = (symbol: any)
   Array.isArray(symbol);
 
 /**
+ * Check if something is an itterable.
+ */
+export const isIterable = (symbol: any)
+  : symbol is Iterable<any> =>
+  Symbol.iterator in Object(symbol);
+
+/**
  * Check if it's a unique object. (IUnique)
  */
 export const isUnique = (symbol: any)

@@ -1,5 +1,5 @@
 export * from './utilities/validators';
-export * from './utilities/breakable';
+export * from './utilities/loops';
 
 export * from './objects/unique'
 

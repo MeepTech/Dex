@@ -1,35 +1,36 @@
-import { Break, IBreakable } from "../../utilities/breakable";
+import { Break, IBreakable } from "../../utilities/loops";
 import { isArray, isFunction } from "../../utilities/validators";
 import Dex from "../dex";
 import { IEntry } from "./entries";
 import {
   IFullQuery,
-  NO_RESULT,
-  QueryConstructor,
-  QueryResults
 } from "../queries/queries";
-import {
-  FLAGS,
-  hasFlag,
-  IFlag
-} from "../queries/flags";
 import { IDexSubSet } from "./subset";
 import { ITag } from "./tags";
 import { IReadOnlyDex } from "../readonly";
+import { ResultType } from "../queries/results";
 
 /**
  * A hash key for a dex item.
  */
 export type IHashKey = string | number | symbol;
 
-export type IHashOrHashes = IHashKey | IHashKey[] | Set<IHashKey>
+export type IHashOrHashes = IHashKey | Iterable<IHashKey>
 
 /**
  * A collection used to access hashes
  */
 export interface IHashSet<TEntry extends IEntry>
   extends IDexSubSet<IHashKey, TEntry>,
-  IFullQuery<IHashKey, IFlag, TEntry, IHashKey[]> { }
+  IFullQuery<IHashKey, ResultType.Set, TEntry> { 
+  
+    /**
+     * Fetch all the items that match a given entry into a set.
+     */
+  of(
+    target: TEntry
+  ): IHashKey | undefined;
+}
 
 /** @internal */
 export function HashSetConstructor<TEntry extends IEntry>(

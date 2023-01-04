@@ -1,6 +1,5 @@
-import { IBreakable } from "../../utilities/breakable";
+import { IBreakable } from "../../utilities/loops";
 import Dex from "../dex";
-import { IFlag, FLAGS } from "../queries/flags";
 import { IEntry } from "./entries";
 import { IHashKey } from "./hashes";
 import { ITag } from "./tags";
@@ -10,7 +9,6 @@ import { ITag } from "./tags";
  */
 interface IDexSubCollection<
   TValue extends IEntry | IHashKey | ITag,
-  TEntry extends IEntry,
   TArrayReturn = TValue[],
   TIteratorIndex extends [item: TValue, ...args: any] = [item: TValue, index: number],
 > {
@@ -39,17 +37,8 @@ interface IDexSubCollection<
    * Fetch all the hashes that match a given target.
    */
   where(
-    target: IBreakable<[entry: TEntry, index: number], boolean>,
-    options?: ((typeof FLAGS.NOT | typeof FLAGS.CHAIN) | (typeof FLAGS.NOT | typeof FLAGS.FIRST))[]
-  ): Set<TValue> | Dex<TEntry> | TValue | undefined;
-
-  /**
-   * Fetch all the hashes that match a given query.
-   */
-  where(
-    tags: ITag[],
-    options?: IFlag[]
-  ): Set<TValue> | Dex<TEntry> | TValue | undefined;
+    target: IBreakable<TIteratorIndex, boolean>
+  ): Set<TValue> | TValue[];
 
   /**
    * Get all entries as a record indeed by key
@@ -80,10 +69,9 @@ interface IDexSubCollection<
  */
 export interface IDexSubMap<
   TValue extends IEntry | IHashKey | ITag,
-  TKey extends IHashKey | ITag,
-  TEntry extends IEntry,
-  TIteratorIndex extends [item: TValue, ...args: any] = [entry: TValue, index: number, tags: TKey],
-> extends IDexSubCollection<TValue, TEntry, TValue[], TIteratorIndex> {
+  TKey extends IHashKey = IHashKey,
+  TIteratorIndex extends [item: TValue, ...args: any] = [entry: TValue, index: number],
+> extends IDexSubCollection<TValue, TValue[], TIteratorIndex> {
   
   /**
    * itterate through all the keys
@@ -114,7 +102,6 @@ export interface IDexSubMap<
     * Returns a specified element from the Map object. If the value that is associated to the provided key is an object, then you will get a reference to that object and any change made to that object will effectively modify it inside the Map.
     * @returns Returns the element associated with the specified key. If no element is associated with the specified key, undefined is returned.
     */
-  
   get(key: TKey): TValue | undefined;
   
   /**
@@ -132,7 +119,7 @@ export interface IDexSubSet<
   TValue extends IEntry | IHashKey | ITag,
   TEntry extends IEntry,
 > extends Readonly<Omit<Set<TValue>, 'add' | 'delete' | 'clear'>>,
-  IDexSubCollection<TValue, TEntry, TValue[], [item: TValue, index: number]>
+  IDexSubCollection<TValue, TValue[], [item: TValue, index: number]>
 {
   
   /**
@@ -140,5 +127,5 @@ export interface IDexSubSet<
    */
   of(
     target: TEntry
-  ): TValue[] | TValue | undefined;
+  ): TValue[] | Set<TValue> | TValue | undefined;
 }

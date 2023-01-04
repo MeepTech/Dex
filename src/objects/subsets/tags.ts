@@ -1,8 +1,6 @@
-import { Break, IBreakable } from "../../utilities/breakable";
+import { Break, IBreakable } from "../../utilities/loops";
 import { isArray, isFunction, isTag } from "../../utilities/validators";
 import Dex from "../dex";
-import { FLAGS, IFlag } from "../queries/flags";
-import { NO_RESULT } from "../queries/queries";
 import { IReadOnlyDex } from "../readonly";
 import { IEntry } from "./entries";
 import { IHashKey } from "./hashes";
@@ -16,7 +14,7 @@ export type ITag = string | symbol | number;
 /**
  * A collection of tags for a dex.
  */
-export type ITags = ITag[] | [] | Set<ITag> | ITagSet;
+export type ITags = Iterable<ITag>;
 
 /**
  * A single tag, or collection of tags for a dex.
@@ -28,9 +26,9 @@ export type ITagOrTags = ITag | ITags;
  */
 export function toSet(tags: ITagOrTags, ...otherTags: ITag[]): Set<ITag> {
   tags = tags instanceof Set ? tags : isTag(tags) ? new Set<ITag>([tags]) : new Set<ITag>(tags);
-  otherTags.forEach(tags.add);
+  otherTags.forEach(o => (tags as Set<ITag>).add(o));
 
-  return tags;
+  return tags as Set<ITag>;
 }
 
 /**
@@ -40,16 +38,9 @@ export interface ITagSet<TEntry extends IEntry = IEntry>
   extends IDexSubSet<ITag, TEntry> {
   
     /**
-     * Fetch all the items that match a given entry.
-     */
-    of(
-      target: TEntry | IHashKey
-    ): ITag[] | undefined;
-  
-    /**
      * Fetch all the items that match a given entry into a set.
      */
-    for(
+    of(
       target: TEntry | IHashKey
     ): Set<ITag> | undefined;
   }

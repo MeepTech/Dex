@@ -2,21 +2,15 @@ import { IHashKey } from "./hashes";
 import IUnique from "../unique";
 import { IDexSubMap } from "./subset";
 import {
-  IFullQuery,
-  NoEntryFound,
-  NO_RESULT,
-  QueryConstructor,
-  QueryResults
+  FullQueryConstructor,
+  IFullQuery
 } from "../queries/queries";
-import {
-  FLAGS,
-  IFlag
-} from "../queries/flags";
 import Dex from "../dex";
-import { Break, IBreakable } from "../../utilities/breakable";
+import { Break, IBreakable } from "../../utilities/loops";
 import { ITag, ITagOrTags, ITagSet } from "./tags";
 import { IReadOnlyDex } from "../readonly";
 import {isFunction, isArray} from "../../utilities/validators";
+import { NoEntryFound, ResultType } from "../queries/results";
 
 /**
  * Valid entry types.
@@ -145,18 +139,15 @@ export interface IArrayGuardFunction<TEntry extends IEntry> {
  * A set used to contain entries
  */
 export interface IEntrySet<TEntry extends IEntry>
-  extends IDexSubMap<
-    TEntry,
-    IHashKey,
-    TEntry
-  >,
-  IFullQuery<TEntry> {
+  extends IDexSubMap<TEntry>,
+  IFullQuery<TEntry, ResultType.Array>
+{
 
   /**
    * Get all entries as a record indeed by key
    */
   map<TResult>(
-    transform: IBreakable<[entry: TEntry, index: number, key: IHashKey], TResult>
+    transform: IBreakable<[entry: TEntry, index: number], TResult>
   ): TResult[];
 
   /**
@@ -170,38 +161,35 @@ export function EntryMapConstructor<TEntry extends IEntry>(
   dex: IReadOnlyDex<TEntry>,
   base: Map<IHashKey, TEntry>
 ): IEntrySet<TEntry> {
-  const query: IFullQuery<TEntry> = QueryConstructor<
-    TEntry,
-    TEntry,
-    IFlag,
-    QueryResults<TEntry>,
-    TEntry[],
-    QueryResults<TEntry>,
-    IFlag
-  >(dex.search, dex);
-
-  const entryMap: IEntrySet<TEntry> = query as any;
-  Object.defineProperty(entryMap, "map", {
-    value: function <TResult = never>(
-      transform?: IBreakable<[entry: TEntry, index: number, key: IHashKey], TResult>
+  const query: IEntrySet<TEntry>
+    = <IEntrySet<TEntry>>(
+      FullQueryConstructor<TEntry, ResultType.Array>(
+        dex,
+        ResultType.Array
+      )
+    );
+  
+  Object.defineProperty(query, "map", {
+    value<TResult = never>(
+      transform?: IBreakable<[entry: TEntry, index: number], TResult>
     ): TResult[] | Map<IHashKey, TEntry> {
       if (transform) {
         const results: TResult[] = [];
         let index = 0;
-
-        for (const [k, e] of base) {
-          const result = transform(e, index++, k);
+  
+        for (const e of base.values()) {
+          const result = transform(e, index++);
           if (result instanceof Break) {
             if (result.hasReturn) {
               results.push(result.return!);
             }
-
+  
             break;
           } else {
             results.push(result);
           }
         }
-
+  
         return results;
       } else {
         return new Map(base);
@@ -210,7 +198,79 @@ export function EntryMapConstructor<TEntry extends IEntry>(
     enumerable: false,
     writable: false,
     configurable: false
+  } as {
+    value: IEntrySet<TEntry>["map"],
+    enumerable: false,
+    writable: false,
+    configurable: false
   });
+  
+  Object.defineProperty(query, "where", {
+    value: function (
+      validator: IBreakable<[entry: TEntry, index: number], boolean>,
+    ): TEntry[] {
+      const results: TEntry[] = [];
+      let index = 0;
+      for (const e of base.values()) {
+        const result = validator(e, index++);
+        if (result instanceof Break) {
+          if (result.hasReturn && result.return) {
+            results.push(e);
+          }
+
+          break;
+        } else if (result) {
+          results.push(e);
+        }
+      }
+
+      return results;
+    },
+    enumerable: false,
+    writable: false,
+    configurable: false
+  } as {
+    value: IEntrySet<TEntry>["where"],
+    enumerable: false,
+    writable: false,
+    configurable: false
+  });
+
+  Object.defineProperty(query, "filter", {
+    value(
+      where: IBreakable<[entry: TEntry, index: number], boolean>
+    ): Set<TEntry> {
+      let index = 0;
+      const results: Set<TEntry> = new Set();
+
+      for (const [k, e] of base.entries()) {
+        const result = where(e, index++, k);
+        if (result instanceof Break) {
+          if (result.hasReturn && result.return) {
+            results.add(e);
+          }
+
+          break;
+        } else if (result) {
+          results.add(e);
+        }
+      }
+
+      return results;
+    },
+    enumerable: false,
+    writable: false,
+    configurable: false
+  } as {
+    value: IEntrySet<TEntry>["filter"],
+    enumerable: false,
+    writable: false,
+    configurable: false
+  });
+  
+  return query;
+
+  const entryMap: IEntrySet<TEntry> = query as any;
 
   Object.defineProperty(entryMap, "keys", {
     get(): IterableIterator<IHashKey> {
@@ -262,129 +322,6 @@ export function EntryMapConstructor<TEntry extends IEntry>(
       enumerable: false,
       configurable: false
     }));
-
-  Object.defineProperty(entryMap, "where", {
-    value: function (
-      a: IBreakable<[entry: TEntry, index: number], boolean> | ITag[],
-      b?: IFlag[]
-    ): TEntry | Set<TEntry> | Dex<TEntry> | NoEntryFound {
-      if (isFunction(a)) {
-        if (b?.includes(FLAGS.CHAIN) && !b.includes(FLAGS.FIRST)) {
-          const results = new Dex<TEntry>();
-          let index = 0;
-
-          for (const e of base.keys()) {
-            const result = a(dex.get(e)!, index++);
-            if (result instanceof Break) {
-              if (result.hasReturn && result.return) {
-                (results as Dex<TEntry>).copy.from(dex, [e]);
-              }
-
-              break;
-            } else if (result) {
-              (results as Dex<TEntry>).copy.from(dex, [e]);
-            }
-          }
-
-          return results;
-        } else {
-          let index = 0;
-
-          if (b?.includes(FLAGS.FIRST)) {
-            for (const e of base.values()) {
-              const result = a(e, index++);
-              if (result instanceof Break) {
-                if (result.hasReturn && result.return) {
-                  return e;
-                }
-
-                break;
-              } else if (result) {
-                return e;
-              }
-            }
-
-            return NO_RESULT;
-          } else {
-            const results: Set<TEntry> = new Set();
-
-            for (const e of base.values()) {
-              const result = a(e, index++);
-              if (result instanceof Break) {
-                if (result.hasReturn && result.return) {
-                  results.add(e);
-                }
-
-                break;
-              } else if (result) {
-                results.add(e);
-              }
-            }
-
-            return results;
-          }
-        }
-      } else {
-        const results = dex.search(a, b);
-        if (isArray(results) && !b?.includes(FLAGS.FIRST)) {
-          return new Set(results);
-        } else {
-          return results as TEntry | Dex<TEntry>;
-        }
-      }
-    },
-    enumerable: false,
-    writable: false,
-    configurable: false
-  });
-
-  Object.defineProperty(entryMap, "first", {
-    value: function (where: IBreakable<[entry: TEntry, index: number, key: IHashKey], boolean>): TEntry | NoEntryFound {
-      let index = 0;
-      for (const [k, e] of base.entries()) {
-        const result = where(e, index++, k);
-        if (result instanceof Break) {
-          if (result.hasReturn && result.return) {
-            return e;
-          }
-
-          break;
-        } else if (result) {
-          return e;
-        }
-      }
-
-      return NO_RESULT;
-    },
-    enumerable: false,
-    writable: false,
-    configurable: false
-  });
-
-  Object.defineProperty(entryMap, "filter", {
-    value: function (where: IBreakable<[entry: TEntry, index: number, key: IHashKey], boolean>): Set<TEntry> {
-      let index = 0;
-      const results: Set<TEntry> = new Set();
-
-      for (const [k, e] of base.entries()) {
-        const result = where(e, index++, k);
-        if (result instanceof Break) {
-          if (result.hasReturn && result.return) {
-            results.add(e);
-          }
-
-          break;
-        } else if (result) {
-          results.add(e);
-        }
-      }
-
-      return results;
-    },
-    enumerable: false,
-    writable: false,
-    configurable: false
-  });
 
   Object.defineProperty(entryMap, Symbol.toStringTag, {
     value: "DexEntries",

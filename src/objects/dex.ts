@@ -1,10 +1,11 @@
-import { IBreakable, Break } from "../utilities/breakable";
+import { IBreakable, Break } from "../utilities/loops";
 import {
   isArray,
   isComplexEntry,
   isConfig,
   isFunction,
   isInputEntryWithTagsArray,
+  isIterable,
   isObject,
   isSimpleEntry,
   isTag,
@@ -12,12 +13,6 @@ import {
 } from "../utilities/validators";
 import IUnique from "./unique";
 import { v4 as uuidv4 } from 'uuid';
-import {
-  AndQueryChainConstructor,
-  NotQueryChainConstructor,
-  OrQueryChainConstructor,
-  QueryChainConstructor
-} from './queries/chain';
 import {
   IComplexEntry,
   IEntry,
@@ -41,36 +36,29 @@ import {
   ITagSet,
   TagSetConstructor,
   ITagOrTags,
-  toSet
+  toSet,
+  ITags
 } from "./subsets/tags";
 import {
   IHashKey,
   IHashSet,
-  HashSetConstructor
+  HashSetConstructor,
+  IHashOrHashes
 } from "./subsets/hashes";
 import { IReadOnlyDex } from "./readonly";
 import { CopierConstructor, ICopier } from './helpers/copy';
 import {
-  IBasicQuery,
-  IQueryChain,
-  QueryConstructor,
   IFullQuery,
   IFirstableQuery,
-  IQueryResult,
-  NO_RESULT,
-  NoEntryFound,
   _logicMultiQuery,
-  _logicFirstQuery
+  _logicFirstQuery,
+  FullQueryConstructor,
+  ISpecificQuery,
+  SpecificQueryConstructor,
+  FirstableQueryConstructor
 } from "./queries/queries";
-import {
-  FLAGS,
-  IFlag,
-  ILogicFlag,
-  IFlagOrFlags,
-  hasFlag,
-  dropFlags,
-} from "./queries/flags";
-import { FirstableQueryConstructor, FirstQueryConstructor } from './queries/first';
+import { NoEntryFound, NO_RESULT, ResultType } from "./queries/results";
+import { IQueryFilterInput } from "./queries/filters";
 
 /**
  * Extra config options for a dex.
@@ -119,10 +107,14 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
 
   // lazy
   // - queries
-  private _baseChainQuery?: IQueryChain<TEntry>;
-  private _andChainQuery?: IQueryChain<TEntry>;
-  private _orChainQuery?: IQueryChain<TEntry>;
-  private _notChainQuery?: IQueryChain<TEntry>;
+  private _query?: IFullQuery<TEntry, ResultType>;
+  private _filter?: ISpecificQuery<TEntry, ResultType.Dex>;
+  private _values?: IFirstableQuery<TEntry, ResultType.Array>;
+  private _keys?: IFirstableQuery<IHashKey, ResultType.Set, TEntry>;
+  private _first?: ISpecificQuery<TEntry, ResultType.First>;
+  private _any?: ISpecificQuery<boolean, ResultType.First, TEntry>;
+  private _count?: ISpecificQuery<number, ResultType.First, TEntry>;
+  private _take?: IFullQuery<TEntry, ResultType.Array>;
 
   // - subsets
   private _hashSet?: IHashSet<TEntry>;
@@ -133,6 +125,8 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
   private _forLooper?: ILooper<TEntry>;
   private _mapLooper?: IMapper<TEntry>;
   private _copier?: ICopier<TEntry>;
+
+  //#region Defaults
 
   /**
    * Default helpers for initialization.
@@ -181,6 +175,8 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
       }
     }
   }
+
+  //#endregion
 
   //#region Initialization
 
@@ -357,9 +353,9 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
             if (isTag(values[0])) {
               if (!config && optionsOrMoreValues) {
                 if (isArray(optionsOrMoreValues)) {
-                  values = [...values, ...optionsOrMoreValues] as ITag[];
+                  values = [...values, ...optionsOrMoreValues] as Iterable<ITag> as ITag[];
                 } else {
-                  (values as ITag[]).push(optionsOrMoreValues as ITag);
+                  (values as Iterable<ITag> as ITag[]).push(optionsOrMoreValues as ITag);
                 }
               }
 
@@ -561,246 +557,97 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
 
   //#region Generic
 
-  search<TFlag extends IFlag>(
-    tags: ITagOrTags,
-    options: IFlagOrFlags<TFlag> = []
-  ): IQueryResult<TEntry, TFlag> {
-    if (hasFlag(options, FLAGS.FIRST)) {
-      if (hasFlag(options, FLAGS.CHAIN) || hasFlag(options, FLAGS.VALUES)) {
-        throw new InvalidQueryParamError(options);
-      }
-
-      return this.value(tags, options) as IQueryResult<TEntry, TFlag>;
-    } else if (hasFlag(options, FLAGS.CHAIN)) {
-      if (hasFlag(options, FLAGS.FIRST) || hasFlag(options, FLAGS.VALUES)) {
-        throw new InvalidQueryParamError(options);
-      }
-
-      return this.filter(tags, options) as IQueryResult<TEntry, TFlag>;
-    } else {
-      if (hasFlag(options, FLAGS.CHAIN) || hasFlag(options, FLAGS.FIRST)) {
-        throw new InvalidQueryParamError(options);
-      }
-
-      return this.values(
-        tags,
-        options as (typeof FLAGS.VALUES | ILogicFlag)[]
-      ) as IQueryResult<TEntry, TFlag>;
-    }
-  }
-
-  get query(): IFullQuery<TEntry> {
-    return QueryConstructor<TEntry>(this.search, this);
+  get query(): IFullQuery<TEntry, ResultType.Array> {
+    return this._query ??= FullQueryConstructor(
+      this,
+      ResultType.Array,
+    );
   }
 
   //#endregion
 
   //#region Chained
 
-  filter(
-    tags: ITagOrTags,
-    flags
-      : IFlagOrFlags<typeof FLAGS.CHAIN | ILogicFlag>
-      = [FLAGS.CHAIN, FLAGS.AND]
-  ): Dex<TEntry> {
-    const results = new Dex<TEntry>();
-
-    _logicMultiQuery<TEntry>(
+  get filter(): ISpecificQuery<TEntry, ResultType.Dex> {
+    return this._filter ??= SpecificQueryConstructor(
       this,
-      tags,
-      hashes => results.copy.from(this, hashes),
-      {
-        onEmptyNot: () => results.copy.from(this, { tags: this.tags }),
-        onEmpty: () => results.copy.from(this, { tags: [] }),
-        onOr: tags => results.copy.from(this, { tags: this.tags })
-      }
-    )
-
-    return results;
-  }
-
-  get select()
-    : IQueryChain<TEntry> {
-    return this._baseChainQuery
-      ??= QueryChainConstructor<TEntry>(this, this.filter);
-  }
-
-  get and()
-    : IQueryChain<TEntry> {
-    return this._andChainQuery
-      ??= AndQueryChainConstructor<TEntry>(this, this.filter)
-  }
-  get or()
-    : IQueryChain<TEntry> {
-    return this._orChainQuery
-      ??= OrQueryChainConstructor<TEntry>(this, this.filter)
-  }
-
-  get not()
-    : IQueryChain<TEntry> {
-    return this._notChainQuery
-      ??= NotQueryChainConstructor<TEntry>(this, this.filter)
+      ResultType.Dex
+    );
   }
 
   //#endregion
 
   //#region Values
 
-  value(
-    tags: ITagOrTags,
-    flags:
-      IFlagOrFlags<typeof FLAGS.FIRST | ILogicFlag>
-      = [FLAGS.FIRST, FLAGS.AND]
-  ): TEntry | NoEntryFound {
-    let result: TEntry | undefined = NO_RESULT;
-
-    _logicFirstQuery<TEntry>(
+  get values(): IFirstableQuery<TEntry, ResultType.Array> {
+    return this._values ??= FirstableQueryConstructor(
       this,
-      tags,
-      dropFlags(flags, FLAGS.FIRST),
-      match => match === undefined
-        ? undefined
-        : result = this._entriesByHash.get(match)
+      ResultType.Array,
+      {
+        allOnNoParams: true
+      }
     );
-
-    return result;
   }
 
-  // TODO: lazy load this
-  values: IFirstableQuery<TEntry, typeof FLAGS.VALUES | ILogicFlag, TEntry, TEntry[]>
-    = FirstableQueryConstructor<TEntry, TEntry, TEntry[], typeof FLAGS.VALUES | ILogicFlag>(
-      ((
-        tags?: ITagOrTags,
-        flags: IFlagOrFlags = [FLAGS.VALUES, FLAGS.AND]
-      ): TEntry[] => {
-        if (!tags) {
-          if (!hasFlag(flags, FLAGS.NOT)) {
-            return [...this.entries.values];
-          } else {
-            return [];
-          }
-        }
+  //#region Hashes/Keys
 
-        let results: TEntry[] = [];
-
-        _logicMultiQuery<TEntry>(
-          this,
-          tags,
-          flags as any,
-          hashes => results = hashes.map(h => this.get(h)!)
-        );
-
-        return results;
-      }),
-      this.first
+  get keys(): IFirstableQuery<IHashKey, ResultType.Set, TEntry> {
+    return this._keys ??= FirstableQueryConstructor(
+      this,
+      ResultType.Set,
+      {
+        allOnNoParams: true
+      }
     );
+  }
 
   //#endregion
 
   //#region Single Value
 
-  // TODO: lazy load this
-  get first(): IFullQuery<TEntry, typeof FLAGS.FIRST | ILogicFlag, TEntry, TEntry> {
-    return FirstQueryConstructor<TEntry>(this);
-  }
-
-  //#endregion
-
-  //#region Hashes/Keys
-
-  // TODO: turn this into a method or lazy getter to prevent loading during costruction.
-  key: IBasicQuery<IHashKey, typeof FLAGS.FIRST | ILogicFlag, TEntry, IHashKey | NoEntryFound> = (
-    tags: ITagOrTags,
-    flags
-      : IFlagOrFlags<typeof FLAGS.FIRST | ILogicFlag>
-      = [FLAGS.FIRST, FLAGS.AND]
-  ): IHashKey | NoEntryFound => {
-    let result: IHashKey | undefined = NO_RESULT;
-
-    _logicFirstQuery<TEntry>(
+  get first(): ISpecificQuery<TEntry, ResultType.First> {
+    return this._first ??= SpecificQueryConstructor(
       this,
-      tags,
-      dropFlags(flags, FLAGS.FIRST),
-      match => result = match
+      ResultType.First
     );
-
-    return result;
   }
 
-  // TODO: lazy load this
-  keys: IFirstableQuery<IHashKey, typeof FLAGS.VALUES | ILogicFlag, TEntry, IHashKey[]>
-    = FirstableQueryConstructor<IHashKey, TEntry, IHashKey[], typeof FLAGS.VALUES | ILogicFlag>(
-      ((
-        tags?: ITagOrTags,
-        flags: IFlagOrFlags = [FLAGS.VALUES, FLAGS.AND]
-      ): IHashKey[] => {
-        if (!tags) {
-          if (!hasFlag(flags, FLAGS.NOT)) {
-            return [...this.hashes];
-          } else {
-            return [];
-          }
-        }
-
-        let results: IHashKey[] = [];
-
-        _logicMultiQuery<TEntry>(
-          this,
-          tags,
-          flags as any,
-          hashes => results = hashes
-        );
-
-        return results;
-      }),
-      QueryConstructor<
-        IHashKey,
-        TEntry,
-        typeof FLAGS.FIRST | ILogicFlag,
-        IHashKey | NoEntryFound,
-        IHashKey,
-        IHashKey | NoEntryFound,
-        typeof FLAGS.FIRST | ILogicFlag
-      >(this.hash, this)
-    );
+  //#endregion  
 
   //#endregion
 
   //#region Utility
 
-  // TODO: lazy load this
-  any: IFullQuery<boolean, typeof FLAGS.FIRST | ILogicFlag, TEntry, boolean>
-    = QueryConstructor<
-      boolean,
-      TEntry,
-      ILogicFlag | typeof FLAGS.FIRST,
-      boolean,
-      boolean,
-      boolean,
-      ILogicFlag | typeof FLAGS.FIRST
-    >(
-      (tags: ITagOrTags, options?: IFlagOrFlags<typeof FLAGS.FIRST | ILogicFlag>): boolean => {
-        return !!this.first(tags, options);
-      },
-      this
+  get any(): ISpecificQuery<boolean, ResultType.First, TEntry> {
+    return this._any ??= SpecificQueryConstructor<boolean, ResultType.First, TEntry>(
+      this,
+      ResultType.First,
+      {
+        transform: result => result !== undefined
+      }
     );
+  };
 
-  // TODO: lazy load this
-  count: IFullQuery<number, ILogicFlag, TEntry, number>
-    = QueryConstructor<
-      number,
-      TEntry,
-      ILogicFlag,
-      number,
-      number,
-      number,
-      ILogicFlag
-    >(
-      (tags: ITagOrTags, options?: IFlagOrFlags<ILogicFlag>): number => {
-        return this.values(tags, options).length;
-      },
-      this
-    );
+  get count(): ISpecificQuery<number, ResultType.First, TEntry> {
+    if (!this._count) {
+      const counter = SpecificQueryConstructor<IHashKey, ResultType.Set, TEntry>(
+        this,
+        ResultType.Set,
+        {
+          transform: false,
+          allOnNoParams: true
+        }
+      );
+
+      const proxy = (...args: any[]) => counter(...args).size;
+      proxy.not = (...args: any[]) => counter.not(...args).size
+
+      this._count = proxy as ISpecificQuery<number, ResultType.First, TEntry>;
+    }
+
+
+    return this._count;
+  };
 
   //#endregion
 
@@ -875,7 +722,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
 
     // undefined means nothing gets touched
     if (entries === undefined) {
-      tags.forEach(tag => {
+      (tags as Set<ITag>).forEach(tag => {
         if (!this._allTags.has(tag)) {
           this._allTags.add(tag);
           this._hashesByTag.set(tag, new Set<IHashKey>());
@@ -1006,7 +853,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
   add(
     entry: TEntry | IInputEntryWithTags<TEntry>[] | IInputEntryWithTagsObject<TEntry>,
     tags?: ITagOrTags | IInputEntryWithTagsObject<TEntry>
-  ): ITag | IHashKey | (IHashKey | NoEntries)[] | NoEntries | IHashKey[] {
+  ): IHashKey | (IHashKey | NoEntries)[] | NoEntries | IHashKey[] {
     // InputEntryWithTagsObject<TEntry>[] | InputEntryWithTagsArray<TEntry>[] | TEntry
     if (isArray(entry) && !tags) {
       // InputEntryWithTagsArray<TEntry>[] | TEntry
@@ -1037,7 +884,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
       : toSet(tags);
 
     // if we're only provided an entry argument, then it's just for a tagless entry:
-    if (!tags || !tags.size) {
+    if (!tags || !(tags as Set<ITag>).size) {
       // add the new empty entry:
       this._addEntry(<TEntry>entry, hash);
 
@@ -1045,7 +892,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
     } // if we have tags howerver~
     else {
       // set the entries by tag.
-      tags.forEach(t => {
+      (tags as Set<ITag>).forEach(t => {
         this._allTags.add(t);
         if (this._hashesByTag.has(t)) {
           this._hashesByTag.get(t)!.add(hash);
@@ -1227,126 +1074,269 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
   //#region Remove Entries
 
   /**
-   * Remove all entries that match the tags.
-   * 
-   * @returns the number of removed entries
+   * Remove entries matching a query from the current dex while returning the results as well.
    */
-  remove(
-    tags: ITag[],
-    options?: (ILogicFlag)[],
-    cleanEmptyTags?: boolean
-  ): number;
+  get take(): IFullQuery<TEntry, ResultType.Array, TEntry> {
+    if (!this._take) {
+      const toRemove = FullQueryConstructor<TEntry, ResultType.Array, TEntry>(
+        this,
+        ResultType.Array
+      );
+
+      const proxy = (...args: any[]) => {
+        const result = toRemove(...args);
+
+        if (result instanceof Dex) {
+          this.remove(result.entries.values);
+        } else {
+          this.remove(result);
+        }
+
+        return result;
+      }
+
+      proxy.not = (...args: any[]) => {
+        const result = toRemove.not(...args);
+
+        if (result instanceof Dex) {
+          this.remove(result.entries.values);
+        } else {
+          this.remove(result);
+        }
+
+        return result;
+      }
+
+      this._take = proxy as IFullQuery<TEntry, ResultType.Array, TEntry>;
+    }
+
+    return this._take;
+  }
 
   /**
-   * Used to remove matching entries from the dex, or the desired tag.
-   * 
-   * @returns the number of removed entries
+   * Remove the matching entry from the dex.
    */
   remove(
-    target: IBreakable<[entry?: TEntry, tag?: ITag], boolean>,
-    cleanEmptyTags?: boolean
-  ): number;
+    hashKey: IHashKey,
+    options?: {
+      cleanEmptyTags?: boolean
+    }
+  ): void;
+
+  /**
+   * Used to remove matching entries from the dex.
+   */
+  remove(
+    hashKeys: Iterable<IHashKey>,
+    options?: {
+      cleanEmptyTags?: boolean
+    }
+  ): void;
 
   /**
    * Used to remove an entry from the dex
-   * 
-   * @returns the number of removed entries
    */
   remove(
-    target: TEntry,
-    cleanEmptyTags?: boolean
-  ): number;
+    entry: TEntry,
+    options?: {
+      cleanEmptyTags?: boolean
+    }
+  ): void;
 
   /**
-   * Used to remove an entry from the dex by key
-   * 
-   * @returns the number of removed entries
+   * Used to remove any number of entries from the dex.
    */
   remove(
-    target: IHashKey,
-    cleanEmptyTags?: boolean
-  ): number;
+    entries: Iterable<TEntry>,
+    options?: {
+      cleanEmptyTags?: boolean
+    }
+  ): void;
+
+  /**
+   * Remove the matching entry from the dex for a specific tag.
+   */
+  remove(
+    hashKey: IHashKey,
+    forTag: ITag,
+    options?: {
+      leaveUntaggedEntries?: boolean,
+      cleanEmptyTags?: boolean
+    }
+  ): void;
+
+  /**
+   * Used to unlink matching entries from the dex for a specific tag.
+   */
+  remove(
+    hashKeys: Iterable<IHashKey>,
+    forTag: ITag,
+    options?: {
+      leaveUntaggedEntries?: boolean,
+      cleanEmptyTags?: boolean
+    }
+  ): void;
+
+  /**
+   * Used to remove an entry from the dex for a specific tag.
+   */
+  remove(
+    entry: TEntry,
+    forTag: ITag,
+    options?: {
+      leaveUntaggedEntries?: boolean,
+      cleanEmptyTags?: boolean
+    }
+  ): void;
+
+  /**
+   * Used to remove any number of entries from the dex for a specific tag
+   */
+  remove(
+    entries: Iterable<TEntry>,
+    forTag: ITag,
+    options?: {
+      leaveUntaggedEntries?: boolean,
+      cleanEmptyTags?: boolean
+    }
+  ): void;
+
+  /**
+   * Remove the matching entry from the dex for a specific subset of tags.
+   */
+  remove(
+    hashKey: IHashKey,
+    forTags: Iterable<ITag>,
+    options?: {
+      leaveUntaggedEntries?: boolean,
+      cleanEmptyTags?: boolean
+    }
+  ): void;
+
+  /**
+   * Used to unlink matching entries from the dex for a specific subset of tags.
+   */
+  remove(
+    hashKeys: Iterable<IHashKey>,
+    forTags: Iterable<ITag>,
+    options?: {
+      leaveUntaggedEntries?: boolean,
+      cleanEmptyTags?: boolean
+    }
+  ): void;
+
+  /**
+   * Used to remove an entry from the dex for a specific subset of tags.
+   */
+  remove(
+    entry: TEntry,
+    forTags: Iterable<ITag>,
+    options?: {
+      leaveUntaggedEntries?: boolean,
+      cleanEmptyTags?: boolean
+    }
+  ): void;
+
+  /**
+   * Used to remove any number of entries from the dex for a specific subset of tags.
+   */
+  remove(
+    entries: Iterable<TEntry>,
+    forTags: Iterable<ITag>,
+    options?: {
+      leaveUntaggedEntries?: boolean,
+      cleanEmptyTags?: boolean
+    }
+  ): void;
 
   /**
    * Used to remove entries from the dex.
-   * 
-   * @returns the number of removed entries
    */
   remove(
-    target: TEntry
-      | IBreakable<[entry: TEntry, tag: ITag], boolean>
-      | IHashKey
-      | ITag[],
-    cleanEmptyTagsOrOptions: boolean | IFlag[] = false,
-    cleanEmptyTags: boolean = false,
-  ): number {
-    let removedCount = 0;
-    const emptiedTags: Set<ITag> = new Set();
-    // if it's a function we need to check all entries for all tags.
-    if (isFunction(target)) {
-      // TODO: different loops for just entry vs entry and tags.
-      this._allTags.forEach(t => {
-        const hashesForTag = Array.from(this._hashesByTag.get(t)!);
-        // remove the matching entries for this tag
-        Dex._removeFromArray(
-          hashesForTag,
-          isFunction(target)
-            ? (e) => target(this._entriesByHash.get(e)!, t)
-            : this.hash(target),
-          (removed: IHashKey) => {
-            // then remove the tag for the entry
-            this._tagsByEntryHash.get(removed)!.delete(t);
+    targets: Iterable<TEntry> | Iterable<IHashKey> | IHashKey | TEntry,
+    optionsOrTags?: ITagOrTags | {
+      leaveUntaggedEntries?: boolean,
+      cleanEmptyTags?: boolean
+    },
+    options?: {
+      leaveUntaggedEntries?: boolean,
+      cleanEmptyTags?: boolean
+    }
+  ): void {
+    const config = options !== undefined
+      ? options
+      : (isObject(optionsOrTags) && !isArray(optionsOrTags))
+        ? optionsOrTags
+        : undefined;
 
-            // remove entries with no remaining tags:
-            if (!this._tagsByEntryHash.get(removed)!.size) {
-              this._removeItemAt(removed);
-              removedCount++;
+    const tags: Iterable<ITag> | undefined = isIterable(optionsOrTags)
+      ? optionsOrTags as Iterable<ITag>
+      : optionsOrTags !== undefined
+        ? [optionsOrTags] as Iterable<ITag>
+        : undefined;
+
+    if (!config) {
+      if (isIterable(targets)) {
+        for (const entryOrKey of targets) {
+          const hash = this.hash(entryOrKey);
+          this.untagEntry(hash, tags);
+          if (!this._tagsByEntryHash.get(hash)?.size) {
+            this._removeTaglessEntry(hash);
+          }
+        }
+      } else {
+        const hash = this.hash(targets);
+        this.untagEntry(hash, tags);
+        if (!this._tagsByEntryHash.get(hash)?.size) {
+          this._removeTaglessEntry(hash);
+        }
+      }
+    } else {
+      if (isIterable(targets)) {
+        for (const entryOrKey of targets) {
+          let tagsToCheck: Set<ITag> | undefined;
+          const hash = this.hash(entryOrKey);
+          if ((config as any)?.cleanEmptyTags) {
+            tagsToCheck = this._tagsByEntryHash.get(hash);
+          }
+
+          this.untagEntry(hash, tags);
+          if (!(config as any)?.leaveUntaggedEntries && !this._tagsByEntryHash.get(hash)?.size) {
+            this._removeTaglessEntry(hash);
+          }
+          if (tagsToCheck) {
+            for (const tag in tagsToCheck) {
+              if (!this._hashesByTag.get(tag)?.size) {
+                this._removeEmptyTag(tag);
+              }
             }
           }
-        );
-
-        if (hashesForTag.length === 0) {
-          emptiedTags.add(t);
+        }
+      } else {
+        let tagsToCheck: Set<ITag> | undefined;
+        const hash = this.hash(targets);
+        if ((config as any)?.cleanEmptyTags) {
+          tagsToCheck = this._tagsByEntryHash.get(hash);
         }
 
-        this._hashesByTag.set(t, new Set(hashesForTag));
-      });
-    } // array of tags
-    else if (isArray(target)) {
-      if (isArray(cleanEmptyTagsOrOptions) && cleanEmptyTagsOrOptions.length) {
-        const flags = cleanEmptyTagsOrOptions as IFlag[];
-
-        const hashesToRemove = this.keys(target, flags as any);
-        hashesToRemove.forEach(hash => {
-          this.remove(hash)
-        });
-
-        return hashesToRemove.length;
-      } else {
-        target.forEach((tag: ITag) => {
-
-        });
-      }
-    } // remove by match/hash
-    else {
-      const hash = this.hash(target);
-      const effectedTags = this._tagsByEntryHash.get(hash);
-      if (effectedTags) {
-        effectedTags.forEach(t => {
-          this._hashesByTag.get(t)!.delete(hash);
-          if (!this._hashesByTag.get(t)!.size) {
-            emptiedTags.add(t);
+        this.untagEntry(hash, tags);
+        if (!(config as any)?.leaveUntaggedEntries && !this._tagsByEntryHash.get(hash)?.size) {
+          this._removeTaglessEntry(hash);
+        }
+        if (tagsToCheck) {
+          for (const tag in tagsToCheck) {
+            if (!this._hashesByTag.get(tag)?.size) {
+              this._removeEmptyTag(tag);
+            }
           }
-        });
-        this._removeItemAt(hash);
+        }
       }
     }
+  }
 
-    if (cleanEmptyTagsOrOptions === true || cleanEmptyTags) {
-      this.drop(...emptiedTags);
-    }
-
-    return removedCount;
+  private _removeTaglessEntry(key: IHashKey) {
+    this._entriesByHash.delete(key);
+    this._allHashes.delete(key);
   }
 
   //#endregion
@@ -1354,73 +1344,291 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
   //#region Remove Tags
 
   /**
-   * Used to remove all empty tags.
+   * Remove all tags from one entry
    */
-  clean(): TEntry[];
+  untagEntry(entry: TEntry | IHashKey): void;
 
   /**
-   * Used to remove tags without dropping related items.
+   * Remove all the provided tags from one entry
    */
-  clean(...tags: ITag[]): void;
+  untagEntry(entry: TEntry | IHashKey, tagToRemove?: ITag): void;
 
-  clean(...tags: ITag[]): TEntry[] | void {
-    if (!tags?.length) {
-      throw new NotImplementedError("clean");
-    } else {
-      const effectedEntries = [];
-      tags.forEach(tag => {
-        if (this.has(tag) && this._hashesByTag.get(tag)!.size) {
-          throw new NotImplementedError("clean");
-        }
-      });
-      throw new NotImplementedError("clean");
+  /**
+   * Remove all the provided tags from one entry
+   */
+  untagEntry(entry: TEntry | IHashKey, tagsToRemove?: ITags): void;
+
+  /**
+   * Remove all the provided tags from one entry
+   */
+  untagEntry(entry: TEntry | IHashKey, ...tagsToRemove: ITag[]): void;
+
+  /**
+   * Remove all the provided tags from one entry
+   */
+  untagEntry(entry: TEntry | IHashKey, tagsToRemove?: ITagOrTags): void {
+    const hash = this.hash(entry);
+    const currentTagsForEntry = this._tagsByEntryHash.get(hash);
+    if (!tagsToRemove) {
+      for (const tag of currentTagsForEntry ?? []) {
+        const currentEntriesForTag = this._hashesByTag.get(tag);
+        currentEntriesForTag?.delete(hash);
+      }
+
+      currentTagsForEntry?.clear();
+    } else if (isIterable(tagsToRemove)) {
+      for (const tag of tagsToRemove) {
+        const currentEntriesForTag = this._hashesByTag.get(tag);
+        currentTagsForEntry?.delete(tag);
+        currentEntriesForTag?.delete(hash);
+      }
+    } else if (isTag(tagsToRemove)) {
+      if (currentTagsForEntry) {
+        currentTagsForEntry.delete(tagsToRemove);
+      }
+      const currentEntriesForTag = this._hashesByTag.get(tagsToRemove);
+      currentEntriesForTag?.delete(hash);
     }
   }
 
   /**
-   * Remove whole tags from the dex, and any entries under them that have no remaining tags.
-   * 
-   * @returns A set of the effected entries.
+   * Remove all tags from one entry
    */
-  drop(
-    ...tags: Array<ITag>
-  ): Set<TEntry> {
-    const effectedEntries = new Set<TEntry>;
-    tags.forEach(t => {
-      if (this._allTags.delete(t)) {
-        this._hashesByTag.get(t)!.forEach(hash => {
-          // mark the entry as effected
-          effectedEntries.add(this._entriesByHash.get(hash)!);
+  untagEntries(entries: Iterable<TEntry> | Iterable<IHashKey>): void;
 
-          // remove for the entry
-          this._tagsByEntryHash.get(hash)!.delete(t);
+  /**
+   * Remove all the provided tags from one entry
+   */
+  untagEntries(entries: Iterable<TEntry> | Iterable<IHashKey>, tagToRemove?: ITag): void;
 
-          // if there's no tags left for the given entry"
-          if (!this._tagsByEntryHash.get(hash)!.size) {
-            this._removeItemAt(hash);
-          }
-        });
+  /**
+   * Remove all the provided tags from one entry
+   */
+  untagEntries(entries: Iterable<TEntry> | Iterable<IHashKey>, tagsToRemove?: ITags): void;
 
-        // remove all the tag entries
-        this._hashesByTag.delete(t);
-      }
-    });
+  /**
+   * Remove all the provided tags from one entry
+   */
+  untagEntries(entries: Iterable<TEntry> | Iterable<IHashKey>, ...tagsToRemove: ITag[]): void;
 
-    return effectedEntries;
+  /**
+   * Remove all the provided tags from one entry
+   */
+  untagEntries(entries: Iterable<TEntry> | Iterable<IHashKey>, tagsToRemove?: ITagOrTags): void {
+    for (const entry in entries) {
+      this.untagEntry(entry, tagsToRemove as any);
+    }
   }
 
   /**
-   * Clear all tags from a given entry.
+   * Remove all tags from the provided entry
    */
-  clear(entry: TEntry | IHashKey): void;
+  untag(entry: TEntry | IHashKey): void
+
+  /**
+   * Remove all tags from the provided entries
+   */
+  untag(entries: Iterable<TEntry> | Iterable<IHashKey>): void
+
+  /**
+   * Remove the given tags from the provided entry
+   */
+  untag(entry: TEntry | IHashKey, tagToRemove?: ITag): void
+
+  /**
+   * Remove the given tags from the provided entries
+   */
+  untag(entries: Iterable<TEntry> | Iterable<IHashKey>, tagToRemove?: ITag): void
+
+  /**
+   * Remove the given tags from the provided entry
+   */
+  untag(entry: TEntry | IHashKey, tagsToRemove?: ITagOrTags): void
+
+  /**
+   * Remove the given tags from the provided entries
+   */
+  untag(entries: Iterable<TEntry> | Iterable<IHashKey>, tagsToRemove?: ITagOrTags): void
+
+  /**
+   * Remove the given tags from the provided entry
+   */
+  untag(entry: TEntry | IHashKey, ...tagsToRemove: ITag[]): void
+
+  /**
+   * Remove the given tags from the provided entries
+   */
+  untag(entries: Iterable<TEntry> | Iterable<IHashKey>, ...tagsToRemove: ITag[]): void
+
+  untag(
+    entries: Iterable<TEntry> | Iterable<IHashKey> | TEntry | IHashKey,
+    tags?: ITagOrTags
+  ): void {
+    if (isIterable(entries)) {
+      this.untagEntries(entries as Iterable<TEntry> | Iterable<IHashKey>, tags as ITags);
+    } else {
+      this.untagEntry(entries, tags as ITag | undefined);
+    }
+  }
+
+  /**
+   * Used to remove a whole tag from the dex
+   */
+  drop(
+    tag: ITag,
+    options?: {
+      leaveEmptyTags?: boolean,
+      cleanUntaggedEntries?: boolean
+    }
+  ): void;
+
+  drop(
+    tags: ITagOrTags,
+    options?: {
+      leaveEmptyTags?: boolean,
+      cleanUntaggedEntries?: boolean
+    }
+  ): void {
+    if (!options?.cleanUntaggedEntries) {
+      if (isIterable(tags)) {
+        for (const tag of tags) {
+          this.resetTag(tag);
+          if (!options?.leaveEmptyTags) {
+            this._removeEmptyTag(tag);
+          }
+        }
+      } else {
+        this.resetTag(tags);
+        if (!options?.leaveEmptyTags) {
+          this._removeEmptyTag(tags);
+        }
+      }
+    } else {
+      if (isIterable(tags)) {
+        for (const tag of tags) {
+          const hashesForTag = this._hashesByTag.get(tag);
+          this.resetTag(tag);
+          if (!options?.leaveEmptyTags) {
+            this._removeEmptyTag(tag);
+          }
+
+          for (const hash of hashesForTag ?? []) {
+            if (!this._tagsByEntryHash.get(hash)?.size) {
+              this._removeTaglessEntry(hash);
+            }
+          }
+        }
+      } else {
+        const hashesForTag = this._hashesByTag.get(tags);
+        this.resetTag(tags);
+        if (!options?.leaveEmptyTags) {
+          this._removeEmptyTag(tags);
+        }
+        for (const hash of hashesForTag ?? []) {
+          if (!this._tagsByEntryHash.get(hash)?.size) {
+            this._removeTaglessEntry(hash);
+          }
+        }
+      }
+    }
+  }
+
+  private _removeEmptyTag(tag: ITag) {
+    this._hashesByTag.delete(tag);
+    this._allTags.delete(tag);
+  }
+
+  /**
+   * Clear all entries from a given tag without removing anything by default.
+   */
+  resetTag(
+    tag: ITag,
+    options?: {
+      cleanUntaggedEntries?: boolean,
+      cleanEmptyTags?: boolean
+    }
+  ): void;
+
+  /**
+   * Clear all entries from a given set of tags.
+   */
+  resetTag(
+    tags: ITagOrTags,
+    options?: {
+      cleanUntaggedEntries?: boolean,
+      cleanEmptyTags?: boolean
+    }
+  ): void;
+
+  resetTag(
+    tags: ITagOrTags,
+    options?: {
+      cleanUntaggedEntries?: boolean,
+      cleanEmptyTags?: boolean
+    }
+  ): void {
+    const tagsToReset = (isIterable(tags)
+      ? tags
+      : [tags]) as Iterable<ITag>;
+    
+    for (const tag in tagsToReset) {
+      for (const hash in this._hashesByTag.get(tag) ?? []) {
+        const tagsForHash = this._tagsByEntryHash.get(hash);
+        tagsForHash!.delete(tag);
+        if (!tagsForHash!.size && options?.cleanUntaggedEntries) {
+          this._removeTaglessEntry(hash);
+        }
+      }
+
+      if (options?.cleanEmptyTags) {
+        this._removeEmptyTag(tag);
+      }
+    }
+  }
 
   //#endregion
 
-  //#region Remove Values
+  //#region Remove Various Values
 
   /**
-   * Drop all tags and entries at once.
+   * Used to remove all empty tags and entries.
    */
+  clean(): void;
+
+  /**
+   * Clean the dex of any empty tags and/or entries.
+   */
+  clean(options: { taglessEntries?: boolean, emptyTags?: boolean }): void;
+
+  clean(options: {
+    taglessEntries?: boolean,
+    emptyTags?: boolean
+  } = {
+      taglessEntries: true,
+      emptyTags: true
+    }): void {
+    if (options.taglessEntries) {
+      for (const [k, t] of this._tagsByEntryHash) {
+        if (!t.size) {
+          this._removeTaglessEntry(k);
+        }
+      }
+    }
+
+    if (options.emptyTags) {
+      for (const [t, k] of this._hashesByTag) {
+        if (!k.size) {
+          this._removeEmptyTag(t);
+        }
+      }
+    }
+  }
+
+  /**
+   * Drop all tags and entries at once, clearing the whole dex of all data.
+   */
+  clear(): void;
+
   clear(): void {
     this._allTags.clear();
     this._allHashes.clear();
@@ -1463,6 +1671,12 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
   //#endregion
 
   //#region Looping
+
+  *[Symbol.iterator](): Iterator<[IHashKey, TEntry, Set<ITag>]> {
+    for (const hash in this._allHashes) {
+      yield [hash, this.get(hash)!, this._tagsByEntryHash.get(hash)!];
+    }    
+  }
 
   //#region For
 
