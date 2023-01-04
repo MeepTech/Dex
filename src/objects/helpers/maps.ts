@@ -1,12 +1,12 @@
-import { IBreakable } from "../../utilities/loops";
-import { IReadOnlyDex } from "../readonly";
-import { IEntry } from "../subsets/entries";
-import { ITag } from "../subsets/tags";
+import { IBreakable } from "../../utilities/iteration";
+import { IReadOnlyDex } from "../idex";
+import { Entry } from "../subsets/entries";
+import { Tag } from "../subsets/tags";
 
 /**
  * Interface for the map helper object.
  */
-export interface IMapper<TEntry> {
+export interface Mapper<TEntry> {
 
   /**
    * Get a map of the entries and their tags, or map all unique pairs to your own array of values.
@@ -17,28 +17,28 @@ export interface IMapper<TEntry> {
    * @returns A mapped array of values, or a Map<Entry, Tag[]> if no transform was provided.
    */
   <TResult = undefined>(
-    transform?: IBreakable<[entry: TEntry, tag: ITag, index: number], TResult>,
+    transform?: IBreakable<[entry: TEntry, tag: Tag, index: number], TResult>,
     outerLoopType?: 'entry' | 'tag'
-  ): TResult extends undefined ? Map<TEntry, Set<ITag>> : TResult[];
+  ): TResult extends undefined ? Map<TEntry, Set<Tag>> : TResult[];
 
   /**
    * Map all unique entries
    */
   entries: <TResult = TEntry>(
-    transform?: IBreakable<[entry: TEntry, index: number, tags: Set<ITag>], TResult>
+    transform?: IBreakable<[entry: TEntry, index: number, tags: Set<Tag>], TResult>
   ) => TResult[];
 
   /**
    * Map all unique tags
    */
-  tags: <TResult = ITag>(
-    transform?: IBreakable<[tag: ITag, index: number, entries: Set<TEntry>], TResult>
+  tags: <TResult = Tag>(
+    transform?: IBreakable<[tag: Tag, index: number, entries: Set<TEntry>], TResult>
   ) => TResult[];
 }
 
 /** @internal */
-export function MapperConstructor<TEntry extends IEntry>(dex: IReadOnlyDex<TEntry>): IMapper<TEntry> {
-  const func = dex.toMap as IMapper<TEntry>;
+export function MapperConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry>): Mapper<TEntry> {
+  const func = dex.toMap as Mapper<TEntry>;
   func.tags = dex.splay;
   func.entries = dex.toArray;
 

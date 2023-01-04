@@ -1,4 +1,5 @@
-import { isArray } from "./validators";
+import Dex from "../objects/dex";
+import { isArray, isIterable, isNumber, isObject, isString, isSymbol } from "./validators";
 
 /**
  * Can be used to for(of) any iterable
@@ -28,6 +29,73 @@ export function map<T, R>(items: Iterable<T>, transform: (item: T) => R): Iterab
   } 
 
   return result;
+}
+
+/**
+ * Returns the size of the given set
+ */
+export function count(items: Set<any>): number;
+
+/**
+ * Returns the size of the given map
+ */
+export function count(items: Map<any, any>): number;
+
+/**
+ * Returns the length of the given array
+ */
+export function count(items: Array<any>): number;
+
+/**
+ * Returns the number of entries in the given dex
+ */
+export function count(items: Dex<any>): number;
+
+/**
+ * Returns the number of values (size/length/count) of the given set of items.
+ */
+export function count(items: Iterable<any>): number;
+
+/**
+ * Returns the number of enumerable properties in the object
+ */
+export function count(items: object): number;
+
+/**
+ * Returns the number of chars in the string
+ */
+export function count(items: string): number;
+
+/**
+ * Returns the number
+ */
+export function count(items: number): number;
+
+/**
+ * Returns 1: for 1 unique symbol.
+ */
+export function count(items: symbol): 1;
+
+export function count(items: Iterable<any> | object | string | number | symbol): number {
+  if (isArray(items)) {
+    return items.length;
+  } else if (items instanceof Set || items instanceof Map) {
+    return items.size;
+  } else if (items instanceof Dex) {
+    return items.numberOfEntries;
+  } else if (isIterable(items)) {
+    return [...items].length;
+  } else if (isObject(items)) {
+    return Object.keys(items).length;
+  } else if (isString(items)) {
+    return (items as string).length;
+  } else if (isNumber(items)) {
+    return items;
+  } else if (isSymbol(items)) {
+    return 1;
+  } else {
+    throw new Error("Unrecognized Type For Counting: " + (typeof items))
+  }
 }
 
 /**

@@ -1,12 +1,12 @@
-import { IBreakable } from "../../utilities/loops";
-import { IReadOnlyDex } from "../readonly";
-import { IEntry } from "../subsets/entries";
-import { ITag } from "../subsets/tags";
+import { IBreakable } from "../../utilities/iteration";
+import { IReadOnlyDex } from "../idex";
+import { Entry } from "../subsets/entries";
+import { Tag } from "../subsets/tags";
 
 /**
  * Interface for the for helper object.
  */
-export interface ILooper<TEntry> {
+export interface Looper<TEntry> {
 
   /**
    * Do some logic for each unique tag-entry pair.
@@ -17,7 +17,7 @@ export interface ILooper<TEntry> {
    * @alias {@link pairs}
    * @alias {@link Dex.forEach}
    */
-  (func: IBreakable<[entry: TEntry, tag: ITag, index: number], any>,
+  (func: IBreakable<[entry: TEntry, tag: Tag, index: number], any>,
     outerLoopType?: 'entry' | 'tag'
   ): void;
 
@@ -29,7 +29,7 @@ export interface ILooper<TEntry> {
    * @alias {@link Dex.forEachTag}
    */
   tags: (
-    func: IBreakable<[tag: ITag, index: number, entries: Set<TEntry>], any>
+    func: IBreakable<[tag: Tag, index: number, entries: Set<TEntry>], any>
   ) => void;
 
   /**
@@ -40,7 +40,7 @@ export interface ILooper<TEntry> {
    * @alias {@link Dex.forEachEntry}
    */
   entries: (
-    func: IBreakable<[entry: TEntry, index: number, tags: Set<ITag>], any>
+    func: IBreakable<[entry: TEntry, index: number, tags: Set<Tag>], any>
   ) => void;
 
   /**
@@ -52,14 +52,14 @@ export interface ILooper<TEntry> {
    * @alias {@link Dex.forEach}
    */
   pairs: (
-    func: IBreakable<[entry: TEntry, tag: ITag, index: number], any>,
+    func: IBreakable<[entry: TEntry, tag: Tag, index: number], any>,
     outerLoopType?: 'entry' | 'tag'
   ) => void;
 }
 
 /** @internal */
-export function LooperConstructor<TEntry extends IEntry>(dex: IReadOnlyDex<TEntry>): ILooper<TEntry> {
-  const func = dex.forEach as ILooper<TEntry>;
+export function LooperConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry>): Looper<TEntry> {
+  const func = dex.forEach as Looper<TEntry>;
   func.tags = dex.forEachTag;
   func.entries = dex.forEachEntry;
   func.pairs = dex.forEach;

@@ -1,4 +1,4 @@
-import { IBreakable, Break } from "../utilities/loops";
+import { IBreakable, Break } from "../utilities/iteration";
 import {
   isArray,
   isComplexEntry,
@@ -14,59 +14,56 @@ import {
 import IUnique from "./unique";
 import { v4 as uuidv4 } from 'uuid';
 import {
-  IComplexEntry,
-  IEntry,
+  ComplexEntry,
+  Entry,
   EntryMapConstructor,
-  IEntryOrNone,
-  IGuardFunction,
-  IEntrySet,
-  IInputEntryWithTags,
-  IInputEntryWithTagsArray,
-  IInputEntryWithTagsObject,
+  EntryOrNone,
+  IGuard,
+  EntrySet,
+  XEntryWithTags,
+  XEntryWithTagsTuple,
+  XEntryWithTagsObject,
   NoEntries,
-  IArrayGuardFunction,
+  IArrayGuard,
   NO_ENTRIES_FOR_TAG,
-  IObjectGuardFunction,
+  IObjectGuard,
   IHasher
 } from "./subsets/entries";
-import { ILooper, LooperConstructor } from "./helpers/loops";
-import { IMapper, MapperConstructor } from "./helpers/maps";
+import { Looper, LooperConstructor } from "./helpers/loops";
+import { Mapper, MapperConstructor } from "./helpers/maps";
 import {
-  ITag,
-  ITagSet,
+  Tag,
+  TagSet,
   TagSetConstructor,
-  ITagOrTags,
+  TagOrTags,
   toSet,
-  ITags
+  Tags
 } from "./subsets/tags";
 import {
-  IHashKey,
-  IHashSet,
-  HashSetConstructor,
-  IHashOrHashes
-} from "./subsets/hashes";
-import { IReadOnlyDex } from "./readonly";
-import { CopierConstructor, ICopier } from './helpers/copy';
+  HashKey,
+  HashSet,
+  HashSetConstructor} from "./subsets/hashes";
+import { IReadOnlyDex } from "./idex";
+import { CopierConstructor, Copier } from './helpers/copy';
 import {
-  IFullQuery,
-  IFirstableQuery,
+  FullQuery,
+  FirstableQuery,
   _logicMultiQuery,
   _logicFirstQuery,
   FullQueryConstructor,
-  ISpecificQuery,
+  SpecificQuery,
   SpecificQueryConstructor,
   FirstableQueryConstructor
 } from "./queries/queries";
 import { NoEntryFound, NO_RESULT, ResultType } from "./queries/results";
-import { IQueryFilterInput } from "./queries/filters";
 
 /**
  * Extra config options for a dex.
  */
-export interface Config<TEntry extends IEntry = IEntry> {
-  entryGuard?: IGuardFunction<TEntry>,
-  arrayGuard?: IArrayGuardFunction<TEntry>,
-  objectGuard?: IObjectGuardFunction<TEntry>,
+export interface Config<TEntry extends Entry = Entry> {
+  entryGuard?: IGuard<TEntry>,
+  arrayGuard?: IArrayGuard<TEntry>,
+  objectGuard?: IObjectGuard<TEntry>,
   hasher?: IHasher
 }
 
@@ -75,31 +72,31 @@ export interface Config<TEntry extends IEntry = IEntry> {
  * 
  * This represents a many to many replationship of Tags to Entries.
  */
-export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex<TEntry> {
+export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<TEntry> {
   // data
   private readonly _allTags
-    : Set<ITag>
-    = new Set<ITag>();
+    : Set<Tag>
+    = new Set<Tag>();
   private readonly _allHashes
-    : Set<IHashKey>
-    = new Set<IHashKey>();
+    : Set<HashKey>
+    = new Set<HashKey>();
   private readonly _hashesByTag
-    : Map<ITag, Set<IHashKey>>
-    = new Map<ITag, Set<IHashKey>>();
-  private readonly _tagsByEntryHash
-    : Map<IHashKey, Set<ITag>>
-    = new Map<IHashKey, Set<ITag>>();
+    : Map<Tag, Set<HashKey>>
+    = new Map<Tag, Set<HashKey>>();
+  private readonly _tagsByHash
+    : Map<HashKey, Set<Tag>>
+    = new Map<HashKey, Set<Tag>>();
   private readonly _entriesByHash
-    : Map<IHashKey, TEntry>
-    = new Map<IHashKey, TEntry>();
+    : Map<HashKey, TEntry>
+    = new Map<HashKey, TEntry>();
 
   // config
   /** @readonly */
   private _guards
     : {
-      entry: IGuardFunction<TEntry>
-      array: IArrayGuardFunction<TEntry>,
-      object: IObjectGuardFunction<TEntry>,
+      entry: IGuard<TEntry>
+      array: IArrayGuard<TEntry>,
+      object: IObjectGuard<TEntry>,
     } = null!;
   /** @readonly */
   private _hasher: IHasher
@@ -107,24 +104,24 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
 
   // lazy
   // - queries
-  private _query?: IFullQuery<TEntry, ResultType>;
-  private _filter?: ISpecificQuery<TEntry, ResultType.Dex>;
-  private _values?: IFirstableQuery<TEntry, ResultType.Array>;
-  private _keys?: IFirstableQuery<IHashKey, ResultType.Set, TEntry>;
-  private _first?: ISpecificQuery<TEntry, ResultType.First>;
-  private _any?: ISpecificQuery<boolean, ResultType.First, TEntry>;
-  private _count?: ISpecificQuery<number, ResultType.First, TEntry>;
-  private _take?: IFullQuery<TEntry, ResultType.Array>;
+  private _query?: FullQuery<TEntry, ResultType, TEntry>;
+  private _filter?: SpecificQuery<TEntry, ResultType.Dex, TEntry>;
+  private _values?: FirstableQuery<TEntry, ResultType.Array, TEntry>;
+  private _keys?: FirstableQuery<HashKey, ResultType.Set, TEntry>;
+  private _first?: SpecificQuery<TEntry, ResultType.First, TEntry>;
+  private _any?: SpecificQuery<boolean, ResultType.First, TEntry>;
+  private _count?: SpecificQuery<number, ResultType.First, TEntry>;
+  private _take?: FullQuery<TEntry, ResultType.Array, TEntry>;
 
   // - subsets
-  private _hashSet?: IHashSet<TEntry>;
-  private _tagSet?: ITagSet<TEntry>;
-  private _entrySet?: IEntrySet<TEntry>;
+  private _hashSet?: HashSet<TEntry>;
+  private _tagSet?: TagSet<TEntry>;
+  private _entrySet?: EntrySet<TEntry>;
 
   // - helpers
-  private _forLooper?: ILooper<TEntry>;
-  private _mapLooper?: IMapper<TEntry>;
-  private _copier?: ICopier<TEntry>;
+  private _forLooper?: Looper<TEntry>;
+  private _mapLooper?: Mapper<TEntry>;
+  private _copier?: Copier<TEntry>;
 
   //#region Defaults
 
@@ -133,7 +130,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    */
   static Defaults = {
     getHashFunction() {
-      return function (entry: IEntry) {
+      return function (entry: Entry) {
         return isUnique(entry)
           ? entry.getHashKey()
           : isSimpleEntry(entry)
@@ -144,14 +141,14 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
       }
     },
 
-    getArrayEntryGuardFunction<TEntry extends IEntry>() {
-      return function (entry: IEntry): entry is TEntry & IComplexEntry & any[] {
+    getArrayEntryGuardFunction<TEntry extends Entry>() {
+      return function (entry: Entry): entry is TEntry & ComplexEntry & any[] {
         return !isInputEntryWithTagsArray<TEntry>(entry);
       }
     },
 
-    getObjectEntryGuardFunction<TEntry extends IEntry>() {
-      return function (entry: IEntry): entry is TEntry & IComplexEntry & object & { [key: string]: any } {
+    getObjectEntryGuardFunction<TEntry extends Entry>() {
+      return function (entry: Entry): entry is TEntry & ComplexEntry & object & { [key: string]: any } {
         return isObject(entry)
           && (!entry.hasOwnProperty("entry")
             && (!entry.hasOwnProperty("tags")
@@ -159,12 +156,12 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
       }
     },
 
-    getEntryGuardFunction<TEntry extends IEntry>(
-      arrayGuard: IArrayGuardFunction<TEntry>,
-      objectGuard: IObjectGuardFunction<TEntry>
-    ): IGuardFunction<TEntry> {
+    getEntryGuardFunction<TEntry extends Entry>(
+      arrayGuard: IArrayGuard<TEntry>,
+      objectGuard: IObjectGuard<TEntry>
+    ): IGuard<TEntry> {
       return function (
-        entry: IEntry
+        entry: Entry
       ): entry is TEntry {
         return isSimpleEntry(entry)
           || (isArray(entry)
@@ -198,82 +195,82 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
   /**
    * Make a new dex with just one empty tag
    */
-  constructor(tag: ITag, options?: Config<TEntry>)
+  constructor(tag: Tag, options?: Config<TEntry>)
 
   /**
    * Make a new dex with just one empty tag
    */
-  constructor(options: Config<TEntry>, tag: ITag)
+  constructor(options: Config<TEntry>, tag: Tag)
 
   /**
    * Make a new dex with just empty tags
    */
-  constructor(...tags: ITag[])
+  constructor(...tags: Tag[])
 
   /**
    * Make a new dex with just empty tags
    */
-  constructor(options: Config<TEntry>, ...tags: ITag[])
+  constructor(options: Config<TEntry>, ...tags: Tag[])
 
   /**
    * Make a new dex with just empty tags
    */
-  constructor(options: Config<TEntry>, tags: ITag[])
+  constructor(options: Config<TEntry>, tags: Tag[])
 
   /**
    * Make a new dex with just empty tags
    */
-  constructor(tags: ITagOrTags, options?: Config<TEntry>)
+  constructor(tags: TagOrTags, options?: Config<TEntry>)
 
   /**
    * Make a new dex from entries with their tags. 
    */
-  constructor(entriesWithTags: IInputEntryWithTagsArray<TEntry>[], options?: Config<TEntry>)
+  constructor(entriesWithTags: XEntryWithTagsTuple<TEntry>[], options?: Config<TEntry>)
 
   /**
    * Make a new dex from entries with their tags. 
    */
-  constructor(options: Config<TEntry>, entriesWithTags: IInputEntryWithTagsArray<TEntry>[])
+  constructor(options: Config<TEntry>, entriesWithTags: XEntryWithTagsTuple<TEntry>[])
 
   /**
    * Make a new dex from an object with entries and tags
    */
-  constructor(entryWithTags: IInputEntryWithTagsObject<TEntry>, options?: Config<TEntry>)
+  constructor(entryWithTags: XEntryWithTagsObject<TEntry>, options?: Config<TEntry>)
 
   /**
    * Make a new dex from an object with entries and tags
    */
-  constructor(entriesWithTags: IInputEntryWithTags<TEntry>[], options?: Config<TEntry>)
+  constructor(entriesWithTags: XEntryWithTags<TEntry>[], options?: Config<TEntry>)
 
   /**
    * Make a new dex from an object with entries and tags
    */
-  constructor(options: Config<TEntry>, entryWithTags: IInputEntryWithTagsObject<TEntry>)
+  constructor(options: Config<TEntry>, entryWithTags: XEntryWithTagsObject<TEntry>)
 
   /**
    * Make a new dex from an object with entries and tags
    */
-  constructor(options: Config<TEntry>, entriesWithTags: IInputEntryWithTags<TEntry>[])
+  constructor(options: Config<TEntry>, entriesWithTags: XEntryWithTags<TEntry>[])
 
   /**
    * Make a new dex from an object with entries and tags
    */
-  constructor(...entriesWithTags: IInputEntryWithTagsObject<TEntry>[])
+  constructor(...entriesWithTags: XEntryWithTagsObject<TEntry>[])
 
   /**
    * Make a new dex from an object with entries and tags
    */
-  constructor(options: Config<TEntry>, ...entriesWithTags: IInputEntryWithTagsObject<TEntry>[])
+  constructor(options: Config<TEntry>, ...entriesWithTags: XEntryWithTagsObject<TEntry>[])
 
   /**
    * Make a new dex from an object with entries and tags
    */
-  constructor(options: Config<TEntry>, entryWithTags: IInputEntryWithTagsObject<TEntry>)
+  constructor(options: Config<TEntry>, entryWithTags: XEntryWithTagsObject<TEntry>)
 
   /**
    * Make a new dex from a map
    */
-  constructor(map: Map<IEntryOrNone<TEntry>, ITagOrTags>, options?: Config<TEntry>)
+  constructor(map: Map<EntryOrNone<TEntry>, TagOrTags>, options?: Config<TEntry>)
 
   /**
    * Make a new dex
@@ -281,16 +278,16 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
   constructor(
     values?:
       Dex<TEntry>
-      | Map<IEntryOrNone<TEntry>, ITagOrTags>
+      | Map<EntryOrNone<TEntry>, TagOrTags>
       | Config<TEntry>
-      | ITagOrTags
-      | IInputEntryWithTagsObject<TEntry>
-      | IInputEntryWithTags<TEntry>[],
+      | TagOrTags
+      | XEntryWithTagsObject<TEntry>
+      | XEntryWithTags<TEntry>[],
     optionsOrMoreValues?:
       Config<TEntry>
-      | ITagOrTags
-      | IInputEntryWithTagsObject<TEntry>
-      | IInputEntryWithTags<TEntry>[],
+      | TagOrTags
+      | XEntryWithTagsObject<TEntry>
+      | XEntryWithTags<TEntry>[],
   ) {
     // copy existing:
     if (values instanceof Dex) {
@@ -298,7 +295,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
       this._allHashes = values._allHashes;
       this._entriesByHash = values._entriesByHash;
       this._hashesByTag = values._hashesByTag;
-      this._tagsByEntryHash = values._tagsByEntryHash;
+      this._tagsByHash = values._tagsByHash;
       this._guards = values._guards;
       this._hasher = values._hasher;
       if (isConfig<TEntry>(optionsOrMoreValues)) {
@@ -353,26 +350,26 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
             if (isTag(values[0])) {
               if (!config && optionsOrMoreValues) {
                 if (isArray(optionsOrMoreValues)) {
-                  values = [...values, ...optionsOrMoreValues] as Iterable<ITag> as ITag[];
+                  values = [...values, ...optionsOrMoreValues] as Iterable<Tag> as Tag[];
                 } else {
-                  (values as Iterable<ITag> as ITag[]).push(optionsOrMoreValues as ITag);
+                  (values as Iterable<Tag> as Tag[]).push(optionsOrMoreValues as Tag);
                 }
               }
 
-              (values as ITag[]).forEach((tag: ITag) => this.set(tag));
+              (values as Tag[]).forEach((tag: Tag) => this.set(tag));
 
               return;
             } // entries, put them:
             else {
               if (!config && optionsOrMoreValues) {
                 if (isArray(optionsOrMoreValues)) {
-                  values = [...values, ...optionsOrMoreValues] as IInputEntryWithTags<TEntry>[];
+                  values = [...values, ...optionsOrMoreValues] as XEntryWithTags<TEntry>[];
                 } else {
-                  (values as IInputEntryWithTags<TEntry>[]).push(optionsOrMoreValues as IInputEntryWithTags<TEntry>);
+                  (values as XEntryWithTags<TEntry>[]).push(optionsOrMoreValues as XEntryWithTags<TEntry>);
                 }
               }
 
-              this.put(values as IInputEntryWithTags<TEntry>[])
+              this.put(values as XEntryWithTags<TEntry>[])
 
               return;
             }
@@ -380,15 +377,15 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
         } // single object
         else if (isObject(values)) {
           if (!config && optionsOrMoreValues) {
-            this.put([values, optionsOrMoreValues] as IInputEntryWithTagsObject<TEntry>[]);
+            this.put([values, optionsOrMoreValues] as XEntryWithTagsObject<TEntry>[]);
             return;
           } else {
-            this.put(values as IInputEntryWithTagsObject<TEntry>);
+            this.put(values as XEntryWithTagsObject<TEntry>);
             return;
           }
         } // one tag
         else {
-          this.set(values as ITag);
+          this.set(values as Tag);
           return;
         }
       }
@@ -397,9 +394,9 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
 
   private _initOptions(config?: Config<TEntry>) {
     const guards: {
-      entry: IGuardFunction<TEntry>,
-      array: IArrayGuardFunction<TEntry>,
-      object: IObjectGuardFunction<TEntry>,
+      entry: IGuard<TEntry>,
+      array: IArrayGuard<TEntry>,
+      object: IObjectGuard<TEntry>,
     } = {
       array: {} as any,
       object: {} as any,
@@ -471,17 +468,17 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
 
   //#region Sub Sets
 
-  get entries(): IEntrySet<TEntry> {
+  get entries(): EntrySet<TEntry> {
     return this._entrySet
       ??= EntryMapConstructor<TEntry>(this, this._entriesByHash);
   }
 
-  get tags(): ITagSet<TEntry> {
+  get tags(): TagSet<TEntry> {
     return this._tagSet
       ??= TagSetConstructor<TEntry>(this, this._allTags);
   }
 
-  get hashes(): IHashSet<TEntry> {
+  get hashes(): HashSet<TEntry> {
     return this._hashSet
       ??= HashSetConstructor<TEntry>(this, this._allHashes);
   }
@@ -490,17 +487,17 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
 
   //#region Loop Helpers
 
-  get for(): ILooper<TEntry> {
+  get for(): Looper<TEntry> {
     return this._forLooper
       ??= LooperConstructor(this);
   }
 
-  get map(): IMapper<TEntry> {
+  get map(): Mapper<TEntry> {
     return this._mapLooper
       ??= MapperConstructor(this);
   };
 
-  get copy(): ICopier<TEntry> {
+  get copy(): Copier<TEntry> {
     return this._copier
       ??= CopierConstructor(this);
   }
@@ -524,23 +521,23 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
 
   //#region General
 
-  get(key: IHashKey): TEntry | NoEntryFound {
+  get(key: HashKey): TEntry | NoEntryFound {
     return this._entriesByHash.get(key);
   }
 
-  hash(entry: IEntry): IHashKey {
+  hash(entry: Entry): HashKey {
     return this._hasher(entry);
   }
 
-  contains(entry: TEntry | IHashKey): boolean {
+  contains(entry: TEntry | HashKey): boolean {
     return this._allHashes.has(this.hash(entry));
   }
 
-  has(tag: ITag): boolean {
+  has(tag: Tag): boolean {
     return this._allTags.has(tag);
   }
 
-  canContain(value: IEntry): value is TEntry {
+  canContain(value: Entry): value is TEntry {
     return this._guards.entry(value);
   }
 
@@ -557,7 +554,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
 
   //#region Generic
 
-  get query(): IFullQuery<TEntry, ResultType.Array> {
+  get query(): FullQuery<TEntry, ResultType, TEntry> {
     return this._query ??= FullQueryConstructor(
       this,
       ResultType.Array,
@@ -568,7 +565,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
 
   //#region Chained
 
-  get filter(): ISpecificQuery<TEntry, ResultType.Dex> {
+  get filter(): SpecificQuery<TEntry, ResultType.Dex, TEntry> {
     return this._filter ??= SpecificQueryConstructor(
       this,
       ResultType.Dex
@@ -579,7 +576,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
 
   //#region Values
 
-  get values(): IFirstableQuery<TEntry, ResultType.Array> {
+  get values(): FirstableQuery<TEntry, ResultType.Array, TEntry> {
     return this._values ??= FirstableQueryConstructor(
       this,
       ResultType.Array,
@@ -591,12 +588,13 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
 
   //#region Hashes/Keys
 
-  get keys(): IFirstableQuery<IHashKey, ResultType.Set, TEntry> {
+  get keys(): FirstableQuery<HashKey, ResultType.Set, TEntry> {
     return this._keys ??= FirstableQueryConstructor(
       this,
       ResultType.Set,
       {
-        allOnNoParams: true
+        allOnNoParams: true,
+        transform: false
       }
     );
   }
@@ -605,7 +603,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
 
   //#region Single Value
 
-  get first(): ISpecificQuery<TEntry, ResultType.First> {
+  get first(): SpecificQuery<TEntry, ResultType.First, TEntry> {
     return this._first ??= SpecificQueryConstructor(
       this,
       ResultType.First
@@ -618,7 +616,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
 
   //#region Utility
 
-  get any(): ISpecificQuery<boolean, ResultType.First, TEntry> {
+  get any(): SpecificQuery<boolean, ResultType.First, TEntry> {
     return this._any ??= SpecificQueryConstructor<boolean, ResultType.First, TEntry>(
       this,
       ResultType.First,
@@ -628,9 +626,9 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
     );
   };
 
-  get count(): ISpecificQuery<number, ResultType.First, TEntry> {
+  get count(): SpecificQuery<number, ResultType.First, TEntry> {
     if (!this._count) {
-      const counter = SpecificQueryConstructor<IHashKey, ResultType.Set, TEntry>(
+      const counter = SpecificQueryConstructor<HashKey, ResultType.Set, TEntry>(
         this,
         ResultType.Set,
         {
@@ -642,7 +640,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
       const proxy = (...args: any[]) => counter(...args).size;
       proxy.not = (...args: any[]) => counter.not(...args).size
 
-      this._count = proxy as ISpecificQuery<number, ResultType.First, TEntry>;
+      this._count = proxy as SpecificQuery<number, ResultType.First, TEntry>;
     }
 
 
@@ -665,67 +663,67 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * Add an empty tag to the dex. 
    * Since no second parameter is provided for entries this will simply make sure the tag exists, and not delete any existing entries.
    */
-  set(tag: ITag): [];
+  set(tag: Tag): [];
 
   /**
    * Add an empty tag to the dex
    * Since no second parameter is provided for entries this will simply make sure the tag exists, and not delete any existing entries.
    */
-  set(tags: ITagOrTags): [];
+  set(tags: TagOrTags): [];
 
   /**
    * Add an empty tag to the dex
    * Since no second parameter is provided for entries this will simply make sure the tag exists, and not delete any existing entries.
    */
-  set(tag: ITag): [];
+  set(tag: Tag): [];
 
   /**
    * Add an empty tag to the dex
    * Since no second parameter is provided for entries this will simply make sure the tag exists, and not delete any existing entries.
    */
-  set(tags: ITagOrTags): [];
+  set(tags: TagOrTags): [];
 
   /**
    * Add an empty tag to the dex, or set the existing tag to empty.
    * 
    * @returns any effected entries' hash keys.
    */
-  set(tag: ITag, entries: [] | NoEntries): IHashKey[];
+  set(tag: Tag, entries: [] | NoEntries): HashKey[];
 
   /**
    * Add a empty tags to the dex, or set the existing tags to empty.
    * 
    * @returns any effected entries' hash keys.
    */
-  set(tags: ITagOrTags, entries: [] | NoEntries): IHashKey[];
+  set(tags: TagOrTags, entries: [] | NoEntries): HashKey[];
 
   /**
    * Add a new tag with specific entries to the dex, or override the existing values for an existing tag.
    * 
    * @returns any effected entries' hash keys (only entries removed from the tags, not entries added to the tags).
    */
-  set(tag: ITag, entries: TEntry[] | Set<TEntry>): IHashKey[];
+  set(tag: Tag, entries: TEntry[] | Set<TEntry>): HashKey[];
 
   /**
    * Add a new tag with specific entries to the dex, or override the existing values for an existing tag.
    * 
    * @returns any effected entries' hash keys (only entries removed from the tags, not entries added to the tags).
    */
-  set(tags: ITagOrTags, entries: TEntry[] | Set<TEntry>): IHashKey[];
+  set(tags: TagOrTags, entries: TEntry[] | Set<TEntry>): HashKey[];
 
   set(
-    tags: ITagOrTags,
+    tags: TagOrTags,
     entries?: TEntry[] | Set<TEntry> | [] | NoEntries
-  ): IHashKey[] {
-    const effectedHashes: IHashKey[] = [];
+  ): HashKey[] {
+    const effectedHashes: HashKey[] = [];
     tags = toSet(tags);
 
     // undefined means nothing gets touched
     if (entries === undefined) {
-      (tags as Set<ITag>).forEach(tag => {
+      (tags as Set<Tag>).forEach(tag => {
         if (!this._allTags.has(tag)) {
           this._allTags.add(tag);
-          this._hashesByTag.set(tag, new Set<IHashKey>());
+          this._hashesByTag.set(tag, new Set<HashKey>());
         }
       });
       return [];
@@ -737,18 +735,18 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
             const currentSet = this._hashesByTag.get(tag)!;
             currentSet.forEach(h => effectedHashes.push(h));
             currentSet.forEach(hash =>
-              this._tagsByEntryHash.get(hash)?.delete(tag));
+              this._tagsByHash.get(hash)?.delete(tag));
             currentSet.clear()
           } else {
             this._allTags.add(tag);
-            this._hashesByTag.set(tag, new Set<IHashKey>());
+            this._hashesByTag.set(tag, new Set<HashKey>());
           }
         }
 
         return effectedHashes;
       } // set values
       else {
-        const hashesToSet: Set<IHashKey> = new Set<IHashKey>();
+        const hashesToSet: Set<HashKey> = new Set<HashKey>();
         for (const entry in entries) {
           hashesToSet.add(this.hash(entry));
         }
@@ -759,7 +757,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
             currentSet.forEach(hash => {
               if (!hashesToSet.has(hash)) {
                 effectedHashes.push(hash);
-                this._tagsByEntryHash.get(hash)?.delete(tag)
+                this._tagsByHash.get(hash)?.delete(tag)
               }
             });
             this._hashesByTag.set(tag, hashesToSet);
@@ -785,8 +783,8 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    */
   add(
     entry: TEntry,
-    tag: ITag
-  ): IHashKey;
+    tag: Tag
+  ): HashKey;
 
   /**
    * Add data about entries to the dex.
@@ -794,8 +792,8 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * @returns The uniqueid/hash of the items added to the dex
    */
   add(
-    entries: IInputEntryWithTags<TEntry>[],
-  ): (IHashKey | NoEntries)[];
+    entries: XEntryWithTags<TEntry>[],
+  ): (HashKey | NoEntries)[];
 
   /**
    * Add data about an entry to the dex.
@@ -803,8 +801,8 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * @returns The uniqueid/hash of the item added to the dex
    */
   add(
-    entryWithTags: IInputEntryWithTagsObject<TEntry>
-  ): IHashKey | NoEntries;
+    entryWithTags: XEntryWithTagsObject<TEntry>
+  ): HashKey | NoEntries;
 
   /**
    * Add data about an entry to the dex.
@@ -812,8 +810,8 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * @returns The uniqueid/hash of the item added to the dex
    */
   add(
-    ...entriesWithTags: IInputEntryWithTagsObject<TEntry>[]
-  ): (IHashKey | NoEntries)[];
+    ...entriesWithTags: XEntryWithTagsObject<TEntry>[]
+  ): (HashKey | NoEntries)[];
 
   /**
    * Add an entry with any number of tags to the dex
@@ -822,8 +820,8 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    */
   add(
     entry: TEntry,
-    ...tags: ITag[]
-  ): IHashKey;
+    ...tags: Tag[]
+  ): HashKey;
 
   /**
    * Add an entry with any number of tags to the dex
@@ -832,8 +830,8 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    */
   add(
     entry: TEntry,
-    tags: ITagOrTags
-  ): IHashKey;
+    tags: TagOrTags
+  ): HashKey;
 
   /**
    * Add an entry with no tags to the dex
@@ -842,7 +840,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    */
   add(
     entry: TEntry,
-  ): IHashKey;
+  ): HashKey;
 
   /**
    * Add an empty tag, or a entry with any number of tags to the dex
@@ -851,40 +849,40 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * , or if just an empty tag was added: just the name of the tag is returned.
    */
   add(
-    entry: TEntry | IInputEntryWithTags<TEntry>[] | IInputEntryWithTagsObject<TEntry>,
-    tags?: ITagOrTags | IInputEntryWithTagsObject<TEntry>
-  ): IHashKey | (IHashKey | NoEntries)[] | NoEntries | IHashKey[] {
+    entry: TEntry | XEntryWithTags<TEntry>[] | XEntryWithTagsObject<TEntry>,
+    tags?: TagOrTags | XEntryWithTagsObject<TEntry>
+  ): HashKey | (HashKey | NoEntries)[] | NoEntries | HashKey[] {
     // InputEntryWithTagsObject<TEntry>[] | InputEntryWithTagsArray<TEntry>[] | TEntry
     if (isArray(entry) && !tags) {
       // InputEntryWithTagsArray<TEntry>[] | TEntry
       if (isArray(entry[0])) {
         // InputEntryWithTagsArray<TEntry>[]
         if (!this.canContain(entry[0])) { // [0: [0: entry, ...tags], 1: [entry, ...tags]]
-          return (entry as IInputEntryWithTagsArray<TEntry>[])
+          return (entry as XEntryWithTagsTuple<TEntry>[])
             .map(this._putOneArray.bind(this)) as any;
         }
       } // InputEntryWithTagsObject<TEntry>[]
       else if (isObject(entry[0]) && !this.canContain(entry[0])) {
-        return (entry as IInputEntryWithTagsObject<TEntry>[])
+        return (entry as XEntryWithTagsObject<TEntry>[])
           .map(this._putOneObject.bind(this)) as any;
       }
     } // InputEntryWithTagsObject<TEntry>
     else if (isObject(entry) && !this.canContain(entry)) {
       if (tags) {
-        this.put([entry, tags] as IInputEntryWithTagsObject<TEntry>[])
+        this.put([entry, tags] as XEntryWithTagsObject<TEntry>[])
       }
-      return this._putOneObject(entry as IInputEntryWithTagsObject<TEntry>);
+      return this._putOneObject(entry as XEntryWithTagsObject<TEntry>);
     }
 
     // TEntry and Tags
-    const hash: IHashKey = this.hash(entry);
-    tags = <ITagOrTags | undefined>tags;
+    const hash: HashKey = this.hash(entry);
+    tags = <TagOrTags | undefined>tags;
     tags = tags === undefined
       ? undefined
       : toSet(tags);
 
     // if we're only provided an entry argument, then it's just for a tagless entry:
-    if (!tags || !(tags as Set<ITag>).size) {
+    if (!tags || !(tags as Set<Tag>).size) {
       // add the new empty entry:
       this._addEntry(<TEntry>entry, hash);
 
@@ -892,18 +890,18 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
     } // if we have tags howerver~
     else {
       // set the entries by tag.
-      (tags as Set<ITag>).forEach(t => {
+      (tags as Set<Tag>).forEach(t => {
         this._allTags.add(t);
         if (this._hashesByTag.has(t)) {
           this._hashesByTag.get(t)!.add(hash);
         } else {
-          this._hashesByTag.set(t, new Set<IHashKey>([hash]));
+          this._hashesByTag.set(t, new Set<HashKey>([hash]));
         }
 
-        if (this._tagsByEntryHash.has(hash)) {
-          this._tagsByEntryHash.get(hash)!.add(t);
+        if (this._tagsByHash.has(hash)) {
+          this._tagsByHash.get(hash)!.add(t);
         } else {
-          this._tagsByEntryHash.set(hash, new Set<ITag>([t]));
+          this._tagsByHash.set(hash, new Set<Tag>([t]));
         }
       });
 
@@ -919,15 +917,15 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
 
   //#region Internal
 
-  private _addEntry(entry: TEntry, key?: IHashKey) {
-    const hash: IHashKey = key ?? this.hash(entry);
+  private _addEntry(entry: TEntry, key?: HashKey) {
+    const hash: HashKey = key ?? this.hash(entry);
 
     // add the new empty entry:
     if (!this._allHashes.has(hash)) {
       this._allHashes.add(hash);
       this._entriesByHash.set(hash, entry);
-      if (!this._tagsByEntryHash.get(hash)) {
-        this._tagsByEntryHash.set(hash, new Set<IHashKey>());
+      if (!this._tagsByHash.get(hash)) {
+        this._tagsByHash.set(hash, new Set<HashKey>());
       }
     }
   }
@@ -944,8 +942,8 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * @returns The uniqueid/hash of the items added to the dex
    */
   put(
-    entries: IInputEntryWithTags<TEntry>[],
-  ): IHashKey[];
+    entries: XEntryWithTags<TEntry>[],
+  ): HashKey[];
 
   /**
    * Add data about an entry to the dex.
@@ -953,8 +951,8 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * @returns The uniqueid/hash of the item added to the dex
    */
   put(
-    ...entriesWithTags: IInputEntryWithTags<TEntry>[]
-  ): IHashKey[];
+    ...entriesWithTags: XEntryWithTags<TEntry>[]
+  ): HashKey[];
 
   /**
    * Add data about an entry to the dex.
@@ -962,8 +960,8 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * @returns The uniqueid/hash of the item added to the dex
    */
   put(
-    entry: IInputEntryWithTags<TEntry>
-  ): IHashKey | NoEntries;
+    entry: XEntryWithTags<TEntry>
+  ): HashKey | NoEntries;
 
   /**
    * Add data about entries to the dex.
@@ -971,8 +969,8 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * @returns The uniqueid/hash of the items added to the dex
    */
   put(
-    entries: (IInputEntryWithTagsObject<TEntry> | IInputEntryWithTagsArray<TEntry>)[],
-  ): IHashKey[];
+    entries: (XEntryWithTagsObject<TEntry> | XEntryWithTagsTuple<TEntry>)[],
+  ): HashKey[];
 
   /**
    * Add data about an entry to the dex.
@@ -980,8 +978,8 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * @returns The uniqueid/hash of the item added to the dex
    */
   put(
-    ...entriesWithTags: (IInputEntryWithTagsObject<TEntry> | IInputEntryWithTagsArray<TEntry>)[]
-  ): IHashKey[];
+    ...entriesWithTags: (XEntryWithTagsObject<TEntry> | XEntryWithTagsTuple<TEntry>)[]
+  ): HashKey[];
 
   /**
    * Add data about an entry to the dex.
@@ -989,41 +987,41 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * @returns The uniqueid/hash of the item added to the dex
    */
   put(
-    entry: (IInputEntryWithTagsObject<TEntry> | IInputEntryWithTagsArray<TEntry>)
-  ): IHashKey | NoEntries;
+    entry: (XEntryWithTagsObject<TEntry> | XEntryWithTagsTuple<TEntry>)
+  ): HashKey | NoEntries;
 
-  put<TInput extends IInputEntryWithTags<TEntry>[] | IInputEntryWithTags<TEntry>>(
+  put<TInput extends XEntryWithTags<TEntry>[] | XEntryWithTags<TEntry>>(
     entryOrEntriesWithTags: TInput
-  ): TInput extends IInputEntryWithTags<TEntry>[] ? (IHashKey | NoEntries)[] : (IHashKey | NoEntries) {
+  ): TInput extends XEntryWithTags<TEntry>[] ? (HashKey | NoEntries)[] : (HashKey | NoEntries) {
     // InputEntryWithTags<TEntry>[] | InputEntryWithTagsArray<TEntry>
     if (isArray(entryOrEntriesWithTags)) {
       // InputEntryWithTagsArray<TEntry>[] | InputEntryWithTagsArray<TEntry>
       if (isArray(entryOrEntriesWithTags[0])) {
         // InputEntryWithTagsArray<TEntry>[]
         if (!this.canContain(entryOrEntriesWithTags[0])) { // [0: [0: entry, ...tags], 1: [entry, ...tags]]
-          return (entryOrEntriesWithTags as IInputEntryWithTagsArray<TEntry>[])
+          return (entryOrEntriesWithTags as XEntryWithTagsTuple<TEntry>[])
             .map(this._putOneArray.bind(this)) as any;
         } // InputEntryWithTagsArray<TEntry>
         else { // [0: array shaped entry, 1..: ...tags]
-          return this._putOneArray(entryOrEntriesWithTags as IInputEntryWithTagsArray<TEntry>) as any;
+          return this._putOneArray(entryOrEntriesWithTags as XEntryWithTagsTuple<TEntry>) as any;
         }
       } // InputEntryWithTagsObject<TEntry>[]
       else if (isObject(entryOrEntriesWithTags[0]) && !this.canContain(entryOrEntriesWithTags[0])) {
-        return (entryOrEntriesWithTags as IInputEntryWithTagsObject<TEntry>[])
+        return (entryOrEntriesWithTags as XEntryWithTagsObject<TEntry>[])
           .map(this._putOneObject.bind(this)) as any;
       } // InputEntryWithTagsArray<TEntry>
       else {
-        return this._putOneArray(entryOrEntriesWithTags as IInputEntryWithTagsArray<TEntry>) as any;
+        return this._putOneArray(entryOrEntriesWithTags as XEntryWithTagsTuple<TEntry>) as any;
       }
     } // InputEntryWithTagsObject<TEntry>
     else {
-      return this._putOneObject(entryOrEntriesWithTags as IInputEntryWithTagsObject<TEntry>) as any;
+      return this._putOneObject(entryOrEntriesWithTags as XEntryWithTagsObject<TEntry>) as any;
     }
   }
 
   //#region Internal
 
-  private _putOneObject(entryWithTags: IInputEntryWithTagsObject<TEntry>): IHashKey | NoEntries {
+  private _putOneObject(entryWithTags: XEntryWithTagsObject<TEntry>): HashKey | NoEntries {
     if (entryWithTags.entry === undefined || entryWithTags.entry === null) {
       this.set((entryWithTags.tags || entryWithTags.tag)!);
       return null;
@@ -1032,16 +1030,16 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
     }
   }
 
-  private _putOneArray(entryWithTags: IInputEntryWithTagsArray<TEntry>): IHashKey | NoEntries {
+  private _putOneArray(entryWithTags: XEntryWithTagsTuple<TEntry>): HashKey | NoEntries {
     if (entryWithTags[0] === undefined || entryWithTags[0] === null) {
-      this.set(entryWithTags.slice(1) as ITag[]);
+      this.set(entryWithTags.slice(1) as Tag[]);
       return null;
     } else {
       return this.add(entryWithTags[0] as TEntry, (
         isArray(entryWithTags[1])
           ? entryWithTags[1]
           : entryWithTags.slice(1)
-      ) as ITag[]);
+      ) as Tag[]);
     }
   }
 
@@ -1056,14 +1054,14 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
   /**
    * Update an existing entry's tags to a new set.
    */
-  update(entry: TEntry | IHashKey, newTags: ITagOrTags): void;
+  update(entry: TEntry | HashKey, newTags: TagOrTags): void;
 
   /**
    * Update an existing entry's tags using a function.
    */
-  update(entry: TEntry | IHashKey, fn: (currentTags: Set<ITag>) => Set<ITag>): void;
+  update(entry: TEntry | HashKey, fn: (currentTags: Set<Tag>) => Set<Tag>): void;
 
-  update(entry: TEntry | IHashKey, tags: ITagOrTags | ((currentTags: Set<ITag>) => Set<ITag>)): void {
+  update(entry: TEntry | HashKey, tags: TagOrTags | ((currentTags: Set<Tag>) => Set<Tag>)): void {
     throw new NotImplementedError("update");
   }
 
@@ -1076,7 +1074,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
   /**
    * Remove entries matching a query from the current dex while returning the results as well.
    */
-  get take(): IFullQuery<TEntry, ResultType.Array, TEntry> {
+  get take(): FullQuery<TEntry, ResultType.Array, TEntry> {
     if (!this._take) {
       const toRemove = FullQueryConstructor<TEntry, ResultType.Array, TEntry>(
         this,
@@ -1107,7 +1105,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
         return result;
       }
 
-      this._take = proxy as IFullQuery<TEntry, ResultType.Array, TEntry>;
+      this._take = proxy as FullQuery<TEntry, ResultType.Array, TEntry>;
     }
 
     return this._take;
@@ -1117,7 +1115,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * Remove the matching entry from the dex.
    */
   remove(
-    hashKey: IHashKey,
+    hashKey: HashKey,
     options?: {
       cleanEmptyTags?: boolean
     }
@@ -1127,7 +1125,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * Used to remove matching entries from the dex.
    */
   remove(
-    hashKeys: Iterable<IHashKey>,
+    hashKeys: Iterable<HashKey>,
     options?: {
       cleanEmptyTags?: boolean
     }
@@ -1157,8 +1155,8 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * Remove the matching entry from the dex for a specific tag.
    */
   remove(
-    hashKey: IHashKey,
-    forTag: ITag,
+    hashKey: HashKey,
+    forTag: Tag,
     options?: {
       leaveUntaggedEntries?: boolean,
       cleanEmptyTags?: boolean
@@ -1169,8 +1167,8 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * Used to unlink matching entries from the dex for a specific tag.
    */
   remove(
-    hashKeys: Iterable<IHashKey>,
-    forTag: ITag,
+    hashKeys: Iterable<HashKey>,
+    forTag: Tag,
     options?: {
       leaveUntaggedEntries?: boolean,
       cleanEmptyTags?: boolean
@@ -1182,7 +1180,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    */
   remove(
     entry: TEntry,
-    forTag: ITag,
+    forTag: Tag,
     options?: {
       leaveUntaggedEntries?: boolean,
       cleanEmptyTags?: boolean
@@ -1194,7 +1192,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    */
   remove(
     entries: Iterable<TEntry>,
-    forTag: ITag,
+    forTag: Tag,
     options?: {
       leaveUntaggedEntries?: boolean,
       cleanEmptyTags?: boolean
@@ -1205,8 +1203,8 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * Remove the matching entry from the dex for a specific subset of tags.
    */
   remove(
-    hashKey: IHashKey,
-    forTags: Iterable<ITag>,
+    hashKey: HashKey,
+    forTags: Iterable<Tag>,
     options?: {
       leaveUntaggedEntries?: boolean,
       cleanEmptyTags?: boolean
@@ -1217,8 +1215,8 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * Used to unlink matching entries from the dex for a specific subset of tags.
    */
   remove(
-    hashKeys: Iterable<IHashKey>,
-    forTags: Iterable<ITag>,
+    hashKeys: Iterable<HashKey>,
+    forTags: Iterable<Tag>,
     options?: {
       leaveUntaggedEntries?: boolean,
       cleanEmptyTags?: boolean
@@ -1230,7 +1228,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    */
   remove(
     entry: TEntry,
-    forTags: Iterable<ITag>,
+    forTags: Iterable<Tag>,
     options?: {
       leaveUntaggedEntries?: boolean,
       cleanEmptyTags?: boolean
@@ -1242,7 +1240,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    */
   remove(
     entries: Iterable<TEntry>,
-    forTags: Iterable<ITag>,
+    forTags: Iterable<Tag>,
     options?: {
       leaveUntaggedEntries?: boolean,
       cleanEmptyTags?: boolean
@@ -1253,8 +1251,8 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * Used to remove entries from the dex.
    */
   remove(
-    targets: Iterable<TEntry> | Iterable<IHashKey> | IHashKey | TEntry,
-    optionsOrTags?: ITagOrTags | {
+    targets: Iterable<TEntry> | Iterable<HashKey> | HashKey | TEntry,
+    optionsOrTags?: TagOrTags | {
       leaveUntaggedEntries?: boolean,
       cleanEmptyTags?: boolean
     },
@@ -1269,10 +1267,10 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
         ? optionsOrTags
         : undefined;
 
-    const tags: Iterable<ITag> | undefined = isIterable(optionsOrTags)
-      ? optionsOrTags as Iterable<ITag>
+    const tags: Iterable<Tag> | undefined = isIterable(optionsOrTags)
+      ? optionsOrTags as Iterable<Tag>
       : optionsOrTags !== undefined
-        ? [optionsOrTags] as Iterable<ITag>
+        ? [optionsOrTags] as Iterable<Tag>
         : undefined;
 
     if (!config) {
@@ -1280,28 +1278,28 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
         for (const entryOrKey of targets) {
           const hash = this.hash(entryOrKey);
           this.untagEntry(hash, tags);
-          if (!this._tagsByEntryHash.get(hash)?.size) {
+          if (!this._tagsByHash.get(hash)?.size) {
             this._removeTaglessEntry(hash);
           }
         }
       } else {
         const hash = this.hash(targets);
         this.untagEntry(hash, tags);
-        if (!this._tagsByEntryHash.get(hash)?.size) {
+        if (!this._tagsByHash.get(hash)?.size) {
           this._removeTaglessEntry(hash);
         }
       }
     } else {
       if (isIterable(targets)) {
         for (const entryOrKey of targets) {
-          let tagsToCheck: Set<ITag> | undefined;
+          let tagsToCheck: Set<Tag> | undefined;
           const hash = this.hash(entryOrKey);
           if ((config as any)?.cleanEmptyTags) {
-            tagsToCheck = this._tagsByEntryHash.get(hash);
+            tagsToCheck = this._tagsByHash.get(hash);
           }
 
           this.untagEntry(hash, tags);
-          if (!(config as any)?.leaveUntaggedEntries && !this._tagsByEntryHash.get(hash)?.size) {
+          if (!(config as any)?.leaveUntaggedEntries && !this._tagsByHash.get(hash)?.size) {
             this._removeTaglessEntry(hash);
           }
           if (tagsToCheck) {
@@ -1313,14 +1311,14 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
           }
         }
       } else {
-        let tagsToCheck: Set<ITag> | undefined;
+        let tagsToCheck: Set<Tag> | undefined;
         const hash = this.hash(targets);
         if ((config as any)?.cleanEmptyTags) {
-          tagsToCheck = this._tagsByEntryHash.get(hash);
+          tagsToCheck = this._tagsByHash.get(hash);
         }
 
         this.untagEntry(hash, tags);
-        if (!(config as any)?.leaveUntaggedEntries && !this._tagsByEntryHash.get(hash)?.size) {
+        if (!(config as any)?.leaveUntaggedEntries && !this._tagsByHash.get(hash)?.size) {
           this._removeTaglessEntry(hash);
         }
         if (tagsToCheck) {
@@ -1334,7 +1332,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
     }
   }
 
-  private _removeTaglessEntry(key: IHashKey) {
+  private _removeTaglessEntry(key: HashKey) {
     this._entriesByHash.delete(key);
     this._allHashes.delete(key);
   }
@@ -1346,29 +1344,29 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
   /**
    * Remove all tags from one entry
    */
-  untagEntry(entry: TEntry | IHashKey): void;
+  untagEntry(entry: TEntry | HashKey): void;
 
   /**
    * Remove all the provided tags from one entry
    */
-  untagEntry(entry: TEntry | IHashKey, tagToRemove?: ITag): void;
+  untagEntry(entry: TEntry | HashKey, tagToRemove?: Tag): void;
 
   /**
    * Remove all the provided tags from one entry
    */
-  untagEntry(entry: TEntry | IHashKey, tagsToRemove?: ITags): void;
+  untagEntry(entry: TEntry | HashKey, tagsToRemove?: Tags): void;
 
   /**
    * Remove all the provided tags from one entry
    */
-  untagEntry(entry: TEntry | IHashKey, ...tagsToRemove: ITag[]): void;
+  untagEntry(entry: TEntry | HashKey, ...tagsToRemove: Tag[]): void;
 
   /**
    * Remove all the provided tags from one entry
    */
-  untagEntry(entry: TEntry | IHashKey, tagsToRemove?: ITagOrTags): void {
+  untagEntry(entry: TEntry | HashKey, tagsToRemove?: TagOrTags): void {
     const hash = this.hash(entry);
-    const currentTagsForEntry = this._tagsByEntryHash.get(hash);
+    const currentTagsForEntry = this._tagsByHash.get(hash);
     if (!tagsToRemove) {
       for (const tag of currentTagsForEntry ?? []) {
         const currentEntriesForTag = this._hashesByTag.get(tag);
@@ -1394,27 +1392,27 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
   /**
    * Remove all tags from one entry
    */
-  untagEntries(entries: Iterable<TEntry> | Iterable<IHashKey>): void;
+  untagEntries(entries: Iterable<TEntry> | Iterable<HashKey>): void;
 
   /**
    * Remove all the provided tags from one entry
    */
-  untagEntries(entries: Iterable<TEntry> | Iterable<IHashKey>, tagToRemove?: ITag): void;
+  untagEntries(entries: Iterable<TEntry> | Iterable<HashKey>, tagToRemove?: Tag): void;
 
   /**
    * Remove all the provided tags from one entry
    */
-  untagEntries(entries: Iterable<TEntry> | Iterable<IHashKey>, tagsToRemove?: ITags): void;
+  untagEntries(entries: Iterable<TEntry> | Iterable<HashKey>, tagsToRemove?: Tags): void;
 
   /**
    * Remove all the provided tags from one entry
    */
-  untagEntries(entries: Iterable<TEntry> | Iterable<IHashKey>, ...tagsToRemove: ITag[]): void;
+  untagEntries(entries: Iterable<TEntry> | Iterable<HashKey>, ...tagsToRemove: Tag[]): void;
 
   /**
    * Remove all the provided tags from one entry
    */
-  untagEntries(entries: Iterable<TEntry> | Iterable<IHashKey>, tagsToRemove?: ITagOrTags): void {
+  untagEntries(entries: Iterable<TEntry> | Iterable<HashKey>, tagsToRemove?: TagOrTags): void {
     for (const entry in entries) {
       this.untagEntry(entry, tagsToRemove as any);
     }
@@ -1423,51 +1421,51 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
   /**
    * Remove all tags from the provided entry
    */
-  untag(entry: TEntry | IHashKey): void
+  untag(entry: TEntry | HashKey): void
 
   /**
    * Remove all tags from the provided entries
    */
-  untag(entries: Iterable<TEntry> | Iterable<IHashKey>): void
+  untag(entries: Iterable<TEntry> | Iterable<HashKey>): void
 
   /**
    * Remove the given tags from the provided entry
    */
-  untag(entry: TEntry | IHashKey, tagToRemove?: ITag): void
+  untag(entry: TEntry | HashKey, tagToRemove?: Tag): void
 
   /**
    * Remove the given tags from the provided entries
    */
-  untag(entries: Iterable<TEntry> | Iterable<IHashKey>, tagToRemove?: ITag): void
+  untag(entries: Iterable<TEntry> | Iterable<HashKey>, tagToRemove?: Tag): void
 
   /**
    * Remove the given tags from the provided entry
    */
-  untag(entry: TEntry | IHashKey, tagsToRemove?: ITagOrTags): void
+  untag(entry: TEntry | HashKey, tagsToRemove?: TagOrTags): void
 
   /**
    * Remove the given tags from the provided entries
    */
-  untag(entries: Iterable<TEntry> | Iterable<IHashKey>, tagsToRemove?: ITagOrTags): void
+  untag(entries: Iterable<TEntry> | Iterable<HashKey>, tagsToRemove?: TagOrTags): void
 
   /**
    * Remove the given tags from the provided entry
    */
-  untag(entry: TEntry | IHashKey, ...tagsToRemove: ITag[]): void
+  untag(entry: TEntry | HashKey, ...tagsToRemove: Tag[]): void
 
   /**
    * Remove the given tags from the provided entries
    */
-  untag(entries: Iterable<TEntry> | Iterable<IHashKey>, ...tagsToRemove: ITag[]): void
+  untag(entries: Iterable<TEntry> | Iterable<HashKey>, ...tagsToRemove: Tag[]): void
 
   untag(
-    entries: Iterable<TEntry> | Iterable<IHashKey> | TEntry | IHashKey,
-    tags?: ITagOrTags
+    entries: Iterable<TEntry> | Iterable<HashKey> | TEntry | HashKey,
+    tags?: TagOrTags
   ): void {
     if (isIterable(entries)) {
-      this.untagEntries(entries as Iterable<TEntry> | Iterable<IHashKey>, tags as ITags);
+      this.untagEntries(entries as Iterable<TEntry> | Iterable<HashKey>, tags as Tags);
     } else {
-      this.untagEntry(entries, tags as ITag | undefined);
+      this.untagEntry(entries, tags as Tag | undefined);
     }
   }
 
@@ -1475,7 +1473,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * Used to remove a whole tag from the dex
    */
   drop(
-    tag: ITag,
+    tag: Tag,
     options?: {
       leaveEmptyTags?: boolean,
       cleanUntaggedEntries?: boolean
@@ -1483,7 +1481,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
   ): void;
 
   drop(
-    tags: ITagOrTags,
+    tags: TagOrTags,
     options?: {
       leaveEmptyTags?: boolean,
       cleanUntaggedEntries?: boolean
@@ -1513,7 +1511,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
           }
 
           for (const hash of hashesForTag ?? []) {
-            if (!this._tagsByEntryHash.get(hash)?.size) {
+            if (!this._tagsByHash.get(hash)?.size) {
               this._removeTaglessEntry(hash);
             }
           }
@@ -1525,7 +1523,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
           this._removeEmptyTag(tags);
         }
         for (const hash of hashesForTag ?? []) {
-          if (!this._tagsByEntryHash.get(hash)?.size) {
+          if (!this._tagsByHash.get(hash)?.size) {
             this._removeTaglessEntry(hash);
           }
         }
@@ -1533,7 +1531,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
     }
   }
 
-  private _removeEmptyTag(tag: ITag) {
+  private _removeEmptyTag(tag: Tag) {
     this._hashesByTag.delete(tag);
     this._allTags.delete(tag);
   }
@@ -1542,7 +1540,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * Clear all entries from a given tag without removing anything by default.
    */
   resetTag(
-    tag: ITag,
+    tag: Tag,
     options?: {
       cleanUntaggedEntries?: boolean,
       cleanEmptyTags?: boolean
@@ -1553,7 +1551,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * Clear all entries from a given set of tags.
    */
   resetTag(
-    tags: ITagOrTags,
+    tags: TagOrTags,
     options?: {
       cleanUntaggedEntries?: boolean,
       cleanEmptyTags?: boolean
@@ -1561,7 +1559,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
   ): void;
 
   resetTag(
-    tags: ITagOrTags,
+    tags: TagOrTags,
     options?: {
       cleanUntaggedEntries?: boolean,
       cleanEmptyTags?: boolean
@@ -1569,11 +1567,11 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
   ): void {
     const tagsToReset = (isIterable(tags)
       ? tags
-      : [tags]) as Iterable<ITag>;
+      : [tags]) as Iterable<Tag>;
     
     for (const tag in tagsToReset) {
       for (const hash in this._hashesByTag.get(tag) ?? []) {
-        const tagsForHash = this._tagsByEntryHash.get(hash);
+        const tagsForHash = this._tagsByHash.get(hash);
         tagsForHash!.delete(tag);
         if (!tagsForHash!.size && options?.cleanUntaggedEntries) {
           this._removeTaglessEntry(hash);
@@ -1608,7 +1606,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
       emptyTags: true
     }): void {
     if (options.taglessEntries) {
-      for (const [k, t] of this._tagsByEntryHash) {
+      for (const [k, t] of this._tagsByHash) {
         if (!t.size) {
           this._removeTaglessEntry(k);
         }
@@ -1634,11 +1632,11 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
     this._allHashes.clear();
     this._entriesByHash.clear();
     this._hashesByTag.clear();
-    this._tagsByEntryHash.clear();
+    this._tagsByHash.clear();
   }
 
-  private _removeItemAt(hash: IHashKey) {
-    this._tagsByEntryHash.delete(hash);
+  private _removeItemAt(hash: HashKey) {
+    this._tagsByHash.delete(hash);
     this._entriesByHash.delete(hash);
     this._allHashes.delete(hash);
   }
@@ -1672,9 +1670,9 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
 
   //#region Looping
 
-  *[Symbol.iterator](): Iterator<[IHashKey, TEntry, Set<ITag>]> {
+  *[Symbol.iterator](): Iterator<[HashKey, TEntry, Set<Tag>]> {
     for (const hash in this._allHashes) {
-      yield [hash, this.get(hash)!, this._tagsByEntryHash.get(hash)!];
+      yield [hash, this.get(hash)!, this._tagsByHash.get(hash)!];
     }    
   }
 
@@ -1686,7 +1684,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * @param func 
    */
   forEach(
-    func: IBreakable<[entry: TEntry, tag: ITag, index: number], any>,
+    func: IBreakable<[entry: TEntry, tag: Tag, index: number], any>,
     outerLoopType: 'entry' | 'tag' | undefined = 'entry'
   ): void {
     let index: number = 0;
@@ -1700,7 +1698,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
       }
     } else {
       for (const hash of this._allHashes) {
-        for (const tag of this._tagsByEntryHash.get(hash)!) {
+        for (const tag of this._tagsByHash.get(hash)!) {
           if (func(this._entriesByHash.get(hash)!, tag, index++) instanceof Break) {
             break;
           }
@@ -1713,7 +1711,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * Iterate logic on each tag in the dex.
    */
   forEachTag(
-    func: IBreakable<[tag: ITag, index: number, entries: Set<TEntry>], any>
+    func: IBreakable<[tag: Tag, index: number, entries: Set<TEntry>], any>
   ): void {
     let index: number = 0;
     for (const tag of this._allTags) {
@@ -1732,14 +1730,14 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * Iterate logic on each entry in the dex.
    */
   forEachEntry(
-    func: IBreakable<[entry: TEntry, index: number, tags: Set<ITag>], any>
+    func: IBreakable<[entry: TEntry, index: number, tags: Set<Tag>], any>
   ): void {
     let index: number = 0;
     for (const hash of this._allHashes) {
       if (func(
         this._entriesByHash.get(hash)!,
         index++,
-        this._tagsByEntryHash.get(hash)!
+        this._tagsByHash.get(hash)!
       ) instanceof Break) {
         break;
       }
@@ -1759,11 +1757,11 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * @returns A mapped array of values, or a Map<Entry, Tag[]> if no transform was provided.
    */
   toMap<TResult = undefined>(
-    transform?: IBreakable<[entry: TEntry, tag: ITag, index: number], TResult>,
+    transform?: IBreakable<[entry: TEntry, tag: Tag, index: number], TResult>,
     outerLoopType: 'entry' | 'tag' = 'entry'
-  ): (TResult extends undefined ? Map<IEntry, ITag[]> : TResult[]) {
+  ): (TResult extends undefined ? Map<Entry, Tag[]> : TResult[]) {
     if (!transform) {
-      return new Map<TEntry, ITag[]>() as any;
+      return new Map<TEntry, Tag[]>() as any;
     }
 
     const results: TResult[] = [];
@@ -1788,7 +1786,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * Map this dex's entries to an array.
    */
   toArray<TResult = TEntry>(
-    transform?: IBreakable<[entry: TEntry, index: number, tags: Set<ITag>], TResult>
+    transform?: IBreakable<[entry: TEntry, index: number, tags: Set<Tag>], TResult>
   ): TResult[] {
     if (!transform) {
       return this.entries as any as TResult[];
@@ -1815,7 +1813,7 @@ export default class Dex<TEntry extends IEntry = IEntry> implements IReadOnlyDex
    * Splay//map this dex's tags into an array.
    */
   splay<TResult>(
-    transform?: IBreakable<[tag: ITag, index: number, entries: Set<TEntry>], TResult>
+    transform?: IBreakable<[tag: Tag, index: number, entries: Set<TEntry>], TResult>
   ): TResult[] {
     if (!transform) {
       return this.tags as any as TResult[];

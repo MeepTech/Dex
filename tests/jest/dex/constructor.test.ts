@@ -1,6 +1,6 @@
 import { describe, test } from '@jest/globals';
 import Dex from '../../../src/objects/dex';
-import { ITag } from '../../../src/objects/subsets/tags';
+import { Tag } from '../../../src/objects/subsets/tags';
 import {
   expectDex_countsToEqual,
   expectDex_entryHasNoTags,
@@ -438,7 +438,7 @@ describe("constructor(...)", () => {
   test("(Map<TEntry, Tag[]>) => Dex made of Map Entries", () => {
     const entry = {};
     const entry2 = {};
-    const map = new Map<{}, ITag[]>();
+    const map = new Map<{}, Tag[]>();
 
     map.set(entry, [testTag]);
     map.set(entry2, [testTag, testTag2]);
@@ -454,7 +454,7 @@ describe("constructor(...)", () => {
   test("(Map<TEntry, Set<Tag>) => Dex made of Map Entries", () => {
     const entry = {};
     const entry2 = {};
-    const map = new Map<{}, Set<ITag>>();
+    const map = new Map<{}, Set<Tag>>();
 
     map.set(entry, new Set([testTag2]));
     map.set(entry2, new Set([testTag2]));

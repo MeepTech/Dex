@@ -1,14 +1,16 @@
+import { count, forEach } from "../../utilities/iteration";
 import { isArray, isObject } from "../../utilities/validators";
 import Dex from "../dex";
-import { IReadOnlyDex } from "../readonly";
-import { IEntry } from "../subsets/entries";
-import { IHashKey } from "../subsets/hashes";
-import { ITag, ITagOrTags, ITags } from "../subsets/tags";
+import { SealedDex } from "../sealed";
+import { IReadOnlyDex } from "../idex";
+import { Entry } from "../subsets/entries";
+import { HashKey } from "../subsets/hashes";
+import { Tag, Tags } from "../subsets/tags";
 
 /**
  * Used to copy a dex.
  */
-export interface ICopier<TEntry extends IEntry> {
+export interface Copier<TEntry extends Entry> {
   (): Dex<TEntry>;
 
   /**
@@ -21,17 +23,19 @@ export interface ICopier<TEntry extends IEntry> {
    */
   from(
     source: IReadOnlyDex<TEntry>,
-    keys?: IHashKey[] | Set<IHashKey> | IHashKey | {
-      entry?: IHashKey | TEntry,
-      entries?: (TEntry | IHashKey)[] | Set<IHashKey | TEntry>,
-      tags?: ITags,
-      tag?: ITag
+    keys?: HashKey[] | Set<HashKey> | HashKey | {
+      entry?: HashKey | TEntry,
+      entries?: (TEntry | HashKey)[] | Set<HashKey | TEntry>,
+      tags?: Tags,
+      tag?: Tag
     }
   ): void;
+
+  sealed(): SealedDex<TEntry>;
 }
 
 /** @internal */
-export function CopierConstructor<TEntry extends IEntry>(base: Dex<TEntry>): ICopier<TEntry> {
+export function CopierConstructor<TEntry extends Entry>(base: Dex<TEntry>): Copier<TEntry> {
   const copyFunction = (): Dex<TEntry> => {
     return new Dex<TEntry>(base);
   }
@@ -39,19 +43,19 @@ export function CopierConstructor<TEntry extends IEntry>(base: Dex<TEntry>): ICo
   Object.defineProperty(copyFunction, "from", {
     value(
       source: Dex<TEntry>,
-      keys?: IHashKey[] | Set<IHashKey> | IHashKey | {
-        entry?: IHashKey | TEntry,
-        entries?: (TEntry | IHashKey)[] | Set<IHashKey | TEntry>,
-        tags?: ITags,
-        tag?: ITag
+      keys?: HashKey[] | Set<HashKey> | HashKey | {
+        entry?: HashKey | TEntry,
+        entries?: (TEntry | HashKey)[] | Set<HashKey | TEntry>,
+        tags?: Tags,
+        tag?: Tag
       }
     ): void {
       if (isObject(keys)) {
         if (isArray(keys) || keys instanceof Set) {
-          keys.forEach((key: IHashKey) => {
+          keys.forEach((key: HashKey) => {
             base.add(
               (source as any)._entriesByHash.get(key)!,
-              (source as any)._tagsByEntryHash.get(key)!
+              (source as any)._tagsByHash.get(key)!
             );
           });
         } else {
@@ -64,19 +68,19 @@ export function CopierConstructor<TEntry extends IEntry>(base: Dex<TEntry>): ICo
             }
           } else if (keys.entries) {
             // [...]
-            keys.entries?.forEach((key: IHashKey | TEntry) => {
+            keys.entries?.forEach((key: HashKey | TEntry) => {
               const hash = base.hash(key);
               base.add(
                 (source as any)._entriesByHash.get(hash)!,
-                (source as any)._tagsByEntryHash.get(hash)!
+                (source as any)._tagsByHash.get(hash)!
               );
             });
           }
 
           // []: Entries with no tags
-          if (keys.tags && (keys.tags instanceof Set ? keys.tags.size : keys.tags.length) === 0) {
+          if (keys.tags && (keys.tags instanceof Set ? keys.tags.size : count(keys.tags)) === 0) {
             for (const key of source.hashes) {
-              if (source.tags.for(key)!.size === 0) {
+              if (source.tags.of(key)!.size === 0) {
                 base.add(
                   (source as any)._entriesByHash.get(key)!,
                   []
@@ -85,8 +89,8 @@ export function CopierConstructor<TEntry extends IEntry>(base: Dex<TEntry>): ICo
             }
           } else if (keys.tags) {
             // [...]
-            keys.tags?.forEach((tag: ITag) => {
-              (source as any)._hashesByTag.get(tag)?.forEach((hash: IHashKey) => {
+            forEach(keys.tags, (tag: Tag) => {
+              (source as any)._hashesByTag.get(tag)?.forEach((hash: HashKey) => {
                 base.add(
                   (source as any)._entriesByHash.get(hash)!,
                   tag
@@ -96,28 +100,28 @@ export function CopierConstructor<TEntry extends IEntry>(base: Dex<TEntry>): ICo
           }
         }
       } else {
-        ((source as any)._allTags as Set<ITag>).forEach(((base as any)._allTags as Set<ITag>).add);
-        ((source as any)._allHashes as Set<IHashKey>).forEach(((base as any)._allHashes as Set<IHashKey>).add);
-        ((source as any)._entriesByHash as Map<IHashKey, TEntry>).forEach(
-          (entry, key) => ((base as any)._entriesByHash as Map<IHashKey, TEntry>).set(key, entry)
+        ((source as any)._allTags as Set<Tag>).forEach(((base as any)._allTags as Set<Tag>).add);
+        ((source as any)._allHashes as Set<HashKey>).forEach(((base as any)._allHashes as Set<HashKey>).add);
+        ((source as any)._entriesByHash as Map<HashKey, TEntry>).forEach(
+          (entry, key) => ((base as any)._entriesByHash as Map<HashKey, TEntry>).set(key, entry)
         );
-        ((source as any)._hashesByTag as Map<ITag, Set<IHashKey>>).forEach(
+        ((source as any)._hashesByTag as Map<Tag, Set<HashKey>>).forEach(
           (keys, tag) => {
-            if (((base as any)._hashesByTag as Map<ITag, Set<IHashKey>>).has(tag)) {
-              ((base as any)._hashesByTag as Map<ITag, Set<IHashKey>>).set(tag, keys);
+            if (((base as any)._hashesByTag as Map<Tag, Set<HashKey>>).has(tag)) {
+              ((base as any)._hashesByTag as Map<Tag, Set<HashKey>>).set(tag, keys);
             } else {
               keys.forEach(key => {
-                ((base as any)._hashesByTag as Map<ITag, Set<IHashKey>>).get(tag)?.add(key);
+                ((base as any)._hashesByTag as Map<Tag, Set<HashKey>>).get(tag)?.add(key);
               });
             }
           });
-          ((source as any)._tagsByEntryHash as Map<IHashKey, Set<ITag>>).forEach(
+          ((source as any)._tagsByHash as Map<HashKey, Set<Tag>>).forEach(
             (tags, hash) => {
-              if (((base as any)._tagsByEntryHash as Map<IHashKey, Set<ITag>>).has(hash)) {
-                ((base as any)._tagsByEntryHash as Map<IHashKey, Set<ITag>>).set(hash, tags);
+              if (((base as any)._tagsByHash as Map<HashKey, Set<Tag>>).has(hash)) {
+                ((base as any)._tagsByHash as Map<HashKey, Set<Tag>>).set(hash, tags);
               } else {
                 tags.forEach(tag => {
-                  ((base as any)._tagsByEntryHash as Map<IHashKey, Set<ITag>>).get(hash)?.add(tag);
+                  ((base as any)._tagsByHash as Map<HashKey, Set<Tag>>).get(hash)?.add(tag);
                 });
               }
             });
@@ -125,5 +129,5 @@ export function CopierConstructor<TEntry extends IEntry>(base: Dex<TEntry>): ICo
     }
   });
 
-  return copyFunction as ICopier<TEntry>;
+  return copyFunction as Copier<TEntry>;
 }

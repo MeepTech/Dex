@@ -1,67 +1,61 @@
-import { forEach, IBreakable } from "../../utilities/loops";
+import { forEach, IBreakable } from "../../utilities/iteration";
 import { isArray, isFunction, isIterable, isObject } from "../../utilities/validators";
-import { IReadOnlyDex } from "../readonly";
-import { IEntry } from '../subsets/entries'
-import { IHashKey, IHashOrHashes } from "../subsets/hashes";
-import { ITag, ITagOrTags } from "../subsets/tags";
+import { IReadOnlyDex } from "../idex";
+import { Entry } from '../subsets/entries'
+import { HashKey, HashOrHashes } from "../subsets/hashes";
+import { Tag, TagOrTags } from "../subsets/tags";
 
 //#region Normalized
 
-export type IQueryFilter<TDexEntry extends IEntry>
-  = IAndFilterQuery<TDexEntry> | IOrFilterQuery<TDexEntry>;
+export type QueryFilter<TDexEntry extends Entry>
+  = AndFilter<TDexEntry> | OrFilter<TDexEntry>;
 
-export type ILogicFilter<TDexEntry extends IEntry> = {
-  where?: IMatchFilter<TDexEntry>
+export type LogicFilter<TDexEntry extends Entry> = {
+  where?: MatchFilter<TDexEntry>
   // TODO: ignore function can also go in here.
-} | IMatchFilter<TDexEntry>
+} | MatchFilter<TDexEntry>
 
-export interface IMatchFilter<TDexEntry extends IEntry>
+export interface MatchFilter<TDexEntry extends Entry>
   extends IBreakable<[
     entry: TDexEntry,
-    tags: Set<ITag>,
+    tags: Set<Tag>,
     index: number,
     dex: IReadOnlyDex<TDexEntry>,
-    args: IQueryFilter<TDexEntry>,
+    args: QueryFilter<TDexEntry>,
     ...rest: any
   ], boolean> { };
 
-/** @internal */
-export type IOrFilterQuery<TDexEntry extends IEntry> = {
+export type OrFilter<TDexEntry extends Entry> = {
   /**
    * X or Y or Z
    */
-  or: IFilterObject<TDexEntry>;
-  not?: true | IFilterObject<TDexEntry>;
+  or: FilterParams<TDexEntry>;
+  not?: true | FilterParams<TDexEntry>;
   and?: never;
 };
 
-/** @internal */
-export type IAndFilterQuery<TDexEntry extends IEntry> = {
+export type AndFilter<TDexEntry extends Entry> = {
   /**
    * X and Y and Z
    */
-  and: IFilterObject<TDexEntry>
-  not?: true | IFilterObject<TDexEntry>,
+  and: FilterParams<TDexEntry>
+  not?: true | FilterParams<TDexEntry>,
   or?: never
 };
 
-/** @internal */
-export type IFilterObject<TDexEntry extends IEntry>
-  = ITagFilters & IFilterOrFilters<TDexEntry> & IHashKeyFilters;
+export type FilterParams<TDexEntry extends Entry>
+  = TagFilters & LogicFilters<TDexEntry> & HashKeyFilters;
 
-/** @internal */
-type IHashKeyFilters = {
-  hashes: Set<IHashKey>
+export type HashKeyFilters = {
+  hashes: Set<HashKey>
 }
 
-/** @internal */
-type ITagFilters = {
-  tags: Set<ITag>,
+export type TagFilters = {
+  tags: Set<Tag>,
 }
 
-/** @internal */
-type IFilterOrFilters<TDexEntry extends IEntry> = {
-  filters: ILogicFilter<TDexEntry>[]
+export type LogicFilters<TDexEntry extends Entry> = {
+  filters: LogicFilter<TDexEntry>[]
 }
 
 //#endregion
@@ -71,38 +65,38 @@ type IFilterOrFilters<TDexEntry extends IEntry> = {
 /**
  * Used to convert input query filters to their normalized version
  */
-export function normalizeFilters<TEntry extends IEntry>(
-  inputFilters: IQueryFilterInput<TEntry>[]
-): IQueryFilter<TEntry>[] {
+export function normalizeFilters<TDexEntry extends Entry>(
+  inputFilters: XQueryFilter<TDexEntry>[]
+): QueryFilter<TDexEntry>[] {
   return inputFilters.map(filter => {
     const and = !!filter.and;
-    const normalized: IQueryFilter<TEntry>
+    const normalized: QueryFilter<TDexEntry>
       = and
         ? {
           and: {
-            hashes: new Set<IHashKey>,
-            tags: new Set<ITag>,
-            filters: [] as ILogicFilter<TEntry>[]
+            hashes: new Set<HashKey>,
+            tags: new Set<Tag>,
+            filters: [] as LogicFilter<TDexEntry>[]
           }
         } : {
           or: {
-            hashes: new Set<IHashKey>,
-            tags: new Set<ITag>,
-            filters: [] as ILogicFilter<TEntry>[]
+            hashes: new Set<HashKey>,
+            tags: new Set<Tag>,
+            filters: [] as LogicFilter<TDexEntry>[]
           }
         };
 
     const filterValues = normalized.and || normalized.or;
     if (isArray(filter)) {
-      for (const item of filter as (ITag | ILogicFilter<TEntry>)[]) {
+      for (const item of filter as (Tag | LogicFilter<TDexEntry>)[]) {
         if (isObject(item) || isFunction(item)) {
-          filterValues.filters.push(item as ILogicFilter<TEntry>);
+          filterValues.filters.push(item as LogicFilter<TDexEntry>);
         } else {
-          filterValues.tags.add(item as ITag);
+          filterValues.tags.add(item as Tag);
         }
       }
     } else if (isObject(filter)) {
-      const current: IFilterObjectInput<TEntry>
+      const current: FilterParamObject<TDexEntry>
         = and
           ? filter.and
           : (typeof filter.or !== 'boolean'
@@ -163,7 +157,7 @@ export function normalizeFilters<TEntry extends IEntry>(
 /**
  * Used to convert input query filters to their 'not'/negated versions
  */
-export function negateFilters<TEntry extends IEntry>(filters: IQueryFilter<TEntry>[]) {
+export function negateFilters<TDexEntry extends Entry>(filters: QueryFilter<TDexEntry>[]) {
   for (const filter of filters) {
     const not = filter.not;
     // simply delete the not if it's not'd
@@ -174,11 +168,11 @@ export function negateFilters<TEntry extends IEntry>(filters: IQueryFilter<TEntr
 
     if (filter.and) {
       const and = filter.and;
-      filter.and = not ?? { hashes: new Set(), tags: new Set(), filters: []};
+      filter.and = not ?? { hashes: new Set(), tags: new Set(), filters: [] };
       filter.not = and;
     } else {
       const or = filter.or;
-      filter.or = not ?? { hashes: new Set(), tags: new Set(), filters: []};
+      filter.or = not ?? { hashes: new Set(), tags: new Set(), filters: [] };
       filter.not = or;
     }
   }
@@ -186,81 +180,72 @@ export function negateFilters<TEntry extends IEntry>(filters: IQueryFilter<TEntr
 
 //#endregion
 
-//#region Input
+//#region Extended for Input
 
-/** @internal */
-export type IQueryFilterInput<TEntry extends IEntry>
-  = IAndFilterQueryInput<TEntry>
-  | IOrFilterQueryInput<TEntry>
-  | IQueryFilter<TEntry>;
+export type XQueryFilter<TDexEntry extends Entry>
+  = XAndFilter<TDexEntry>
+  | XOrFilter<TDexEntry>
+  | QueryFilter<TDexEntry>;
 
-/** @internal */
-export type IAndFilterQueryInput<TEntry extends IEntry> = {
+export type XAndFilter<TDexEntry extends Entry> = {
   /**
    * X and Y and Z
    */
-  and: ITagOrTagsWithFiltersInput<TEntry>
-  not?: true | ITagOrTagsWithFiltersInput<TEntry>,
+  and: XFilterParams<TDexEntry>
+  not?: true | XFilterParams<TDexEntry>,
   or?: never
 } | {
   /**
    * X and Y and Z
    */
-  and: true 
-  not: ITagOrTagsWithFiltersInput<TEntry>,
+  and: true
+  not: XFilterParams<TDexEntry>,
   or?: never
 };
 
-/** @internal */
-export type IOrFilterQueryInput<TEntry extends IEntry> = {
+export type XOrFilter<TDexEntry extends Entry> = {
   /**
    * X or Y or Z
    */
-  or: ITagOrTagsWithFiltersInput<TEntry>;
-  not?: true | ITagOrTagsWithFiltersInput<TEntry>;
+  or: XFilterParams<TDexEntry>;
+  not?: true | XFilterParams<TDexEntry>;
   and?: never;
 } | {
   /**
    * X or Y or Z
    */
-  or?: true | ITagOrTagsWithFiltersInput<TEntry>
-  not: ITagOrTagsWithFiltersInput<TEntry>,
+  or?: true | XFilterParams<TDexEntry>
+  not: XFilterParams<TDexEntry>,
   and?: never
 };
 
-/** @internal */
-type ITagOrTagsWithFiltersInput<TEntry extends IEntry> =
-  | IFilterArrayInput<TEntry>
-  | IFilterObjectInput<TEntry>;
+export type XFilterParams<TDexEntry extends Entry> =
+  | XFilterParamArray<TDexEntry>
+  | FilterParamObject<TDexEntry>;
 
-/** @internal */
-type IFilterArrayInput<TEntry extends IEntry>
-  = Array<ITag | ILogicFilter<TEntry>>;
+export type XFilterParamArray<TDexEntry extends Entry>
+  = Array<Tag | LogicFilter<TDexEntry>>;
 
-/** @internal */
-export type IFilterObjectInput<TEntry extends IEntry>
-  = ITagFiltersInput
-  & IFilterOrFiltersInput<TEntry>
-  & IHashKeyFiltersInput;
+export type FilterParamObject<TDexEntry extends Entry>
+  = XTagFilters
+  & XLogicFilters<TDexEntry>
+  & XHashKeyFilters;
 
-/** @internal */
-type IHashKeyFiltersInput = {
-  hash?: IHashKey;
-  hashes?: IHashOrHashes;
-  key?: IHashKey;
-  keys?: IHashOrHashes;
+export type XHashKeyFilters = {
+  hash?: HashKey;
+  hashes?: HashOrHashes;
+  key?: HashKey;
+  keys?: HashOrHashes;
 };
 
-/** @internal */
-type ITagFiltersInput = {
-  tags?: ITagOrTags;
-  tag?: ITag
+export type XTagFilters = {
+  tags?: TagOrTags;
+  tag?: Tag
 };
 
-/** @internal */
-type IFilterOrFiltersInput<TEntry extends IEntry> = {
-  filter?: ILogicFilter<TEntry>,
-  filters?: ILogicFilter<TEntry> | ILogicFilter<TEntry>[]
+export type XLogicFilters<TDexEntry extends Entry> = {
+  filter?: LogicFilter<TDexEntry>,
+  filters?: LogicFilter<TDexEntry> | LogicFilter<TDexEntry>[]
 };
 
 //#endregion

@@ -1,109 +1,172 @@
-import { Break, IBreakable } from "../../utilities/loops";
-import { isArray, isFunction } from "../../utilities/validators";
-import Dex from "../dex";
-import { IEntry } from "./entries";
+import { IBreakable } from "../../utilities/iteration";
+import { Entry } from "./entries";
 import {
-  IFullQuery,
+  FullQueryConstructor,
+  FullQuery,
 } from "../queries/queries";
-import { IDexSubSet } from "./subset";
-import { ITag } from "./tags";
-import { IReadOnlyDex } from "../readonly";
-import { ResultType } from "../queries/results";
+import { IDexSubSet, SubSet } from "./subset";
+import { Tag } from "./tags";
+import { IReadOnlyDex } from "../idex";
+import { Result, NoEntryFound, ResultType } from "../queries/results";
 
 /**
  * A hash key for a dex item.
  */
-export type IHashKey = string | number | symbol;
+export type HashKey = string | number | symbol;
 
-export type IHashOrHashes = IHashKey | Iterable<IHashKey>
+/**
+ * One or more hash keys.
+ */
+export type HashOrHashes = HashKey | Iterable<HashKey>
 
 /**
  * A collection used to access hashes
  */
-export interface IHashSet<TEntry extends IEntry>
-  extends IDexSubSet<IHashKey, TEntry>,
-  IFullQuery<IHashKey, ResultType.Set, TEntry> { 
+export interface HashSet<TEntry extends Entry>
+  extends IDexSubSet<HashKey, TEntry>,
+  FullQuery<HashKey, ResultType.Set, TEntry> { 
   
     /**
      * Fetch all the items that match a given entry into a set.
      */
   of(
     target: TEntry
-  ): IHashKey | undefined;
+  ): HashKey | undefined;
 }
 
 /** @internal */
-export function HashSetConstructor<TEntry extends IEntry>(
+export function HashSetConstructor<TEntry extends Entry>(
   dex: IReadOnlyDex<TEntry>,
-  base: Set<IHashKey>
-): IHashSet<TEntry> {
+  base: Set<HashKey>
+): HashSet<TEntry> {
 
   // Basic query function
-  const query: IFullQuery<IHashKey, IFlag, TEntry, IHashKey[]> = QueryConstructor<
-    IHashKey,
-    TEntry,
-    IFlag,
-    QueryResults<IHashKey, TEntry>,
-    IHashKey[],
-    QueryResults<IHashKey, TEntry>,
-    IFlag
+  const query = FullQueryConstructor<
+    HashKey,
+    ResultType.Set,
+    TEntry
   >(
-    (tags, flags) => {
-      if (flags && hasFlag(flags, FLAGS.CHAIN)) {
-        const hashes = dex.keys(tags, flags as any);
-        const result = new Dex<TEntry>();
-        result.copy.from(dex, hashes);
+    dex,
+    ResultType.Set,
+    {
+      transform: false,
+      allOnNoParams: true
+    }
+  ) as HashSet<TEntry>;
 
-        return result;
-      } else if (flags && hasFlag(flags, FLAGS.FIRST)) {
-        return dex.keys.first(tags, flags);
-      } else {
-        return dex.keys(tags, flags as any);
-      }
-    },
-    dex
-  );
-
-  /**
-   * Sub functions
-   */
-  const hashSet = query as IHashSet<TEntry>;
-
-  Object.defineProperty(hashSet, 'size', {
-    get() {
-      return base.size;
+  Object.defineProperty(query, 'map', {
+    value<TResult, TResults extends ResultType>(
+      transform: IBreakable<[key: HashKey, index: number], TResult>,
+      resultType?: TResults
+    ): Result<TResult, TResults, TEntry> {
+      return SubSet.map<TResult, TResults, HashKey, TEntry>(
+        dex,
+        transform,
+        resultType
+      );
     },
     enumerable: false,
+    writable: false,
     configurable: false
-  });
-
-  Object.defineProperty(hashSet, 'count', {
-    get() {
-      return base.size;
-    },
-    enumerable: false,
-    configurable: false
-  });
-
-  Object.defineProperty(hashSet, 'length', {
-    get() {
-      return base.size;
-    },
-    enumerable: false,
-    configurable: false
-  });
-
-  Object.defineProperty(hashSet, 'toArray', {
-    value: function toArray() {
-      return [...base];
-    },
+  } as {
+    value: HashSet<TEntry>["map"],
     enumerable: false,
     writable: false,
     configurable: false
   });
 
-  Object.defineProperty(hashSet, 'of', {
-    value: function get(target: TEntry) {
+  Object.defineProperty(query, 'filter', {
+    value<TResults extends ResultType = ResultType.Array>(
+      where: IBreakable<[hashKey: HashKey, index: number], boolean>,
+      resultType?: TResults
+    ): Result<HashKey, TResults, TEntry> {
+      return SubSet.filter<TResults, HashKey, TEntry>(
+        dex,
+        where,
+        resultType
+      );
+    },
+    enumerable: false,
+    writable: false,
+    configurable: false
+  } as {
+    value: HashSet<TEntry>["filter"],
+    enumerable: false,
+    writable: false,
+    configurable: false
+  });
+
+  Object.defineProperty(query, 'first', {
+    value(
+      where: IBreakable<[item: HashKey, index: number], boolean>
+    ): HashKey | NoEntryFound {
+      return SubSet.first<HashKey, TEntry>(
+        dex,
+        where
+      );
+    },
+    enumerable: false,
+    writable: false,
+    configurable: false
+  } as {
+    value: HashSet<TEntry>["first"],
+    enumerable: false,
+    writable: false,
+    configurable: false
+  });
+
+  Object.defineProperty(query, 'size', {
+    get() {
+      return base.size;
+    },
+    enumerable: false,
+    configurable: false
+  } as {
+    get(): HashSet<TEntry>["size"],
+    enumerable: false,
+    configurable: false
+  });
+
+  Object.defineProperty(query, 'count', {
+    get() {
+      return base.size;
+    },
+    enumerable: false,
+    configurable: false
+  } as {
+    get(): HashSet<TEntry>["count"],
+    enumerable: false,
+    configurable: false
+  });
+
+  Object.defineProperty(query, 'length', {
+    get() {
+      return base.size;
+    },
+    enumerable: false,
+    configurable: false
+  } as {
+    get(): HashSet<TEntry>["length"],
+    enumerable: false,
+    configurable: false
+  });
+
+  Object.defineProperty(query, 'toArray', {
+    value() {
+      return [...base];
+    },
+    enumerable: false,
+    writable: false,
+    configurable: false
+  } as {
+    value: HashSet<TEntry>["toArray"],
+    enumerable: false,
+    writable: false,
+    configurable: false
+  });
+
+  Object.defineProperty(query, 'of', {
+    value(target: TEntry) {
       const hash = dex.hash(target);
       if (hash !== undefined && base.has(hash)) {
         return hash;
@@ -114,213 +177,101 @@ export function HashSetConstructor<TEntry extends IEntry>(
     enumerable: false,
     writable: false,
     configurable: false
-  });
-
-  Object.defineProperty(hashSet, 'where', {
-    value: function where(
-      a: IBreakable<[entry: TEntry, index: number], boolean> | ITag[],
-      b?: IFlag[]
-    ): IHashKey | Set<IHashKey> | Dex<TEntry> | undefined {
-      if (isFunction(a)) {
-        if (b?.includes(FLAGS.CHAIN) && !b.includes(FLAGS.FIRST)) {
-          const results = new Dex<TEntry>();
-          let index = 0;
-
-          for (const e of base.keys()) {
-            const result = a(dex.get(e)!, index++);
-            if (result instanceof Break) {
-              if (result.hasReturn && result.return) {
-                (results as Dex<TEntry>).copy.from(dex, [e]);
-              }
-
-              break;
-            } else if (result) {
-              (results as Dex<TEntry>).copy.from(dex, [e]);
-            }
-          }
-
-          return results;
-        } else {
-          let index = 0;
-
-          if (b?.includes(FLAGS.FIRST)) {
-            for (const e of base.values()) {
-              const result = a(dex.get(e)!, index++);
-              if (result instanceof Break) {
-                if (result.hasReturn && result.return) {
-                  return e;
-                }
-
-                break;
-              } else if (result) {
-                return e;
-              }
-            }
-
-            return NO_RESULT;
-          } else {
-            const results: Set<IHashKey> = new Set();
-
-            for (const e of base.values()) {
-              const result = a(dex.get(e)!, index++);
-              if (result instanceof Break) {
-                if (result.hasReturn && result.return) {
-                  results.add(e);
-                }
-
-                break;
-              } else if (result) {
-                results.add(e);
-              }
-            }
-
-            return results;
-          }
-        }
-      } else {
-        const results = dex.hashes(a, b);
-        if (isArray(results)) {
-          return new Set(results);
-        } else {
-          return results as IHashKey | Dex<TEntry>;
-        }
-      }
-    },
+  } as {
+    value: HashSet<TEntry>["of"],
     enumerable: false,
     writable: false,
     configurable: false
   });
 
-  Object.defineProperty(hashSet, 'map', {
-    value: function <TResult>(transform: IBreakable<[item: IHashKey, index: number], TResult>): Array<TResult> {
-      let index = 0;
-      const results: Array<TResult> = [];
-
-      for (const e of base.values()) {
-        const result = transform(e, index++);
-        if (result instanceof Break) {
-          if (result.hasReturn) {
-            results.push(result.return as TResult);
-          }
-
-          break;
-        } else {
-          results.push(result);
-        }
-      }
-
-      return results;
-    },
-    enumerable: false,
-    writable: false,
-    configurable: false
-  });
-
-  Object.defineProperty(hashSet, 'first', {
-    value: function (where: IBreakable<[item: IHashKey, index: number], boolean>): IHashKey | undefined {
-      let index = 0;
-
-      for (const e of base.values()) {
-        const result = where(e, index++);
-        if (result instanceof Break) {
-          if (result.hasReturn && result.return) {
-            return e;
-          }
-
-          break;
-        } else if (result) {
-          return e;
-        }
-      }
-
-      return NO_RESULT;
-    },
-    enumerable: false,
-    writable: false,
-    configurable: false
-  });
-
-  Object.defineProperty(hashSet, 'filter', {
-    value: function (where: IBreakable<[item: IHashKey, index: number], boolean>): Set<IHashKey> {
-      let index = 0;
-      const results: Set<IHashKey> = new Set();
-
-      for (const e of base.values()) {
-        const result = where(e, index++);
-        if (result instanceof Break) {
-          if (result.hasReturn && result.return) {
-            results.add(e);
-          }
-
-          break;
-        } else if (result) {
-          results.add(e);
-        }
-      }
-
-      return results;
-    },
-    enumerable: false,
-    writable: false,
-    configurable: false
-  });
-
-  Object.defineProperty(hashSet, Symbol.iterator, {
-    get(): () => IterableIterator<IHashKey> {
+  Object.defineProperty(query, Symbol.iterator, {
+    get(): () => IterableIterator<HashKey> {
       return base[Symbol.iterator].bind(base);
     },
     enumerable: false,
     configurable: false
+  } as {
+    get(): HashSet<TEntry>[typeof Symbol["iterator"]],
+    enumerable: false,
+    configurable: false
   });
 
-  Object.defineProperty(hashSet, Symbol.toStringTag, {
+  Object.defineProperty(query, Symbol.toStringTag, {
     value: "DexHashes",
+    enumerable: false,
+    writable: false,
+    configurable: false
+  } as {
+    value: string,
     enumerable: false,
     writable: false,
     configurable: false
   });
 
-  Object.defineProperty(hashSet, 'forEach', {
-    value(callbackfn: (value: IHashKey, value2: IHashKey, set: Set<IHashKey>) => void, thisArg?: any) {
+  Object.defineProperty(query, 'forEach', {
+    value(callbackfn: (value: HashKey, value2: HashKey, set: Readonly<Set<HashKey>>) => void, thisArg?: any) {
       base.forEach(callbackfn, thisArg);
     },
     enumerable: false,
     writable: false,
     configurable: false
-  });
-
-  Object.defineProperty(hashSet, 'has', {
-    value(tag: ITag) {
-      return base.has(tag);
-    },
+  } as {
+    value: HashSet<TEntry>["forEach"],
     enumerable: false,
     writable: false,
     configurable: false
   });
 
-  Object.defineProperty(hashSet, 'entries', {
-    get() {
-      return base.entries();
+  Object.defineProperty(query, 'has', {
+    value(tag: Tag) {
+      return base.has(tag);
     },
+    enumerable: false,
+    writable: false,
+    configurable: false
+  } as {
+    value: HashSet<TEntry>["has"],
+    enumerable: false,
+    writable: false,
+    configurable: false
+  });
+
+  Object.defineProperty(query, 'entries', {
+    get() {
+      return base.entries;
+    },
+    enumerable: false,
+    configurable: false
+  } as {
+    get(): HashSet<TEntry>["entries"],
     enumerable: false,
     configurable: false
   });
 
-  Object.defineProperty(hashSet, 'keys', {
+  Object.defineProperty(query, 'keys', {
     get() {
-      return base.keys();
+      return base.keys;
     },
+    enumerable: false,
+    configurable: false
+  } as {
+    get(): HashSet<TEntry>["keys"],
     enumerable: false,
     configurable: false
   });
 
-  Object.defineProperty(hashSet, 'values', {
+  Object.defineProperty(query, 'values', {
     get() {
-      return base.values();
+      return base.values;
     },
+    enumerable: false,
+    writable: false,
+    configurable: false
+  } as {
+    get(): HashSet<TEntry>["values"],
     enumerable: false,
     configurable: false
   });
 
-  return hashSet;
+  return query;
 }

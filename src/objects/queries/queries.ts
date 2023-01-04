@@ -1,174 +1,174 @@
 import { isArray, isFunction, isObject, isTag } from "../../utilities/validators";
-import { IEntry } from "../subsets/entries";
-import { ITag, ITagOrTags } from "../subsets/tags";
-import { IReadOnlyDex } from "../readonly";
-import { IHashKey } from "../subsets/hashes";
-import { IResult, ResultType } from "./results";
+import { Entry } from "../subsets/entries";
+import { Tag, TagOrTags } from "../subsets/tags";
+import { IReadOnlyDex } from "../idex";
+import { HashKey } from "../subsets/hashes";
+import { Result, ResultType } from "./results";
 import {
-  IAndFilterQuery,
-  IOrFilterQuery,
-  IQueryFilter,
-  IQueryFilterInput,
-  IMatchFilter,
+  AndFilter,
+  OrFilter,
+  QueryFilter,
+  XQueryFilter,
+  MatchFilter,
   negateFilters,
   normalizeFilters
 } from "./filters";
 import Dex, { InvalidQueryParamError } from "../dex";
-import { Break, IBreakable } from "../../utilities/loops";
+import { Break, IBreakable } from "../../utilities/iteration";
 
 /**
  * 
  */
-export type IQuery<
-  TEntry extends IEntry,
-  TResult extends ResultType,
-  TDexEntry extends IEntry = TEntry
-> = ISpecificQuery<TEntry, TResult, TDexEntry>
-  | IFullQuery<TEntry, TResult, TDexEntry>
-  | IFirstableQuery<TEntry, Exclude<TResult, ResultType.First>, TDexEntry>;
+export type Query<
+  TValue,
+  TResult extends ResultType = ResultType,
+  TDexEntry extends Entry = TValue extends Entry ? TValue : Entry
+> = SpecificQuery<TValue, TResult, TDexEntry>
+  | FullQuery<TValue, TResult, TDexEntry>
+  | FirstableQuery<TValue, Exclude<TResult, ResultType.First>, TDexEntry>;
 
 /**
  * A query that just returns one type of value
  */
-export interface ISpecificQuery<
-  TEntry extends IEntry,
+export interface SpecificQuery<
+  TValue,
   TResult extends ResultType,
-  TDexEntry extends IEntry = TEntry
-> extends IQueryBase<TEntry, TResult, TDexEntry> {
-  not: ISpecificNotQuery<TEntry, TResult, TDexEntry>;
+  TDexEntry extends Entry = TValue extends Entry ? TValue : Entry
+> extends IQueryBase<TValue, TResult, TDexEntry> {
+  not: SpecificNotQuery<TValue, TResult, TDexEntry>;
 }
 
 /**
  * A NOT query that just returns one type of value
  */
-export interface ISpecificNotQuery<
-  TEntry extends IEntry,
+export interface SpecificNotQuery<
+  TValue,
   TResult extends ResultType,
-  TDexEntry extends IEntry = TEntry
-> extends IQueryBase<TEntry, TResult, TDexEntry> {}
+  TDexEntry extends Entry = TValue extends Entry ? TValue : Entry
+> extends IQueryBase<TValue, TResult, TDexEntry> {}
 
 /**
  * A query that can return many different types, and has more options than a specific query
  */
-export interface IFullQuery<
-  TEntry extends IEntry,
+export interface FullQuery<
+  TValue,
   TDefaultResult extends ResultType,
-  TDexEntry extends IEntry = TEntry
-> extends IQueryBase<TEntry, TDefaultResult, TDexEntry> {
-  not: IFullNotQuery<TEntry, TDefaultResult, TDexEntry>;
+  TDexEntry extends Entry = TValue extends Entry ? TValue : Entry
+> extends IQueryBase<TValue, TDefaultResult, TDexEntry> {
+  not: FullNotQuery<TValue, TDefaultResult, TDexEntry>;
 
   <TResultType extends ResultType = TDefaultResult>(
-    tag: ITag,
+    tag: Tag,
     options: {
-      filters?: IQueryFilterInput<TEntry>[] | IQueryFilterInput<TEntry>,
+      filters?: XQueryFilter<TDexEntry>[] | XQueryFilter<TDexEntry>,
       result: TResultType
     }
-  ): IResult<TEntry, TResultType, TDexEntry>
+  ): Result<TValue, TResultType, TDexEntry>
 
   <TResultType extends ResultType>(
-    tag: ITag,
+    tag: Tag,
     result: TResultType
-  ): IResult<TEntry, TResultType, TDexEntry>
+  ): Result<TValue, TResultType, TDexEntry>
 
   <TResultType extends ResultType = TDefaultResult>(
-    tags: ITagOrTags,
+    tags: TagOrTags,
     options: {
-      filters?: IQueryFilterInput<TEntry>[] | IQueryFilterInput<TEntry>,
+      filters?: XQueryFilter<TDexEntry>[] | XQueryFilter<TDexEntry>,
       result: TResultType
     }
-  ): IResult<TEntry, TResultType, TDexEntry>
+  ): Result<TValue, TResultType, TDexEntry>
 
   <TResultType extends ResultType>(
-    tags: ITagOrTags,
+    tags: TagOrTags,
     result: TResultType
-  ): IResult<TEntry, TResultType, TDexEntry>
+  ): Result<TValue, TResultType, TDexEntry>
 
   <TResultType extends ResultType>(
     result: TResultType,
-    tag: ITag
-  ): IResult<TEntry, TResultType, TDexEntry>
+    tag: Tag
+  ): Result<TValue, TResultType, TDexEntry>
 
   <TResultType extends ResultType>(
     result: TResultType,
-    ...tags: ITag[]
-  ): IResult<TEntry, TResultType, TDexEntry>
+    ...tags: Tag[]
+  ): Result<TValue, TResultType, TDexEntry>
 
   <TResultType extends ResultType>(
     result: TResultType,
-    ...filters: IQueryFilterInput<TEntry>[]
-  ): IResult<TEntry, TResultType, TDexEntry>
+    ...filters: XQueryFilter<TDexEntry>[]
+  ): Result<TValue, TResultType, TDexEntry>
 
   <TResultType extends ResultType>(
-    ...tagsAndResult: [...ITag[], TResultType]
-  ): IResult<TEntry, TResultType, TDexEntry>
+    ...tagsAndResult: [...Tag[], TResultType]
+  ): Result<TValue, TResultType, TDexEntry>
 
   <TResultType extends ResultType = TDefaultResult>(
-    filter: IQueryFilterInput<TEntry>,
+    filter: XQueryFilter<TDexEntry>,
     result: TResultType
-  ): IResult<TEntry, TResultType, TDexEntry>
+  ): Result<TValue, TResultType, TDexEntry>
 
   <TResultType extends ResultType = TDefaultResult>(
-    filters: IQueryFilterInput<TEntry>[],
+    filters: XQueryFilter<TDexEntry>[],
     result: TResultType
-  ): IResult<TEntry, TResultType, TDexEntry>
+  ): Result<TValue, TResultType, TDexEntry>
 
   <TResultType extends ResultType>(
-    ...filtersAndResult: [...IQueryFilterInput<TEntry>[], TResultType]
-  ): IResult<TEntry, TResultType, TDexEntry>
+    ...filtersAndResult: [...XQueryFilter<TDexEntry>[], TResultType]
+  ): Result<TValue, TResultType, TDexEntry>
 }
 
 /**
  * A query that can return many different types, and has more options than a specific query
  */
-export interface IFullNotQuery<
-  TEntry extends IEntry,
+export interface FullNotQuery<
+  TValue,
   TResult extends ResultType,
-  TDexEntry extends IEntry = TEntry
-> extends IFullQuery<TEntry, TResult, TDexEntry> {}
+  TDexEntry extends Entry = TValue extends Entry ? TValue : Entry
+> extends FullQuery<TValue, TResult, TDexEntry> {}
 
 /**
  * Represents a special kind of query that has a first parameter as well
  */
-export interface IFirstableQuery<
-  TEntry extends IEntry,
+export interface FirstableQuery<
+  TValue,
   TDefaultResult extends Exclude<ResultType, ResultType.First>,
-  TDexEntry extends IEntry = TEntry
-> extends ISpecificQuery<TEntry, TDefaultResult, TDexEntry> {
-  first: ISpecificQuery<TEntry, ResultType.First, TDexEntry>;
+  TDexEntry extends Entry = TValue extends Entry ? TValue : Entry
+> extends SpecificQuery<TValue, TDefaultResult, TDexEntry> {
+  first: SpecificQuery<TValue, ResultType.First, TDexEntry>;
 }
 
-/** @internal */
 interface IQueryBase<
-  TEntry extends IEntry,
+  TValue,
   TResult extends ResultType,
-  TDexEntry extends IEntry = TEntry
+  TDexEntry extends Entry = TValue extends Entry ? TValue : Entry
 > {
   (
-    tag: ITag,
+    tag: Tag,
     options?: {
-      filters?: IQueryFilterInput<TEntry>[] | IQueryFilterInput<TEntry>
+      filters?: XQueryFilter<TDexEntry>[] | XQueryFilter<TDexEntry>
     }
-  ): IResult<TEntry, TResult, TDexEntry>
+  ): Result<TValue, TResult, TDexEntry>
 
   (
-    tags: ITagOrTags,
+    tags: TagOrTags,
     options?: {
-      filters?: IQueryFilterInput<TEntry>[] | IQueryFilterInput<TEntry>
+      filters?: XQueryFilter<TDexEntry>[] | XQueryFilter<TDexEntry>
     }
-  ): IResult<TEntry, TResult, TDexEntry>
+  ): Result<TValue, TResult, TDexEntry>
 
-  (filter: IQueryFilterInput<TEntry>)
-    : IResult<TEntry, TResult, TDexEntry>
+  (filter: XQueryFilter<TDexEntry>)
+    : Result<TValue, TResult, TDexEntry>
 
-  (filters: IQueryFilterInput<TEntry>[])
-    : IResult<TEntry, TResult, TDexEntry>
+  (filters: XQueryFilter<TDexEntry>[])
+    : Result<TValue, TResult, TDexEntry>
 
-  (...filters: IQueryFilterInput<TEntry>[])
-    : IResult<TEntry, TResult, TDexEntry>
+  (...filters: XQueryFilter<TDexEntry>[])
+    : Result<TValue, TResult, TDexEntry>
 }
 
+//#region Internal
 
-const testQuery: IFullQuery<IEntry, ResultType.Array> = {} as any;
+const testQuery: FullQuery<{}, ResultType.Array, string> = {} as any;
 
 const _1 = testQuery(["a", "e", 1, 5]);
 const _2 = testQuery(["a", "e", 1, 5], ResultType.Dex);
@@ -179,8 +179,9 @@ const _5 = testQuery({ and: ["one", "two"] }, { not: { hashes: ["ID:KW$#kj3tijer
 const _6 = testQuery({ not: { hashes: ["ID:KW$#kj3tijergwigg"] } });
 
 /** @internal */
-type QueryFilterOnCompleteOverrideFunction = ((matches: IHashKey[]) => void);
+type QueryFilterOnCompleteOverrideFunction = ((matches: HashKey[]) => void);
 
+/** @internal */
 type QueryFilterOnCompleteFunctions = {
   onEmpty?: QueryFilterOnCompleteOverrideFunction;
   onEmptyNot?: QueryFilterOnCompleteOverrideFunction;
@@ -199,43 +200,43 @@ type QueryFilterOnCompleteLogic
        * The default
        * (is executed at the end if provided)
        */
-      onDefault?: (matches: IHashKey[]) => void;
+      onDefault?: (matches: HashKey[]) => void;
     });
 
 /** @internal */
 export const FullQueryConstructor = <
-  TEntry extends IEntry,
+  TValue,
   TDefaultResult extends ResultType,
-  TDexEntry extends IEntry = TEntry
+  TDexEntry extends Entry
 >(
   dex: IReadOnlyDex<TDexEntry>,
   defaultResult: TDefaultResult,
   options?: {
-    transform?: ((hash: IHashKey) => TEntry) | false,
-    modifyFilters?: (filters: IQueryFilter<TDexEntry>[]) => void,
+    transform?: ((hash: HashKey) => TValue) | false,
+    modifyFilters?: (filters: QueryFilter<TDexEntry>[]) => void,
     excludeNot?: boolean,
     allOnNoParams?: boolean
   }
-): IFullQuery<TEntry, TDefaultResult, TDexEntry> => {
+): FullQuery<TValue, TDefaultResult, TDexEntry> => {
   const query = function <
-    TQEntry extends TEntry,
+    TQValue extends TValue,
     TResultType extends TDefaultResult = TDefaultResult,
-    TQDexEntry extends TQEntry = TQEntry
+    TQDexEntry extends Entry = TDexEntry
   >(
     this: IReadOnlyDex<TQDexEntry>,
     ...args: any
-  ): IResult<TQEntry, TResultType, TQDexEntry> {
+  ): Result<TQValue, TResultType, TQDexEntry> {
     // sort params to filters
     const {
       filters,
       result: resultType = defaultResult
-    } = _convertQueryParamsToFilters<TQEntry, TQDexEntry>(...args);
-    options?.modifyFilters?.(filters as IQueryFilter<TDexEntry>[]);
+    } = _convertQueryParamsToFilters<TQDexEntry>(...args);
+    options?.modifyFilters?.(filters as QueryFilter<TDexEntry>[]);
 
     // switch based on requested return type.
     options ??= {};
-    let results: IResult<TQEntry, typeof resultType, TQDexEntry>;
-    let collectMatches: (matches: Set<IHashKey>) => void;
+    let results: Result<TQValue, typeof resultType, TQDexEntry>;
+    let collectMatches: (matches: Set<HashKey>) => void;
     let transform = options?.transform
       ?? (hash => dex.get(hash!));
 
@@ -245,9 +246,9 @@ export const FullQueryConstructor = <
         results = [];
 
         collectMatches = transform !== false
-          ? hashes => (results = ([...hashes] as TQEntry[]))
+          ? hashes => (results = ([...hashes] as TQValue[]))
           : hashes =>
-            hashes.forEach(hash => (results as TQEntry[]).push((transform as any)(hash))
+            hashes.forEach(hash => (results as TQValue[]).push((transform as any)(hash))
           );
 
         break;
@@ -255,20 +256,20 @@ export const FullQueryConstructor = <
       // first
       case ResultType.First: {
         // first only logic
-        let result: TQEntry | IHashKey | undefined = _logicFirstQuery<TQEntry, TQDexEntry>(this, filters);
+        let result: TQValue | HashKey | undefined = _logicFirstQuery<TQDexEntry>(this, filters);
         if (result !== undefined && transform !== false) {
-          result = transform(result as IHashKey) as TQEntry | IHashKey;
+          result = transform(result as HashKey) as TQValue | HashKey;
         }
 
-        return result as IResult<TQEntry, TResultType, TQDexEntry>;
+        return result as Result<TQValue, TResultType, TQDexEntry>;
       }
       // set
       case ResultType.Set: {
-        results = new Set<TQEntry>();
+        results = new Set<TQValue>();
         collectMatches = transform !== false
-          ? hashes => (results = hashes as Set<TQEntry>)
+          ? hashes => (results = hashes as Set<TQValue>)
           : hashes =>
-            hashes.forEach(hash => (results as Set<TQEntry>).add((transform as any)(hash))
+            hashes.forEach(hash => (results as Set<TQValue>).add((transform as any)(hash))
           );
 
         break;
@@ -284,27 +285,28 @@ export const FullQueryConstructor = <
         break;
       }
       // vauge
+      default:
       case ResultType.Vauge:
         throw new InvalidQueryParamError(resultType, "resultType");
     }
 
     // for no passed in params
     if (options?.allOnNoParams && !args?.length) {
-      const hashes = new Set<IHashKey>(dex.hashes);
+      const hashes = new Set<HashKey>(dex.hashes);
       collectMatches(hashes);
 
-      return results as IResult<TQEntry, TResultType, TQDexEntry>;
+      return results as Result<TQValue, TResultType, TQDexEntry>;
     }
 
     // multi-result logic
     const hashes = _logicMultiQuery(this, filters);
     collectMatches(hashes);
 
-    return results as IResult<TQEntry, TResultType, TQDexEntry>;
-  } as IFullQuery<TEntry, TDefaultResult, TDexEntry>;
+    return results as Result<TQValue, TResultType, TQDexEntry>;
+  } as FullQuery<TValue, TDefaultResult, TDexEntry>;
 
   if (!options?.excludeNot) {
-    query.not = FullQueryConstructor<TEntry, TDefaultResult, TDexEntry>(dex, defaultResult, {
+    query.not = FullQueryConstructor<TValue, TDefaultResult, TDexEntry>(dex, defaultResult, {
       ...options,
       excludeNot: true,
       // not all filters
@@ -317,122 +319,122 @@ export const FullQueryConstructor = <
 
 /** @internal */
 export const SpecificQueryConstructor = <
-  TEntry extends IEntry,
+  TValue,
   TResult extends ResultType,
-  TDexEntry extends IEntry = TEntry
+  TDexEntry extends Entry = TValue extends Entry ? TValue : Entry
 >(
   dex: IReadOnlyDex<TDexEntry>,
   resultType: TResult,
   options?: {
-    transform?: ((hash: IHashKey) => TEntry) | false,
-    modifyFilters?: (filters: IQueryFilter<TDexEntry>[]) => void;
+    transform?: ((hash: HashKey) => TValue) | false,
+    modifyFilters?: (filters: QueryFilter<TDexEntry>[]) => void;
     excludeNot?: boolean,
     allOnNoParams?: boolean
   }
-): ISpecificQuery<TEntry, TResult, TDexEntry> => {
+): SpecificQuery<TValue, TResult, TDexEntry> => {
   let transform
     = options?.transform
-    ?? (hash => dex.get(hash!) as any as TEntry);
+    ?? (hash => dex.get(hash!) as any as TValue);
 
-  let query: ISpecificQuery<TEntry, TResult, TDexEntry>;
+  let query: SpecificQuery<TValue, TResult, TDexEntry>;
   
   switch (resultType) {
     // array
     case ResultType.Array: {
-      query = function <TQEntry extends TEntry, TQDexEntry extends TDexEntry>(
+      query = function <TQValue extends TValue, TQDexEntry extends TDexEntry>(
         this: IReadOnlyDex<TQDexEntry>,
         ...args: any
-      ): TQEntry[] {
+      ): TQValue[] {
         const {
           filters
-        } = _convertQueryParamsToFilters<TQEntry, TQDexEntry>(...args);
-        options?.modifyFilters?.(filters as IQueryFilter<TDexEntry>[]);
+        } = _convertQueryParamsToFilters<TQDexEntry>(...args);
+        options?.modifyFilters?.(filters as QueryFilter<TDexEntry>[]);
 
         const hashes = (options?.allOnNoParams && !args?.length) 
-          ? new Set<IHashKey>(dex.hashes)
-          : _logicMultiQuery<TQEntry, TQDexEntry>(this, filters);
+          ? new Set<HashKey>(dex.hashes)
+          : _logicMultiQuery<TQDexEntry>(this, filters);
 
         if (transform === false) {
-          return [...hashes] as TQEntry[];
+          return [...hashes] as TQValue[];
         }
 
-        const results: TQEntry[] = [];
+        const results: TQValue[] = [];
         hashes.forEach(hash =>
-          (results as TQEntry[]).push((transform as any)(hash))
+          (results as TQValue[]).push((transform as any)(hash))
         );
 
         return results;
-      }.bind(dex) as ISpecificQuery<TEntry, ResultType.Array, TDexEntry> as ISpecificQuery<TEntry, TResult, TDexEntry>;
+      }.bind(dex) as SpecificQuery<TValue, ResultType.Array, TDexEntry> as SpecificQuery<TValue, TResult, TDexEntry>;
       break;
     }
     // first
     case ResultType.First: {
-      query = function <TQEntry extends TEntry, TQDexEntry extends TDexEntry>(
+      query = function <TQValue extends TValue, TQDexEntry extends TDexEntry>(
         this: IReadOnlyDex<TQDexEntry>,
         ...args: any
-      ): TQEntry | undefined {
+      ): TQValue | undefined {
         const {
           filters
-        } = _convertQueryParamsToFilters<TQEntry, TQDexEntry>(...args);
-        options?.modifyFilters?.(filters as IQueryFilter<TDexEntry>[]);
+        } = _convertQueryParamsToFilters<TQDexEntry>(...args);
+        options?.modifyFilters?.(filters as QueryFilter<TDexEntry>[]);
 
-        const result = _logicFirstQuery<TQEntry, TQDexEntry>(this, filters);
+        const result = _logicFirstQuery<TQDexEntry>(this, filters);
         if (result !== undefined && transform !== false) {
-          return transform(result) as TQEntry;
+          return transform(result) as TQValue;
         }
 
-        return result as TQEntry | undefined;
-      }.bind(dex) as ISpecificQuery<TEntry, ResultType.First, TDexEntry> as ISpecificQuery<TEntry, TResult, TDexEntry>;
+        return result as TQValue | undefined;
+      }.bind(dex) as SpecificQuery<TValue, ResultType.First, TDexEntry> as SpecificQuery<TValue, TResult, TDexEntry>;
       break;
     }
     // set
     case ResultType.Set: {
-      query = function <TQEntry extends TEntry, TQDexEntry extends TDexEntry>(
+      query = function <TQValue extends TValue, TQDexEntry extends TDexEntry>(
         this: IReadOnlyDex<TQDexEntry>,
         ...args: any
-      ): Set<TQEntry> {
+      ): Set<TQValue> {
         const {
           filters
-        } = _convertQueryParamsToFilters<TQEntry, TQDexEntry>(...args);
-        options?.modifyFilters?.(filters as IQueryFilter<TDexEntry>[]);
+        } = _convertQueryParamsToFilters<TQDexEntry>(...args);
+        options?.modifyFilters?.(filters as QueryFilter<TDexEntry>[]);
 
         const hashes = (options?.allOnNoParams && !args?.length) 
-          ? new Set<IHashKey>(dex.hashes)
+          ? new Set<HashKey>(dex.hashes)
           : _logicMultiQuery(this, filters);
 
         if (transform === false) {
-          return hashes as Set<TQEntry>;
+          return hashes as Set<TQValue>;
         }
 
-        const results: Set<TQEntry> = new Set();
+        const results: Set<TQValue> = new Set();
         hashes.forEach(hash =>
-          (results as Set<TQEntry>).add((transform as any)(hash))
+          (results as Set<TQValue>).add((transform as any)(hash))
         );
 
         return results;
-      }.bind(dex) as ISpecificQuery<TEntry, ResultType.Set, TDexEntry> as ISpecificQuery<TEntry, TResult, TDexEntry>;
+      }.bind(dex) as SpecificQuery<TValue, ResultType.Set, TDexEntry> as SpecificQuery<TValue, TResult, TDexEntry>;
       break;
     }
     // dex
     case ResultType.Dex: {
-      query = function <TQEntry extends TEntry, TQDexEntry extends TDexEntry>(
+      query = function <TQValue extends TValue, TQDexEntry extends TDexEntry>(
         this: IReadOnlyDex<TQDexEntry>,
         ...args: any
       ): Dex<TQDexEntry> {
         const {
           filters
-        } = _convertQueryParamsToFilters<TQEntry, TQDexEntry>(...args);
-        options?.modifyFilters?.(filters as IQueryFilter<TDexEntry>[]);
+        } = _convertQueryParamsToFilters<TQDexEntry>(...args);
+        options?.modifyFilters?.(filters as QueryFilter<TDexEntry>[]);
 
         const hashes = (options?.allOnNoParams && !args?.length) 
-          ? new Set<IHashKey>(dex.hashes)
+          ? new Set<HashKey>(dex.hashes)
           : _logicMultiQuery(this, filters);
 
         const results = new Dex<TQDexEntry>();
         results.copy.from(dex as IReadOnlyDex<TDexEntry> as any as IReadOnlyDex<TQDexEntry>, hashes);
 
         return results;
-      }.bind(dex) as ISpecificQuery<TEntry, ResultType.Dex, TDexEntry> as ISpecificQuery<TEntry, TResult, TDexEntry>;
+      }.bind(dex) as SpecificQuery<TValue, ResultType.Dex, TDexEntry> as SpecificQuery<TValue, TResult, TDexEntry>;
       break;
       /*results = new Dex<TQDexEntry>();
 
@@ -460,7 +462,7 @@ export const SpecificQueryConstructor = <
   }
 
   if (!options?.excludeNot) {
-    query.not = SpecificQueryConstructor<TEntry, TResult, TDexEntry>(dex, resultType, {
+    query.not = SpecificQueryConstructor<TValue, TResult, TDexEntry>(dex, resultType, {
       ...options,
       excludeNot: true,
       // not all filters
@@ -471,29 +473,30 @@ export const SpecificQueryConstructor = <
   return query;
 }
 
+/** @internal */
 export const FirstableQueryConstructor = <
-  TEntry extends IEntry,
+  TValue,
   TResult extends Exclude<ResultType, ResultType.First>,
-  TDexEntry extends IEntry = TEntry
+  TDexEntry extends Entry = TValue extends Entry ? TValue : Entry
 >(
   dex: IReadOnlyDex<TDexEntry>,
   resultType: TResult,
   options?: {
-    transform?: ((hash: IHashKey) => TEntry) | false,
+    transform?: ((hash: HashKey) => TValue) | false,
     allOnNoParams?: boolean
   }
 ) => {
-  const query = SpecificQueryConstructor<TEntry, TResult, TDexEntry>(dex, resultType, options) as IFirstableQuery<TEntry, TResult, TDexEntry>;
-  query.first = SpecificQueryConstructor<TEntry, ResultType.First, TDexEntry>(dex, ResultType.First, options);
+  const query = SpecificQueryConstructor<TValue, TResult, TDexEntry>(dex, resultType, options) as FirstableQuery<TValue, TResult, TDexEntry>;
+  query.first = SpecificQueryConstructor<TValue, ResultType.First, TDexEntry>(dex, ResultType.First, options);
 
   return query;
 }
 
 /** @internal */
-function _convertQueryParamsToFilters<TEntry extends IEntry, TDexEntry extends IEntry>(
+function _convertQueryParamsToFilters<TDexEntry extends Entry>(
   ...args: any[]
-): { filters: IQueryFilter<TDexEntry>[], result: ResultType | undefined } {
-  let filters: IQueryFilterInput<TDexEntry>[] = [];
+): { filters: QueryFilter<TDexEntry>[], result: ResultType | undefined } {
+  let filters: XQueryFilter<TDexEntry>[] = [];
   let result: ResultType | undefined;
 
   if (args[0] in ResultType) {
@@ -501,38 +504,38 @@ function _convertQueryParamsToFilters<TEntry extends IEntry, TDexEntry extends I
     result = args.shift();
 
     if (isArray(args[0])) {
-      const tagOrFilters: ITag[] | IQueryFilterInput<TEntry>[] = args[0];
+      const tagOrFilters: Tag[] | XQueryFilter<TDexEntry>[] = args[0];
       // 1: filters
       if (isObject(tagOrFilters[0])) {
-        filters = tagOrFilters as IQueryFilterInput<TDexEntry>[];
+        filters = tagOrFilters as XQueryFilter<TDexEntry>[];
       } // 1: tags
       else {
         filters.push(
-          { or: { tags: tagOrFilters as ITag[] } }
+          { or: { tags: tagOrFilters as Tag[] } }
         )
       }
     } else {
       // ...1: filters:
       if (isObject(args[0])) {
-        filters = args as IQueryFilterInput<TDexEntry>[];
+        filters = args as XQueryFilter<TDexEntry>[];
       } // ...1: tags:
       else if (args[0] !== undefined) {
         filters.push({
-          or: { tags: args as ITag[] }
+          or: { tags: args as Tag[] }
         });
       }
     }
 
     return { filters: normalizeFilters(filters), result };
   } else if (isArray(args[0])) {
-    const tagOrFilters: ITag[] | IQueryFilterInput<TDexEntry>[] = args[0];
+    const tagOrFilters: Tag[] | XQueryFilter<TDexEntry>[] = args[0];
     // 0: filters
     if (isObject(tagOrFilters[0])) {
-      filters = tagOrFilters as IQueryFilterInput<TDexEntry>[];
+      filters = tagOrFilters as XQueryFilter<TDexEntry>[];
     } // 0: tags
     else {
       filters.push(
-        { or: { tags: tagOrFilters as ITag[] } }
+        { or: { tags: tagOrFilters as Tag[] } }
       )
     }
 
@@ -549,7 +552,7 @@ function _convertQueryParamsToFilters<TEntry extends IEntry, TDexEntry extends I
     // 0: tags
     if (args[0] instanceof Set) {
       filters.push(
-        { or: { tags: args[0] as Set<ITag> } }
+        { or: { tags: args[0] as Set<Tag> } }
       )
 
       // 1: result
@@ -569,13 +572,13 @@ function _convertQueryParamsToFilters<TEntry extends IEntry, TDexEntry extends I
         return { filters: normalizeFilters(filters), result };
       } // 0: filter
       else {
-        filters.push(args.shift() as IQueryFilterInput<TDexEntry>);
+        filters.push(args.shift() as XQueryFilter<TDexEntry>);
 
         // 1: result
         if (args[0] as any in ResultType) {
           result = args[0] as any as ResultType;
         } else if (isObject(args[0])) {
-          (args as IQueryFilterInput<TDexEntry>[])
+          (args as XQueryFilter<TDexEntry>[])
             .forEach(f =>
               filters.push(f));
         }
@@ -587,19 +590,19 @@ function _convertQueryParamsToFilters<TEntry extends IEntry, TDexEntry extends I
   else if (isTag(args[0])) {// 1: result
     if (args[1] in ResultType) {
       filters.push(
-        { or: { tag: args[0] as ITag } }
+        { or: { tag: args[0] as Tag } }
       )
       result = args[1];
     } // 1: options:
     else if (isObject(args[1])) {
       filters.push(
-        { or: { tag: args[0] as ITag } }
+        { or: { tag: args[0] as Tag } }
       );
       result = _addQueryOptionsToFilters<TDexEntry>(args[1], filters, result);
     } // ...1: tags:
     else if (args[1] !== undefined) {
       filters.push({
-        or: { tags: args as ITag[] }
+        or: { tags: args as Tag[] }
       });
     }
 
@@ -611,12 +614,12 @@ function _convertQueryParamsToFilters<TEntry extends IEntry, TDexEntry extends I
 }
 
 /** @internal */
-function _addQueryOptionsToFilters<TEntry extends IEntry>(
+function _addQueryOptionsToFilters<TDexEntry extends Entry>(
   options: {
-    filters?: IQueryFilterInput<TEntry>[] | IQueryFilterInput<TEntry>,
+    filters?: XQueryFilter<TDexEntry>[] | XQueryFilter<TDexEntry>,
     result?: ResultType
   },
-  currentFilters: IQueryFilterInput<TEntry>[],
+  currentFilters: XQueryFilter<TDexEntry>[],
   currentResult: ResultType | undefined
 ): ResultType | undefined {
   if (options.filters) {
@@ -636,11 +639,11 @@ function _addQueryOptionsToFilters<TEntry extends IEntry>(
 }
 
 /** @internal */
-export function _logicMultiQuery<TEntry extends IEntry, TDexEntry extends IEntry>(
+export function _logicMultiQuery<TDexEntry extends Entry>(
   dex: IReadOnlyDex<TDexEntry>,
-  filters: IQueryFilter<TDexEntry>[]
-): Set<IHashKey> {
-  let matches: Set<IHashKey> = new Set();
+  filters: QueryFilter<TDexEntry>[]
+): Set<HashKey> {
+  let matches: Set<HashKey> = new Set();
 
   for (const filter of filters) {
     if (filter.and) {
@@ -658,15 +661,15 @@ export function _logicMultiQuery<TEntry extends IEntry, TDexEntry extends IEntry
 }
 
 /** @internal */
-export function _logicFirstQuery<TEntry extends IEntry, TDexEntry extends IEntry>(
+export function _logicFirstQuery<TDexEntry extends Entry>(
   dex: IReadOnlyDex<TDexEntry>,
-  filters: IQueryFilter<TDexEntry>[]
-): IHashKey | undefined {
+  filters: QueryFilter<TDexEntry>[]
+): HashKey | undefined {
   if (!filters.length) {
     return dex.entries.values.next().value;
   }
 
-  let subset: Set<IHashKey> | undefined = undefined;
+  let subset: Set<HashKey> | undefined = undefined;
   const firstableFilter = filters.shift()!;
   if (filters.length) {
     subset = _logicMultiQuery(dex, filters);
@@ -683,6 +686,7 @@ export function _logicFirstQuery<TEntry extends IEntry, TDexEntry extends IEntry
   }
 }
 
+// TODO: remove if not used
 /** @internal */
 function _spreadOnCompleteFunctionsFromLogic(onComplete: QueryFilterOnCompleteLogic): QueryFilterOnCompleteFunctions {
   var
@@ -701,17 +705,17 @@ function _spreadOnCompleteFunctionsFromLogic(onComplete: QueryFilterOnCompleteLo
 }
 
 /** @internal */
-function _queryAllForOr<TEntry extends IEntry, TDexEntry extends IEntry>(
+function _queryAllForOr<TDexEntry extends Entry>(
   dex: IReadOnlyDex<TDexEntry>,
-  filter: IOrFilterQuery<TDexEntry>,
-  subset?: Set<IHashKey>
-): Set<IHashKey> {
-  let results: Set<IHashKey>;
-  let toIgnore: Set<IHashKey> | undefined;
-  let withTags: Set<ITag> | undefined;
-  let withoutTags: Set<ITag> | undefined;
-  let isValidIfTrue: IMatchFilter<TDexEntry>[] | undefined;
-  let isValidIfFalse: IMatchFilter<TDexEntry>[] | undefined;
+  filter: OrFilter<TDexEntry>,
+  subset?: Set<HashKey>
+): Set<HashKey> {
+  let results: Set<HashKey>;
+  let toIgnore: Set<HashKey> | undefined;
+  let withTags: Set<Tag> | undefined;
+  let withoutTags: Set<Tag> | undefined;
+  let isValidIfTrue: MatchFilter<TDexEntry>[] | undefined;
+  let isValidIfFalse: MatchFilter<TDexEntry>[] | undefined;
 
   if (filter.not) {
     if (filter.not === true) {
@@ -735,7 +739,7 @@ function _queryAllForOr<TEntry extends IEntry, TDexEntry extends IEntry>(
     isValidIfTrue = filter.or.filters.map(filter => isFunction(filter) ? filter : filter.where!);
   }
 
-  let tagsToSearch: () => Iterable<ITag> = subset?.size ? null! : withTags?.size
+  let tagsToSearch: () => Iterable<Tag> = subset?.size ? null! : withTags?.size
     ? () => withTags!
     : () => dex.tags;
 
@@ -751,7 +755,7 @@ function _queryAllForOr<TEntry extends IEntry, TDexEntry extends IEntry>(
     }
   }
 
-  const isValid: IMatchFilter<TDexEntry> | true
+  const isValid: MatchFilter<TDexEntry> | true
     = isValidIfTrue
       ? isValidIfFalse
         ? _orWithNotOr
@@ -760,8 +764,8 @@ function _queryAllForOr<TEntry extends IEntry, TDexEntry extends IEntry>(
         ? _notOr
         : true;
 
-  let matcher = _buildOrMatcher<TEntry, TDexEntry>(isValid, withoutTags);
-  _matchAll<TEntry, TDexEntry>(toIgnore, subset, results, matcher, dex, filter, tagsToSearch);
+  let matcher = _buildOrMatcher<TDexEntry>(isValid, withoutTags);
+  _matchAll<TDexEntry>(toIgnore, subset, results, matcher, dex, filter, tagsToSearch);
 
   if (toIgnore?.size) {
     toIgnore.forEach(e => results.delete(e));
@@ -771,17 +775,17 @@ function _queryAllForOr<TEntry extends IEntry, TDexEntry extends IEntry>(
 }
 
 /** @internal */
-function _queryAllForAnd<TEntry extends IEntry, TDexEntry extends IEntry>(
+function _queryAllForAnd<TDexEntry extends Entry>(
   dex: IReadOnlyDex<TDexEntry>,
-  filter: IAndFilterQuery<TDexEntry>,
-  subset?: Set<IHashKey>
-): Set<IHashKey> {
-  let results: Set<IHashKey>;
-  let toIgnore: Set<IHashKey> | undefined;
-  let withTags: Set<ITag> | undefined;
-  let withoutTags: Set<ITag> | undefined;
-  let isValidIfTrue: IMatchFilter<TDexEntry>[] | undefined;
-  let isValidIfFalse: IMatchFilter<TDexEntry>[] | undefined;
+  filter: AndFilter<TDexEntry>,
+  subset?: Set<HashKey>
+): Set<HashKey> {
+  let results: Set<HashKey>;
+  let toIgnore: Set<HashKey> | undefined;
+  let withTags: Set<Tag> | undefined;
+  let withoutTags: Set<Tag> | undefined;
+  let isValidIfTrue: MatchFilter<TDexEntry>[] | undefined;
+  let isValidIfFalse: MatchFilter<TDexEntry>[] | undefined;
 
   if (filter.not) {
     if (filter.not === true) {
@@ -805,11 +809,11 @@ function _queryAllForAnd<TEntry extends IEntry, TDexEntry extends IEntry>(
     isValidIfTrue = filter.and.filters.map(filter => isFunction(filter) ? filter : filter.where!);
   }
 
-  let tagsToSearch: () => Iterable<ITag> = subset?.size ? null! : withTags?.size
-    ? () => [withTags?.entries().next().value as ITag]
+  let tagsToSearch: () => Iterable<Tag> = subset?.size ? null! : withTags?.size
+    ? () => [withTags?.entries().next().value as Tag]
     : () => dex.tags;
 
-  const isValid: IMatchFilter<TDexEntry> | true
+  const isValid: MatchFilter<TDexEntry> | true
     = isValidIfTrue
       ? isValidIfFalse
         ? _andWithNotAnd
@@ -818,8 +822,8 @@ function _queryAllForAnd<TEntry extends IEntry, TDexEntry extends IEntry>(
         ? _notAnd
         : true;
 
-  let matcher = _buildAndMatcher<TEntry, TDexEntry>(isValid, withTags, withoutTags);
-  _matchAll<TEntry, TDexEntry>(toIgnore, subset, results, matcher, dex, filter, tagsToSearch);
+  let matcher = _buildAndMatcher<TDexEntry>(isValid, withTags, withoutTags);
+  _matchAll<TDexEntry>(toIgnore, subset, results, matcher, dex, filter, tagsToSearch);
 
   if (toIgnore?.size) {
     toIgnore.forEach(e => results.delete(e))
@@ -829,16 +833,16 @@ function _queryAllForAnd<TEntry extends IEntry, TDexEntry extends IEntry>(
 }
 
 /** @internal */
-function _queryFirstForOr<TEntry extends IEntry, TDexEntry extends IEntry>(
+function _queryFirstForOr<TDexEntry extends Entry>(
   dex: IReadOnlyDex<TDexEntry>,
-  filter: IOrFilterQuery<TDexEntry>,
-  subset?: Set<IHashKey>
-): IHashKey | undefined {
-  let toIgnore: Set<IHashKey> | undefined;
-  let withTags: Set<ITag> | undefined;
-  let withoutTags: Set<ITag> | undefined;
-  let isValidIfTrue: IMatchFilter<TDexEntry>[] | undefined;
-  let isValidIfFalse: IMatchFilter<TDexEntry>[] | undefined;
+  filter: OrFilter<TDexEntry>,
+  subset?: Set<HashKey>
+): HashKey | undefined {
+  let toIgnore: Set<HashKey> | undefined;
+  let withTags: Set<Tag> | undefined;
+  let withoutTags: Set<Tag> | undefined;
+  let isValidIfTrue: MatchFilter<TDexEntry>[] | undefined;
+  let isValidIfFalse: MatchFilter<TDexEntry>[] | undefined;
 
   if (filter.not) {
     if (filter.not === true) {
@@ -861,7 +865,7 @@ function _queryFirstForOr<TEntry extends IEntry, TDexEntry extends IEntry>(
     isValidIfTrue = filter.or.filters.map(filter => isFunction(filter) ? filter : filter.where!);
   }
 
-  let tagsToSearch: () => Iterable<ITag> = subset?.size ? null! : withTags?.size
+  let tagsToSearch: () => Iterable<Tag> = subset?.size ? null! : withTags?.size
     ? () => withTags!
     : () => dex.tags;
 
@@ -877,7 +881,7 @@ function _queryFirstForOr<TEntry extends IEntry, TDexEntry extends IEntry>(
     }
   }
 
-  const isValid: IMatchFilter<TDexEntry> | true
+  const isValid: MatchFilter<TDexEntry> | true
     = isValidIfTrue
       ? isValidIfFalse
         ? _orWithNotOr
@@ -886,21 +890,21 @@ function _queryFirstForOr<TEntry extends IEntry, TDexEntry extends IEntry>(
         ? _notOr
         : true;
 
-  let matcher = _buildOrMatcher<TEntry, TDexEntry>(isValid, withoutTags);
-  return _matchFirst<TEntry, TDexEntry>(toIgnore, subset, matcher, dex, filter, tagsToSearch);
+  let matcher = _buildOrMatcher<TDexEntry>(isValid, withoutTags);
+  return _matchFirst<TDexEntry>(toIgnore, subset, matcher, dex, filter, tagsToSearch);
 }
 
 /** @internal */
-function _queryFirstForAnd<TEntry extends IEntry, TDexEntry extends IEntry>(
+function _queryFirstForAnd<TDexEntry extends Entry>(
   dex: IReadOnlyDex<TDexEntry>,
-  filter: IAndFilterQuery<TDexEntry>,
-  subset?: Set<IHashKey>
-): IHashKey | undefined {
-  let toIgnore: Set<IHashKey> | undefined;
-  let withTags: Set<ITag> | undefined;
-  let withoutTags: Set<ITag> | undefined;
-  let isValidIfTrue: IMatchFilter<TDexEntry>[] | undefined;
-  let isValidIfFalse: IMatchFilter<TDexEntry>[] | undefined;
+  filter: AndFilter<TDexEntry>,
+  subset?: Set<HashKey>
+): HashKey | undefined {
+  let toIgnore: Set<HashKey> | undefined;
+  let withTags: Set<Tag> | undefined;
+  let withoutTags: Set<Tag> | undefined;
+  let isValidIfTrue: MatchFilter<TDexEntry>[] | undefined;
+  let isValidIfFalse: MatchFilter<TDexEntry>[] | undefined;
 
   if (filter.not) {
     if (filter.not === true) {
@@ -923,11 +927,11 @@ function _queryFirstForAnd<TEntry extends IEntry, TDexEntry extends IEntry>(
     isValidIfTrue = filter.and.filters.map(filter => isFunction(filter) ? filter : filter.where!);
   }
 
-  let tagsToSearch: () => Iterable<ITag> = subset?.size ? null! : withTags?.size
-    ? () => [withTags?.entries().next().value as ITag]
+  let tagsToSearch: () => Iterable<Tag> = subset?.size ? null! : withTags?.size
+    ? () => [withTags?.entries().next().value as Tag]
     : () => dex.tags;
 
-  const isValid: IMatchFilter<TDexEntry> | true
+  const isValid: MatchFilter<TDexEntry> | true
     = isValidIfTrue
       ? isValidIfFalse
         ? _andWithNotAnd
@@ -936,12 +940,12 @@ function _queryFirstForAnd<TEntry extends IEntry, TDexEntry extends IEntry>(
         ? _notAnd
         : true;
 
-  let matcher = _buildAndMatcher<TEntry, TDexEntry>(isValid, withTags, withoutTags);
-  return _matchFirst<TEntry, TDexEntry>(toIgnore, subset, matcher, dex, filter, tagsToSearch);
+  let matcher = _buildAndMatcher<TDexEntry>(isValid, withTags, withoutTags);
+  return _matchFirst<TDexEntry>(toIgnore, subset, matcher, dex, filter, tagsToSearch);
 }
 
 /** @internal */
-function _orWithNotOr<TEntry extends IEntry, TDexEntry extends IEntry>(e: TDexEntry, t: Set<ITag>, i: number, d: IReadOnlyDex<TDexEntry>, args: IQueryFilter<TDexEntry>, isValidIfTrue: IMatchFilter<TDexEntry>[], isValidIfFalse: IMatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
+function _orWithNotOr<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadOnlyDex<TDexEntry>, args: QueryFilter<TDexEntry>, isValidIfTrue: MatchFilter<TDexEntry>[], isValidIfFalse: MatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
   let hasBroken: boolean = false;
   const result = _or(e, t, i, d, args, isValidIfTrue);
   if (result === true) {
@@ -974,7 +978,7 @@ function _orWithNotOr<TEntry extends IEntry, TDexEntry extends IEntry>(e: TDexEn
 
 // (x | y | z)
 /** @internal */
-function _or<TEntry extends IEntry, TDexEntry extends IEntry>(e: TDexEntry, t: Set<ITag>, i: number, d: IReadOnlyDex<TDexEntry>, args: IQueryFilter<TDexEntry>, isValidIfTrue: IMatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
+function _or<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadOnlyDex<TDexEntry>, args: QueryFilter<TDexEntry>, isValidIfTrue: MatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
   let hasBroken: boolean = false;
   for (const test of isValidIfTrue!) {
     const result = test(e, t, i, d, args);
@@ -999,7 +1003,7 @@ function _or<TEntry extends IEntry, TDexEntry extends IEntry>(e: TDexEntry, t: S
 
 // !(x | y | z)
 /** @internal */
-function _notOr<TEntry extends IEntry, TDexEntry extends IEntry>(e: TDexEntry, t: Set<ITag>, i: number, d: IReadOnlyDex<TDexEntry>, args: IQueryFilter<TDexEntry>, isValidIfFalse: IMatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
+function _notOr<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadOnlyDex<TDexEntry>, args: QueryFilter<TDexEntry>, isValidIfFalse: MatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
   let hasBroken: boolean = false;
   for (const test of isValidIfFalse!) {
     const result = test(e, t, i, d, args);
@@ -1024,7 +1028,7 @@ function _notOr<TEntry extends IEntry, TDexEntry extends IEntry>(e: TDexEntry, t
 }
 
 /** @internal */
-function _andWithNotAnd<TEntry extends IEntry, TDexEntry extends IEntry>(e: TDexEntry, t: Set<ITag>, i: number, d: IReadOnlyDex<TDexEntry>, args: IQueryFilter<TDexEntry>, isValidIfTrue: IMatchFilter<TDexEntry>[], isValidIfFalse: IMatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
+function _andWithNotAnd<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadOnlyDex<TDexEntry>, args: QueryFilter<TDexEntry>, isValidIfTrue: MatchFilter<TDexEntry>[], isValidIfFalse: MatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
   let hasBroken: boolean = false;
   // (x & y & z)
   const result = _and(e,t, i, d, args, isValidIfTrue);
@@ -1059,7 +1063,7 @@ function _andWithNotAnd<TEntry extends IEntry, TDexEntry extends IEntry>(e: TDex
 
 // (x & y & z)
 /** @internal */
-function _and<TEntry extends IEntry, TDexEntry extends IEntry>(e: TDexEntry, t: Set<ITag>, i: number, d: IReadOnlyDex<TDexEntry>, args: IQueryFilter<TDexEntry>, isValidIfTrue: IMatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
+function _and<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadOnlyDex<TDexEntry>, args: QueryFilter<TDexEntry>, isValidIfTrue: MatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
   let hasBroken: boolean = false;
   for (const test of isValidIfTrue!) {
     const result = test(e,t, i, d, args);
@@ -1084,7 +1088,7 @@ function _and<TEntry extends IEntry, TDexEntry extends IEntry>(e: TDexEntry, t: 
 
 // !(x & y & z)
 /** @internal */
-function _notAnd<TEntry extends IEntry, TDexEntry extends IEntry>(e: TDexEntry, t: Set<ITag>, i: number, d: IReadOnlyDex<TDexEntry>, args: IQueryFilter<TDexEntry>, isValidIfFalse: IMatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
+function _notAnd<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadOnlyDex<TDexEntry>, args: QueryFilter<TDexEntry>, isValidIfFalse: MatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
   let hasBroken: boolean = false;
   let successes: number = 0;
   for (const test of isValidIfFalse!) {
@@ -1115,13 +1119,13 @@ function _notAnd<TEntry extends IEntry, TDexEntry extends IEntry>(e: TDexEntry, 
 }
 
 /** @internal */
-function _buildOrMatcher<TEntry extends IEntry, TDexEntry extends IEntry>(isValid: true | IMatchFilter<TDexEntry>, withoutTags: Set<ITag> | undefined) {
+function _buildOrMatcher<TDexEntry extends Entry>(isValid: true | MatchFilter<TDexEntry>, withoutTags: Set<Tag> | undefined) {
   let matcher: IBreakable<[
-    hash: IHashKey,
-    tags: Set<ITag>,
+    hash: HashKey,
+    tags: Set<Tag>,
     index: number,
     dex: IReadOnlyDex<TDexEntry>,
-    args: IQueryFilter<TDexEntry>
+    args: QueryFilter<TDexEntry>
   ], boolean> | true;
   if (isValid === true) {
     if (withoutTags?.size) {
@@ -1161,13 +1165,13 @@ function _buildOrMatcher<TEntry extends IEntry, TDexEntry extends IEntry>(isVali
 }
 
 /** @internal */
-function _buildAndMatcher<TEntry extends IEntry, TDexEntry extends IEntry>(isValid: true | IMatchFilter<TDexEntry>, withTags: Set<ITag> | undefined, withoutTags: Set<ITag> | undefined) {
+function _buildAndMatcher<TDexEntry extends Entry>(isValid: true | MatchFilter<TDexEntry>, withTags: Set<Tag> | undefined, withoutTags: Set<Tag> | undefined) {
   let matcher: IBreakable<[
-    hash: IHashKey,
-    tags: Set<ITag>,
+    hash: HashKey,
+    tags: Set<Tag>,
     index: number,
     dex: IReadOnlyDex<TDexEntry>,
-    args: IQueryFilter<TDexEntry>
+    args: QueryFilter<TDexEntry>
   ], boolean> | true;
 
   if (isValid === true) {
@@ -1263,20 +1267,20 @@ function _buildAndMatcher<TEntry extends IEntry, TDexEntry extends IEntry>(isVal
 }
 
 /** @internal */
-function _matchAll<TEntry extends IEntry, TDexEntry extends IEntry>(
-  toIgnore: Set<IHashKey> | undefined,
-  subset: Set<IHashKey> | undefined,
-  results: Set<IHashKey>,
-  matcher: true | IBreakable<[hash: IHashKey, tags: Set<ITag>, index: number, dex: IReadOnlyDex<TDexEntry>, args: IQueryFilter<TDexEntry>], boolean>,
+function _matchAll<TDexEntry extends Entry>(
+  toIgnore: Set<HashKey> | undefined,
+  subset: Set<HashKey> | undefined,
+  results: Set<HashKey>,
+  matcher: true | IBreakable<[hash: HashKey, tags: Set<Tag>, index: number, dex: IReadOnlyDex<TDexEntry>, args: QueryFilter<TDexEntry>], boolean>,
   dex: IReadOnlyDex<TDexEntry>,
-  filter: IQueryFilter<TDexEntry>,
-  tagsToSearch: () => Iterable<ITag>
+  filter: QueryFilter<TDexEntry>,
+  tagsToSearch: () => Iterable<Tag>
 ) {
-  const alreadySeen = new Set<IHashKey>();
+  const alreadySeen = new Set<HashKey>();
   const shouldIgnore = toIgnore?.size
-    ? (k: IHashKey) => alreadySeen.has(k) || results.has(k) || toIgnore!.has(k)
-    : (k: IHashKey) => alreadySeen.has(k) || results.has(k);
-  const ignore = (hash: IHashKey) => alreadySeen.add(hash);
+    ? (k: HashKey) => alreadySeen.has(k) || results.has(k) || toIgnore!.has(k)
+    : (k: HashKey) => alreadySeen.has(k) || results.has(k);
+  const ignore = (hash: HashKey) => alreadySeen.add(hash);
 
   if (subset) {
     if (matcher === true) {
@@ -1290,7 +1294,7 @@ function _matchAll<TEntry extends IEntry, TDexEntry extends IEntry>(
       let index = 0;
       for (const hash of subset) {
         if (!shouldIgnore(hash)) {
-          const allTags = (dex as any)._tagsByEntryHash.get(hash) as Set<ITag>;
+          const allTags = (dex as any)._tagsByHash.get(hash) as Set<Tag>;
           const result = matcher(hash, allTags, index++, dex, filter);
           if (result instanceof Break) {
             if (result.return) {
@@ -1310,7 +1314,7 @@ function _matchAll<TEntry extends IEntry, TDexEntry extends IEntry>(
   } else {
     if (matcher === true) {
       for (const tag in tagsToSearch()) {
-        for (const hash in (dex as any)._hashesByTag.get(tag) as Set<IHashKey>) {
+        for (const hash in (dex as any)._hashesByTag.get(tag) as Set<HashKey>) {
           if (!shouldIgnore(hash)) {
             results.add(hash);
             ignore(hash);
@@ -1320,9 +1324,9 @@ function _matchAll<TEntry extends IEntry, TDexEntry extends IEntry>(
     } else {
       let index = 0;
       for (const tag in tagsToSearch()) {
-        for (const hash in (dex as any)._hashesByTag.get(tag) as Set<IHashKey>) {
+        for (const hash in (dex as any)._hashesByTag.get(tag) as Set<HashKey>) {
           if (!shouldIgnore(hash)) {
-            const allTags = (dex as any)._tagsByEntryHash.get(hash) as Set<ITag>;
+            const allTags = (dex as any)._tagsByHash.get(hash) as Set<Tag>;
             const result = matcher(hash, allTags, index++, dex, filter);
             if (result instanceof Break) {
               if (result.return) {
@@ -1344,16 +1348,16 @@ function _matchAll<TEntry extends IEntry, TDexEntry extends IEntry>(
 }
 
 /** @internal */
-function _matchFirst<TEntry extends IEntry, TDexEntry extends IEntry>(
-  toIgnore: Set<IHashKey> | undefined,
-  subset: Set<IHashKey> | undefined,
-  matcher: true | IBreakable<[hash: IHashKey, tags: Set<ITag>, index: number, dex: IReadOnlyDex<TDexEntry>, args: IQueryFilter<TDexEntry>], boolean>,
+function _matchFirst<TDexEntry extends Entry>(
+  toIgnore: Set<HashKey> | undefined,
+  subset: Set<HashKey> | undefined,
+  matcher: true | IBreakable<[hash: HashKey, tags: Set<Tag>, index: number, dex: IReadOnlyDex<TDexEntry>, args: QueryFilter<TDexEntry>], boolean>,
   dex: IReadOnlyDex<TDexEntry>,
-  filter: IQueryFilter<TDexEntry>,
-  tagsToSearch: () => Iterable<ITag>
-): IHashKey | undefined {
-  const shouldIgnore = (hash: IHashKey) => toIgnore?.has(hash);
-  const ignore = (hash: IHashKey) => toIgnore?.add(hash);
+  filter: QueryFilter<TDexEntry>,
+  tagsToSearch: () => Iterable<Tag>
+): HashKey | undefined {
+  const shouldIgnore = (hash: HashKey) => toIgnore?.has(hash);
+  const ignore = (hash: HashKey) => toIgnore?.add(hash);
 
   if (subset) {
     if (matcher === true) {
@@ -1366,7 +1370,7 @@ function _matchFirst<TEntry extends IEntry, TDexEntry extends IEntry>(
       let index = 0;
       for (const hash of subset) {
         if (!shouldIgnore(hash)) {
-          const allTags = (dex as any)._tagsByEntryHash.get(hash) as Set<ITag>;
+          const allTags = (dex as any)._tagsByHash.get(hash) as Set<Tag>;
           const result = matcher(hash, allTags, index++, dex, filter);
           if (result instanceof Break) {
             if (result.return) {
@@ -1387,7 +1391,7 @@ function _matchFirst<TEntry extends IEntry, TDexEntry extends IEntry>(
   } else {
     if (matcher === true) {
       for (const tag in tagsToSearch()) {
-        for (const hash in (dex as any)._hashesByTag.get(tag) as Set<IHashKey>) {
+        for (const hash in (dex as any)._hashesByTag.get(tag) as Set<HashKey>) {
           if (!shouldIgnore(hash)) {
             return hash;
           }
@@ -1396,9 +1400,9 @@ function _matchFirst<TEntry extends IEntry, TDexEntry extends IEntry>(
     } else {
       let index = 0;
       for (const tag in tagsToSearch()) {
-        for (const hash in (dex as any)._hashesByTag.get(tag) as Set<IHashKey>) {
+        for (const hash in (dex as any)._hashesByTag.get(tag) as Set<HashKey>) {
           if (!shouldIgnore(hash)) {
-            const allTags = (dex as any)._tagsByEntryHash.get(hash) as Set<ITag>;
+            const allTags = (dex as any)._tagsByHash.get(hash) as Set<Tag>;
             const result = matcher(hash, allTags, index++, dex, filter);
             if (result instanceof Break) {
               if (result.return) {
@@ -1421,3 +1425,5 @@ function _matchFirst<TEntry extends IEntry, TDexEntry extends IEntry>(
 
   return undefined;
 }
+
+//#endregion

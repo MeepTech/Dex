@@ -1,10 +1,10 @@
 import { expect } from '@jest/globals';
 import Dex, { InvalidQueryParamError } from '../../../src/objects/dex';
 import { CHAIN_FLAG, IFlag, FLAGS } from '../../../src/objects/queries/flags';
-import { QueryResults, IQueryResult, IQuery } from '../../../src/objects/queries/queries';
-import { IReadOnlyDex } from '../../../src/objects/readonly';
-import { IEntry } from '../../../src/objects/subsets/entries';
-import { ITag } from '../../../src/objects/subsets/tags';
+import { QueryResults, IQueryResult, Query } from '../../../src/objects/queries/queries';
+import { IReadOnlyDex } from '../../../src/objects/sealed';
+import { Entry } from '../../../src/objects/subsets/entries';
+import { Tag } from '../../../src/objects/subsets/tags';
 import { isArray, isObject } from '../../../src/utilities/validators';
 
 function temp() {
@@ -81,12 +81,12 @@ export type QueryTestCase = {
 }
 
 export function expect_queryFunctionTestCaseSuccess<
-  TEntry extends IEntry,
-  TDexEntry extends IEntry | TEntry,
+  TEntry extends Entry,
+  TDexEntry extends Entry | TEntry,
   TDex extends IReadOnlyDex<TDexEntry>,
   TValidFlags extends IFlag,
   TDefaultResult extends QueryResults<TEntry, TDexEntry> = IQueryResult<TEntry, TValidFlags, TDexEntry>,
->(dex: TDex, queryMethod: IQuery<TEntry, TValidFlags, TDexEntry, TDefaultResult>, test: QueryTestCase) {
+>(dex: TDex, queryMethod: Query<TEntry, TValidFlags, TDexEntry, TDefaultResult>, test: QueryTestCase) {
   if (test.debug) {
     debugger;
   }
@@ -148,7 +148,7 @@ export const expectDex_countsToEqual = (
 
 export const expectDex_tagIsEmpty = (
   dex: Dex<any>,
-  tag: ITag
+  tag: Tag
 ) => {
   expect(dex.tags.has(tag)).toBeTruthy();
   expect(dex.count(tag)).toStrictEqual(0);
@@ -157,7 +157,7 @@ export const expectDex_tagIsEmpty = (
 
 export const expectDex_entryHasNoTags = (
   dex: Dex<any>,
-  entry: IEntry
+  entry: Entry
 ) => {
   const hash = dex.hash(entry)!;
 
@@ -169,7 +169,7 @@ export const expectDex_entryHasNoTags = (
 export const expectDex_entryToHaveTags = (
   dex: Dex<any>,
   entry: any,
-  tags: ITag[]
+  tags: Tag[]
 ) => {
   const tagsForEntry = dex.tags.of(entry)!;
 
@@ -180,8 +180,8 @@ export const expectDex_entryToHaveTags = (
 
 export const expectDex_tagsToHaveEntries = (
   dex: Dex<any>,
-  tag: ITag,
-  entries: IEntry[]
+  tag: Tag,
+  entries: Entry[]
 ) => {
   const hashesForTag = dex.keys(tag);
   expect(hashesForTag.length).toStrictEqual(entries.length);

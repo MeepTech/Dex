@@ -1,13 +1,12 @@
 import Dex, { Config } from '../objects/dex';
-import { FLAGS } from '../objects/queries/flags';
 import {
-  IComplexEntry,
-  IEntry,
-  IInputEntryWithTagsArray,
-  ISimpleEntry,
+  ComplexEntry,
+  Entry,
+  XEntryWithTagsTuple,
+  SimpleEntry,
   NO_ENTRIES_FOR_TAG
 } from '../objects/subsets/entries';
-import { ITag } from '../objects/subsets/tags';
+import { Tag } from '../objects/subsets/tags';
 import IUnique from '../objects/unique';
 
 /**
@@ -97,23 +96,21 @@ export const isUnique = (symbol: any)
  * Check if it's a Dex.
  */
 export const isDex = (symbol: any)
-  : symbol is Dex<IEntry> =>
+  : symbol is Dex<Entry> =>
   symbol instanceof Dex;
 
 /**
  * Check if it's a Tag
  */
 export const isTag = (symbol: any)
-  : symbol is ITag =>
+  : symbol is Tag =>
   isString(symbol)
   || isNumber(symbol)
-  || (isSymbol(symbol)
-    && !FLAGS.is(symbol)
-  );
+  || isSymbol(symbol);
 
-export function isInputEntryWithTagsArray<TEntry extends IEntry = IEntry>(
-  value: IEntry
-): value is IInputEntryWithTagsArray<TEntry> {
+export function isInputEntryWithTagsArray<TEntry extends Entry = Entry>(
+  value: Entry
+): value is XEntryWithTagsTuple<TEntry> {
   return (isArray(value))
     // if the first item in the array is a potential complex entry or an empty tag value...
     && (isComplexEntry(value[0]) || value[0] === NO_ENTRIES_FOR_TAG)
@@ -129,8 +126,8 @@ export function isInputEntryWithTagsArray<TEntry extends IEntry = IEntry>(
  * Check if something is a simple entry instead of a complex one
  */
 export function isSimpleEntry(
-  value: IEntry
-): value is ISimpleEntry {
+  value: Entry
+): value is SimpleEntry {
   return isString(value) || isSymbol(value) || isNumber(value)
 }
 
@@ -138,12 +135,12 @@ export function isSimpleEntry(
  * Check if something is a simple entry instead of a complex one
  */
 export function isComplexEntry(
-  value: IEntry
-): value is IComplexEntry {
+  value: Entry
+): value is ComplexEntry {
   return isObject(value) || isFunction(value) || isArray(value)
 }
 
-export function isConfig<TEntry extends IEntry = IEntry>(
+export function isConfig<TEntry extends Entry = Entry>(
   value: any
 ): value is Config<TEntry> {
   return isObject(value)

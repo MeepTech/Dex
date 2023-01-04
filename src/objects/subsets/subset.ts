@@ -1,14 +1,17 @@
-import { IBreakable } from "../../utilities/loops";
+import { Break, IBreakable } from "../../utilities/iteration";
 import Dex from "../dex";
-import { IEntry } from "./entries";
-import { IHashKey } from "./hashes";
-import { ITag } from "./tags";
+import { Result, NO_RESULT, ResultType } from "../queries/results";
+import { IReadOnlyDex } from "../idex";
+import { Entry } from "./entries";
+import { HashKey } from "./hashes";
+import { Tag } from "./tags";
 
 /**
  * Dex uses these to store tags, hashes, and entries.
  */
 interface IDexSubCollection<
-  TValue extends IEntry | IHashKey | ITag,
+  TValue extends Entry | HashKey | Tag,
+  TDexEntry extends Entry,
   TArrayReturn = TValue[],
   TIteratorIndex extends [item: TValue, ...args: any] = [item: TValue, index: number],
 > {
@@ -34,18 +37,12 @@ interface IDexSubCollection<
   toArray(): TArrayReturn;
 
   /**
-   * Fetch all the hashes that match a given target.
-   */
-  where(
-    target: IBreakable<TIteratorIndex, boolean>
-  ): Set<TValue> | TValue[];
-
-  /**
    * Get all entries as a record indeed by key
    */
-  map<TResult>(
-    transform: IBreakable<TIteratorIndex, TResult>
-  ): TResult[];
+  map<TResult, TResults extends ResultType>(
+    transform: IBreakable<TIteratorIndex, TResult>,
+    resultType?: TResults
+  ): Result<TResult, TResults, TDexEntry>
 
   /**
    * Get the first matching entry
@@ -57,19 +54,18 @@ interface IDexSubCollection<
   /**
    * Get all matching entries
    */
-  filter(
-    where: IBreakable<TIteratorIndex, boolean>
-  ): Set<TValue>;
+  filter<TResultType extends ResultType>(
+    where: IBreakable<TIteratorIndex, boolean>,
+    resultType?: TResultType
+  ): Result<TValue, TResultType>;
 }
 
 /**
  * A sub map of a dex.
- *
- * @internal
  */
 export interface IDexSubMap<
-  TValue extends IEntry | IHashKey | ITag,
-  TKey extends IHashKey = IHashKey,
+  TValue extends Entry | HashKey | Tag,
+  TKey extends HashKey = HashKey,
   TIteratorIndex extends [item: TValue, ...args: any] = [entry: TValue, index: number],
 > extends IDexSubCollection<TValue, TValue[], TIteratorIndex> {
   
@@ -108,16 +104,19 @@ export interface IDexSubMap<
     * @returns boolean indicating whether an element with the specified key exists or not.
     */
   has(key: TKey): boolean;
+
+  /**
+   * Do something for each entry.
+   */
+  forEach(doThis: (entry: TValue, key: TKey, set: Readonly<Map<TKey, TValue>>) => void, thisArg?: any): void;
 }
 
 /**
  * A subset of a Dex Set.
- *
- * @internal
  */
 export interface IDexSubSet<
-  TValue extends IEntry | IHashKey | ITag,
-  TEntry extends IEntry,
+  TValue extends Entry | HashKey | Tag,
+  TEntry extends Entry,
 > extends Readonly<Omit<Set<TValue>, 'add' | 'delete' | 'clear'>>,
   IDexSubCollection<TValue, TValue[], [item: TValue, index: number]>
 {
@@ -128,4 +127,164 @@ export interface IDexSubSet<
   of(
     target: TEntry
   ): TValue[] | Set<TValue> | TValue | undefined;
+}
+
+/** @internal */
+export namespace SubSet {
+  /** @internal */
+  export function map<TResult, TResults extends ResultType, TValue = HashKey, TDexEntry extends Entry = Entry>(
+    dex: IReadOnlyDex<TDexEntry>,
+    transform: IBreakable<[key: TValue, index: number], TResult>,
+    resultType?: TResults,
+    preTransform?: (key: HashKey) => TValue
+  ): Result<TResult, TResults, TDexEntry> {
+    let results: Result<TResult, TResults, TDexEntry>;
+    let collector: ((e: TResult) => void) | false;
+    switch (resultType) {
+      default:
+      case undefined:
+      case ResultType.Array: {
+        results = [] as TResult[] as Result<TResult, TResults, TDexEntry>;
+        collector = e => (results as TResult[]).push(e);
+        break;
+      }
+      case ResultType.Dex: {
+        results = new Dex<TDexEntry>() as Result<TResult, TResults, TDexEntry>;
+        collector = e => (results as Dex<TDexEntry>).copy.from(dex, e as HashKey);
+        break;
+      }
+      case ResultType.First: {
+        results = undefined as Result<TResult, TResults, TDexEntry>;
+        collector = false;
+        break;
+      }
+      case ResultType.Set: {
+        results = new Set<TDexEntry>() as Result<TResult, TResults, TDexEntry>;
+        collector = e => (results as Set<TResult>).add(e);
+        break;
+      }
+    }
+
+    let index = 0;
+    for (const e of dex.hashes) {
+      const result = transform((preTransform?.(e)! ?? e), index++);
+      if (result instanceof Break) {
+        if (result.hasReturn) {
+          if (collector === false) {
+            return result.return as TResult as Result<TResult, TResults, TDexEntry>;
+          }
+
+          if (resultType === ResultType.Dex) {
+            collector(e as any);
+          } else { 
+            collector(result.return as TResult);
+          }
+        }
+
+        break;
+      } else {
+        if (collector === false) {
+          return result as TResult as Result<TResult, TResults, TDexEntry>;
+        }
+
+        if (resultType === ResultType.Dex) {
+          collector(e as any);
+        } else { 
+          collector(result);
+        }
+      }
+    }
+
+    return results;
+  }
+  /** @internal */
+  export function filter<TResults extends ResultType, TValue, TDexEntry extends Entry = Entry>(
+    dex: IReadOnlyDex<TDexEntry>,
+    where: IBreakable<[entry: TValue, index: number], boolean>,
+    resultType?: TResults,
+    transform?: (key: HashKey) => TValue
+  ): Result<TValue, TResults, TDexEntry> {
+    let results: Result<TValue, TResults, TDexEntry>;
+    let collector: ((e: TValue) => void) | false;
+    switch (resultType) {
+      default:
+      case undefined:
+      case ResultType.Array: {
+        results = [] as TValue[] as Result<TValue, TResults, TDexEntry>;
+        collector = e => (results as TValue[]).push(e);
+        break;
+      }
+      case ResultType.Dex: {
+        results = new Dex<TDexEntry>() as Result<TValue, TResults, TDexEntry>;
+        collector = e => (results as Dex<TDexEntry>).copy.from(dex, e as HashKey);
+        break;
+      }
+      case ResultType.First: {
+        results = undefined as Result<TValue, TResults, TDexEntry>;
+        collector = false;
+        break;
+      }
+      case ResultType.Set: {
+        results = new Set<TDexEntry>() as Result<TValue, TResults, TDexEntry>;
+        collector = e => (results as Set<TValue>).add(e);
+        break;
+      }
+    }
+
+    let index = 0;
+    for (const e of dex.hashes) {
+      const value = (transform?.(e)! ?? e);
+      const result = where(value, index++);
+      if (result instanceof Break) {
+        if (result.hasReturn && result.return) {
+          if (collector === false) {
+            return e as Result<TValue, TResults, TDexEntry>;
+          }
+
+          if (resultType === ResultType.Dex) {
+            collector(e as any);
+          } else { 
+            collector(result.return as TValue);
+          }
+        }
+
+        break;
+      } else if (result) {
+        if (collector === false) {
+          return e as Result<TValue, TResults, TDexEntry>;
+        }
+
+        if (resultType === ResultType.Dex) {
+          collector(e as any);
+        } else { 
+          collector(value);
+        }
+      }
+    }
+
+    return results;
+  }
+  /** @internal */
+  export function first<TValue, TDexEntry extends Entry = Entry>(
+    dex: IReadOnlyDex<TDexEntry>,
+    where: IBreakable<[entry: TValue, index: number], boolean>,
+    transform?: (key: HashKey) => TValue
+  ): Result<TValue, ResultType.First, TDexEntry> {
+    let index = 0;
+    for (const e of dex.hashes) {
+      const value = (transform?.(e)! ?? e);
+      const result = where(value, index++);
+      if (result instanceof Break) {
+        if (result.hasReturn && result.return) {
+          return (transform?.(e) ?? e) as TValue;
+        }
+
+        break;
+      } else if (result) {
+        return (transform?.(e) ?? e) as TValue;
+      }
+    }
+
+    return NO_RESULT;
+  }
 }

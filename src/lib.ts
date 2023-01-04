@@ -1,5 +1,14 @@
+/**
+ * Type Prefixes:
+ * =========================
+ * I...: (for Interface) Not an instantiateable Class, but provides parts of implementations and chunksof functionality. 'Or'(|) Union types are usually not interfaces
+ * T...: (for Type) A Generic Type Argument
+ * X...: (for eXtended) An extension of a Solid type or interface type, usually just for varying the shapes of allowed input.
+ */
+
+/*
 export * from './utilities/validators';
-export * from './utilities/loops';
+export * from './utilities/iteration';
 
 export * from './objects/unique'
 
@@ -16,35 +25,25 @@ export {
 } from './objects/subsets/tags'; 
 
 export {
-  IEntry,
+  Entry as IEntry,
   ISimpleEntry,
-  IComplexEntry,
-  IEntryOrNone,
+  ComplexEntry as IComplexEntry,
+  EntryOrNone as IEntryOrNone,
   NoEntries,
   IEntrySet,
-  IEntryWithTags,
-  IEntryWithTagsArray,
-  IInputEntryWithTags,
-  IInputEntryWithTagsArray,
-  IInputEntryWithTagsObject,
+  EntryWithTags as IEntryWithTags,
+  EntryWithTagsTuple as IEntryWithTagsArray,
+  XEntryWithTags as IInputEntryWithTags,
+  XEntryWithTagsTuple as IInputEntryWithTagsArray,
+  XEntryWithTagsObject as IInputEntryWithTagsObject,
   IHasher,
   IGuardFunction,
   IArrayGuardFunction,
   IObjectGuardFunction
 } from './objects/subsets/entries';
 
-export * from './objects/queries/flags'
-
 export {
-  IQuery,
-  IBasicQuery,
-  IFirstableQuery,
-  IFullQuery,
-  IQueryChain,
-  IQueryResult,
-  QueryResults,
-  NO_RESULT as NO_RESULTS_FOUND_FOR_QUERY,
-  NoEntryFound
+  IQuery
 } from './objects/queries/queries'
 
 export { ICopier } from './objects/helpers/copy';
@@ -56,4 +55,4 @@ export * from './objects/readonly';
 import Dex from './objects/dex';
 export * from './objects/dex';
 
-export default Dex;
+export default Dex;*/

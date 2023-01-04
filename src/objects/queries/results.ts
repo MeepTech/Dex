@@ -1,5 +1,5 @@
 import Dex from "../dex";
-import { IEntry } from "../subsets/entries";
+import { Entry } from "../subsets/entries";
 
 /**
  * The types of results possible from a query.
@@ -11,27 +11,45 @@ export enum ResultType {
    * Usually signifies an error.
    * You can't request a result type of vauge.
    */
-  Vauge = '=>vauge;',
+  Vauge = '=>unknown;',
 
   /**
    * Array of values
    */
-  Array = '=>array;',
+  Array = '=>TEntry[];',
 
   /**
    * Set of values
    */
-  Set = '=>set;',
+  Set = '=>Set<TEntry>;',
 
   /**
    * A new filtered dex
    */
-  Dex = '=>dex;',
+  Dex = '=>Dex<TEntry>;',
 
   /**
    * Just the first matching item.
    */
-  First = '=>first;'
+  First = '=>TEntry;',
+
+  /**
+   * Returns the key and value pairs.
+   // TODO implement
+   */
+  Pairs = '=>[IHashKey, TEntry];',
+
+  /**
+   * Returns the entries and their tag sets in a tuple.
+   // TODO implement
+   */
+  Tuples = '=>[TEntry, Set<ITag>];',
+
+  /**
+   * Returns the key, entry, and tags for the entry as a 3 element tuple.
+   // TODO implement
+   */
+  Full = '=>[IHashKey, TEntry, Set<ITag>];'
 }
 
 /**
@@ -39,10 +57,20 @@ export enum ResultType {
  */
 export const NO_RESULT = undefined;
 
+/**
+ * These result types cannot be passed into a query.
+ */
 export const INVALID_RESULT_REQUEST_TYPES: Readonly<Set<ResultType>> = new Set<ResultType>([
-  ResultType.Vauge
+  ResultType.Vauge,
+  // TODO implement
+  ResultType.Full,
+  ResultType.Pairs,
+  ResultType.Tuples
 ]);
 
+/**
+ * These result types can be passed into a query.
+ */
 export const VALID_RESULT_REQUEST_TYPES: Readonly<Set<ResultType>> = new Set<ResultType>([
   ResultType.Array,
   ResultType.Dex,
@@ -59,26 +87,24 @@ export type NoEntryFound
 /**
  * A result of a query.
  */
-export type IResult<TEntry extends IEntry, TResultType extends ResultType = ResultType.Vauge, TDexEntry extends IEntry = TEntry>
+export type Result<TValue, TResultType extends ResultType = ResultType.Vauge, TDexEntry extends Entry = TValue extends Entry ? TValue : Entry>
   = ResultType extends ResultType.Vauge
-  ? IVaugeResult<TEntry, TDexEntry>
-  : ISpecificResult<TEntry, TResultType, TDexEntry>;
+  ? VaugeResult<TValue, TDexEntry>
+  : SpecificResult<TValue, TResultType, TDexEntry>;
 
-/** @internal */
-export type ISpecificResult<TEntry extends IEntry, TResultType extends ResultType, TDexEntry extends IEntry = TEntry>
+export type SpecificResult<TValue, TResultType extends ResultType, TDexEntry extends Entry = TValue extends Entry ? TValue : Entry>
   = TResultType extends ResultType.First
-  ? (TEntry | NoEntryFound)
+  ? (TValue | NoEntryFound)
   : TResultType extends ResultType.Array
-  ? TEntry[]
+  ? TValue[]
   : TResultType extends ResultType.Set
-  ? Set<TEntry>
+  ? Set<TValue>
   : TResultType extends ResultType.Dex
   ? Dex<TDexEntry>
   : never;
 
-/** @internal */
-type IVaugeResult<TEntry extends IEntry, TDexEntry extends IEntry = TEntry>
-  = TEntry[]
+export type VaugeResult<TValue, TDexEntry extends Entry = TValue extends Entry ? TValue : Entry>
+  = TValue[]
   | Dex<TDexEntry>
-  | Set<TEntry>
-  | (TEntry | undefined);
+  | Set<TValue>
+  | (TValue | undefined);
