@@ -1,9 +1,9 @@
 import { isArray, isFunction, isObject, isTag } from "../../utilities/validators";
 import { Entry } from "../subsets/entries";
 import { Tag, TagOrTags } from "../subsets/tags";
-import { IReadOnlyDex } from "../idex";
+import { IReadonlyDex } from "../readonly";
 import { HashKey } from "../subsets/hashes";
-import { Result, ResultType } from "./results";
+import { NO_RESULT, Result, ResultType } from "./results";
 import {
   AndFilter,
   OrFilter,
@@ -13,7 +13,8 @@ import {
   negateFilters,
   normalizeFilters
 } from "./filters";
-import Dex, { InvalidQueryParamError } from "../dex";
+import Dex from "../dex";
+import { InvalidQueryParamError } from "../errors";
 import { Break, IBreakable } from "../../utilities/iteration";
 
 /**
@@ -168,16 +169,6 @@ interface IQueryBase<
 
 //#region Internal
 
-const testQuery: FullQuery<{}, ResultType.Array, string> = {} as any;
-
-const _1 = testQuery(["a", "e", 1, 5]);
-const _2 = testQuery(["a", "e", 1, 5], ResultType.Dex);
-const _3 = testQuery(ResultType.Set, { and: ["one", "two"] });
-const _3_1 = testQuery(ResultType.First, { and: ["one", "two"] });
-const _4 = testQuery({ and: ["one", "two"] }, ResultType.First);
-const _5 = testQuery({ and: ["one", "two"] }, { not: { hashes: ["ID:KW$#kj3tijergwigg"] } });
-const _6 = testQuery({ not: { hashes: ["ID:KW$#kj3tijergwigg"] } });
-
 /** @internal */
 type QueryFilterOnCompleteOverrideFunction = ((matches: HashKey[]) => void);
 
@@ -209,7 +200,7 @@ export const FullQueryConstructor = <
   TDefaultResult extends ResultType,
   TDexEntry extends Entry
 >(
-  dex: IReadOnlyDex<TDexEntry>,
+  dex: IReadonlyDex<TDexEntry>,
   defaultResult: TDefaultResult,
   options?: {
     transform?: ((hash: HashKey) => TValue) | false,
@@ -223,7 +214,7 @@ export const FullQueryConstructor = <
     TResultType extends TDefaultResult = TDefaultResult,
     TQDexEntry extends Entry = TDexEntry
   >(
-    this: IReadOnlyDex<TQDexEntry>,
+    this: IReadonlyDex<TQDexEntry>,
     ...args: any
   ): Result<TQValue, TResultType, TQDexEntry> {
     // sort params to filters
@@ -245,11 +236,13 @@ export const FullQueryConstructor = <
       case ResultType.Array: {
         results = [];
 
-        collectMatches = transform !== false
-          ? hashes => (results = ([...hashes] as TQValue[]))
-          : hashes =>
-            hashes.forEach(hash => (results as TQValue[]).push((transform as any)(hash))
-          );
+        collectMatches
+          = (transform !== false)
+            ? (hashes => (results = ([...hashes] as TQValue[])))
+            : (hashes =>
+              hashes.forEach(hash =>
+                (results as TQValue[])
+                  .push((transform as any)(hash))));
 
         break;
       }
@@ -266,11 +259,13 @@ export const FullQueryConstructor = <
       // set
       case ResultType.Set: {
         results = new Set<TQValue>();
-        collectMatches = transform !== false
-          ? hashes => (results = hashes as Set<TQValue>)
-          : hashes =>
-            hashes.forEach(hash => (results as Set<TQValue>).add((transform as any)(hash))
-          );
+        collectMatches = (transform !== false)
+          ? (hashes => (results = hashes as Set<TQValue>))
+          : (hashes =>
+            hashes.forEach(hash =>
+              (results as Set<TQValue>)
+                .add((transform as any)(hash))
+          ));
 
         break;
       }
@@ -323,7 +318,7 @@ export const SpecificQueryConstructor = <
   TResult extends ResultType,
   TDexEntry extends Entry = TValue extends Entry ? TValue : Entry
 >(
-  dex: IReadOnlyDex<TDexEntry>,
+  dex: IReadonlyDex<TDexEntry>,
   resultType: TResult,
   options?: {
     transform?: ((hash: HashKey) => TValue) | false,
@@ -342,7 +337,7 @@ export const SpecificQueryConstructor = <
     // array
     case ResultType.Array: {
       query = function <TQValue extends TValue, TQDexEntry extends TDexEntry>(
-        this: IReadOnlyDex<TQDexEntry>,
+        this: IReadonlyDex<TQDexEntry>,
         ...args: any
       ): TQValue[] {
         const {
@@ -370,7 +365,7 @@ export const SpecificQueryConstructor = <
     // first
     case ResultType.First: {
       query = function <TQValue extends TValue, TQDexEntry extends TDexEntry>(
-        this: IReadOnlyDex<TQDexEntry>,
+        this: IReadonlyDex<TQDexEntry>,
         ...args: any
       ): TQValue | undefined {
         const {
@@ -390,7 +385,7 @@ export const SpecificQueryConstructor = <
     // set
     case ResultType.Set: {
       query = function <TQValue extends TValue, TQDexEntry extends TDexEntry>(
-        this: IReadOnlyDex<TQDexEntry>,
+        this: IReadonlyDex<TQDexEntry>,
         ...args: any
       ): Set<TQValue> {
         const {
@@ -418,7 +413,7 @@ export const SpecificQueryConstructor = <
     // dex
     case ResultType.Dex: {
       query = function <TQValue extends TValue, TQDexEntry extends TDexEntry>(
-        this: IReadOnlyDex<TQDexEntry>,
+        this: IReadonlyDex<TQDexEntry>,
         ...args: any
       ): Dex<TQDexEntry> {
         const {
@@ -431,7 +426,7 @@ export const SpecificQueryConstructor = <
           : _logicMultiQuery(this, filters);
 
         const results = new Dex<TQDexEntry>();
-        results.copy.from(dex as IReadOnlyDex<TDexEntry> as any as IReadOnlyDex<TQDexEntry>, hashes);
+        results.copy.from(dex as IReadonlyDex<TDexEntry> as any as IReadonlyDex<TQDexEntry>, hashes);
 
         return results;
       }.bind(dex) as SpecificQuery<TValue, ResultType.Dex, TDexEntry> as SpecificQuery<TValue, TResult, TDexEntry>;
@@ -479,7 +474,7 @@ export const FirstableQueryConstructor = <
   TResult extends Exclude<ResultType, ResultType.First>,
   TDexEntry extends Entry = TValue extends Entry ? TValue : Entry
 >(
-  dex: IReadOnlyDex<TDexEntry>,
+  dex: IReadonlyDex<TDexEntry>,
   resultType: TResult,
   options?: {
     transform?: ((hash: HashKey) => TValue) | false,
@@ -600,7 +595,7 @@ function _convertQueryParamsToFilters<TDexEntry extends Entry>(
       );
       result = _addQueryOptionsToFilters<TDexEntry>(args[1], filters, result);
     } // ...1: tags:
-    else if (args[1] !== undefined) {
+    else {
       filters.push({
         or: { tags: args as Tag[] }
       });
@@ -640,7 +635,7 @@ function _addQueryOptionsToFilters<TDexEntry extends Entry>(
 
 /** @internal */
 export function _logicMultiQuery<TDexEntry extends Entry>(
-  dex: IReadOnlyDex<TDexEntry>,
+  dex: IReadonlyDex<TDexEntry>,
   filters: QueryFilter<TDexEntry>[]
 ): Set<HashKey> {
   let matches: Set<HashKey> = new Set();
@@ -655,6 +650,10 @@ export function _logicMultiQuery<TDexEntry extends Entry>(
     else {
       throw new InvalidQueryParamError(filter, "filters");
     }
+
+    if (matches.size === 0) {
+      return matches;
+    }
   }
 
   return matches;
@@ -662,7 +661,7 @@ export function _logicMultiQuery<TDexEntry extends Entry>(
 
 /** @internal */
 export function _logicFirstQuery<TDexEntry extends Entry>(
-  dex: IReadOnlyDex<TDexEntry>,
+  dex: IReadonlyDex<TDexEntry>,
   filters: QueryFilter<TDexEntry>[]
 ): HashKey | undefined {
   if (!filters.length) {
@@ -673,6 +672,9 @@ export function _logicFirstQuery<TDexEntry extends Entry>(
   const firstableFilter = filters.shift()!;
   if (filters.length) {
     subset = _logicMultiQuery(dex, filters);
+    if (subset.size === 0) {
+      return NO_RESULT;
+    }
   }
 
   if (firstableFilter.and) {
@@ -706,7 +708,7 @@ function _spreadOnCompleteFunctionsFromLogic(onComplete: QueryFilterOnCompleteLo
 
 /** @internal */
 function _queryAllForOr<TDexEntry extends Entry>(
-  dex: IReadOnlyDex<TDexEntry>,
+  dex: IReadonlyDex<TDexEntry>,
   filter: OrFilter<TDexEntry>,
   subset?: Set<HashKey>
 ): Set<HashKey> {
@@ -739,9 +741,12 @@ function _queryAllForOr<TDexEntry extends Entry>(
     isValidIfTrue = filter.or.filters.map(filter => isFunction(filter) ? filter : filter.where!);
   }
 
-  let tagsToSearch: () => Iterable<Tag> = subset?.size ? null! : withTags?.size
-    ? () => withTags!
-    : () => dex.tags;
+  let tagsToSearch: () => Iterable<Tag>
+    = (subset?.size
+      ? null!
+      : (withTags?.size
+        ? (() => withTags!)
+        : (() => dex.tags)));
 
   // (tag || tag) & !(tag || tag)
   if (!subset?.size && withoutTags?.size) {
@@ -756,11 +761,11 @@ function _queryAllForOr<TDexEntry extends Entry>(
   }
 
   const isValid: MatchFilter<TDexEntry> | true
-    = isValidIfTrue
-      ? isValidIfFalse
+    = isValidIfTrue?.length
+      ? isValidIfFalse?.length
         ? _orWithNotOr
         : _or
-      : isValidIfFalse
+      : isValidIfFalse?.length
         ? _notOr
         : true;
 
@@ -776,7 +781,7 @@ function _queryAllForOr<TDexEntry extends Entry>(
 
 /** @internal */
 function _queryAllForAnd<TDexEntry extends Entry>(
-  dex: IReadOnlyDex<TDexEntry>,
+  dex: IReadonlyDex<TDexEntry>,
   filter: AndFilter<TDexEntry>,
   subset?: Set<HashKey>
 ): Set<HashKey> {
@@ -814,11 +819,11 @@ function _queryAllForAnd<TDexEntry extends Entry>(
     : () => dex.tags;
 
   const isValid: MatchFilter<TDexEntry> | true
-    = isValidIfTrue
-      ? isValidIfFalse
+    = isValidIfTrue?.length
+      ? isValidIfFalse?.length
         ? _andWithNotAnd
         : _and
-      : isValidIfFalse
+      : isValidIfFalse?.length
         ? _notAnd
         : true;
 
@@ -834,7 +839,7 @@ function _queryAllForAnd<TDexEntry extends Entry>(
 
 /** @internal */
 function _queryFirstForOr<TDexEntry extends Entry>(
-  dex: IReadOnlyDex<TDexEntry>,
+  dex: IReadonlyDex<TDexEntry>,
   filter: OrFilter<TDexEntry>,
   subset?: Set<HashKey>
 ): HashKey | undefined {
@@ -873,7 +878,7 @@ function _queryFirstForOr<TDexEntry extends Entry>(
   if (!subset?.size && withoutTags?.size) {
     const base = tagsToSearch;
     tagsToSearch = function* () {
-      for (const tag in base()) {
+      for (const tag of base()) {
         if (!withoutTags!.has(tag)) {
           yield tag;
         }
@@ -882,11 +887,11 @@ function _queryFirstForOr<TDexEntry extends Entry>(
   }
 
   const isValid: MatchFilter<TDexEntry> | true
-    = isValidIfTrue
-      ? isValidIfFalse
+    = isValidIfTrue?.length
+      ? isValidIfFalse?.length
         ? _orWithNotOr
         : _or
-      : isValidIfFalse
+      : isValidIfFalse?.length
         ? _notOr
         : true;
 
@@ -896,7 +901,7 @@ function _queryFirstForOr<TDexEntry extends Entry>(
 
 /** @internal */
 function _queryFirstForAnd<TDexEntry extends Entry>(
-  dex: IReadOnlyDex<TDexEntry>,
+  dex: IReadonlyDex<TDexEntry>,
   filter: AndFilter<TDexEntry>,
   subset?: Set<HashKey>
 ): HashKey | undefined {
@@ -932,11 +937,11 @@ function _queryFirstForAnd<TDexEntry extends Entry>(
     : () => dex.tags;
 
   const isValid: MatchFilter<TDexEntry> | true
-    = isValidIfTrue
-      ? isValidIfFalse
+    = isValidIfTrue?.length
+      ? isValidIfFalse?.length
         ? _andWithNotAnd
         : _and
-      : isValidIfFalse
+      : isValidIfFalse?.length
         ? _notAnd
         : true;
 
@@ -945,7 +950,7 @@ function _queryFirstForAnd<TDexEntry extends Entry>(
 }
 
 /** @internal */
-function _orWithNotOr<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadOnlyDex<TDexEntry>, args: QueryFilter<TDexEntry>, isValidIfTrue: MatchFilter<TDexEntry>[], isValidIfFalse: MatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
+function _orWithNotOr<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadonlyDex<TDexEntry>, args: QueryFilter<TDexEntry>, isValidIfTrue: MatchFilter<TDexEntry>[], isValidIfFalse: MatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
   let hasBroken: boolean = false;
   const result = _or(e, t, i, d, args, isValidIfTrue);
   if (result === true) {
@@ -978,9 +983,9 @@ function _orWithNotOr<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: num
 
 // (x | y | z)
 /** @internal */
-function _or<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadOnlyDex<TDexEntry>, args: QueryFilter<TDexEntry>, isValidIfTrue: MatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
+function _or<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadonlyDex<TDexEntry>, args: QueryFilter<TDexEntry>, isValidIfTrue: MatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
   let hasBroken: boolean = false;
-  for (const test of isValidIfTrue!) {
+  for (const test of isValidIfTrue) {
     const result = test(e, t, i, d, args);
     if (result instanceof Break) {
       // if any are true, return true. (if null break then return the null break)
@@ -1003,9 +1008,9 @@ function _or<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: I
 
 // !(x | y | z)
 /** @internal */
-function _notOr<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadOnlyDex<TDexEntry>, args: QueryFilter<TDexEntry>, isValidIfFalse: MatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
+function _notOr<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadonlyDex<TDexEntry>, args: QueryFilter<TDexEntry>, isValidIfFalse: MatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
   let hasBroken: boolean = false;
-  for (const test of isValidIfFalse!) {
+  for (const test of isValidIfFalse ?? []) {
     const result = test(e, t, i, d, args);
     if (result instanceof Break) {
       // if any are true, return false.  
@@ -1028,7 +1033,7 @@ function _notOr<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d
 }
 
 /** @internal */
-function _andWithNotAnd<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadOnlyDex<TDexEntry>, args: QueryFilter<TDexEntry>, isValidIfTrue: MatchFilter<TDexEntry>[], isValidIfFalse: MatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
+function _andWithNotAnd<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadonlyDex<TDexEntry>, args: QueryFilter<TDexEntry>, isValidIfTrue: MatchFilter<TDexEntry>[], isValidIfFalse: MatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
   let hasBroken: boolean = false;
   // (x & y & z)
   const result = _and(e,t, i, d, args, isValidIfTrue);
@@ -1063,9 +1068,9 @@ function _andWithNotAnd<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: n
 
 // (x & y & z)
 /** @internal */
-function _and<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadOnlyDex<TDexEntry>, args: QueryFilter<TDexEntry>, isValidIfTrue: MatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
+function _and<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadonlyDex<TDexEntry>, args: QueryFilter<TDexEntry>, isValidIfTrue: MatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
   let hasBroken: boolean = false;
-  for (const test of isValidIfTrue!) {
+  for (const test of isValidIfTrue ?? []) {
     const result = test(e,t, i, d, args);
     if (result instanceof Break) {
       // if any are false, we break and return false. (if null break then return the null break)
@@ -1088,10 +1093,10 @@ function _and<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: 
 
 // !(x & y & z)
 /** @internal */
-function _notAnd<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadOnlyDex<TDexEntry>, args: QueryFilter<TDexEntry>, isValidIfFalse: MatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
+function _notAnd<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadonlyDex<TDexEntry>, args: QueryFilter<TDexEntry>, isValidIfFalse: MatchFilter<TDexEntry>[]): boolean | Break<boolean> | Break {
   let hasBroken: boolean = false;
   let successes: number = 0;
-  for (const test of isValidIfFalse!) {
+  for (const test of isValidIfFalse ?? []) {
     const result = test(e,t, i, d, args);
     if (result instanceof Break) {
       // count all true values
@@ -1124,7 +1129,7 @@ function _buildOrMatcher<TDexEntry extends Entry>(isValid: true | MatchFilter<TD
     hash: HashKey,
     tags: Set<Tag>,
     index: number,
-    dex: IReadOnlyDex<TDexEntry>,
+    dex: IReadonlyDex<TDexEntry>,
     args: QueryFilter<TDexEntry>
   ], boolean> | true;
   if (isValid === true) {
@@ -1170,7 +1175,7 @@ function _buildAndMatcher<TDexEntry extends Entry>(isValid: true | MatchFilter<T
     hash: HashKey,
     tags: Set<Tag>,
     index: number,
-    dex: IReadOnlyDex<TDexEntry>,
+    dex: IReadonlyDex<TDexEntry>,
     args: QueryFilter<TDexEntry>
   ], boolean> | true;
 
@@ -1271,8 +1276,8 @@ function _matchAll<TDexEntry extends Entry>(
   toIgnore: Set<HashKey> | undefined,
   subset: Set<HashKey> | undefined,
   results: Set<HashKey>,
-  matcher: true | IBreakable<[hash: HashKey, tags: Set<Tag>, index: number, dex: IReadOnlyDex<TDexEntry>, args: QueryFilter<TDexEntry>], boolean>,
-  dex: IReadOnlyDex<TDexEntry>,
+  matcher: true | IBreakable<[hash: HashKey, tags: Set<Tag>, index: number, dex: IReadonlyDex<TDexEntry>, args: QueryFilter<TDexEntry>], boolean>,
+  dex: IReadonlyDex<TDexEntry>,
   filter: QueryFilter<TDexEntry>,
   tagsToSearch: () => Iterable<Tag>
 ) {
@@ -1282,7 +1287,7 @@ function _matchAll<TDexEntry extends Entry>(
     : (k: HashKey) => alreadySeen.has(k) || results.has(k);
   const ignore = (hash: HashKey) => alreadySeen.add(hash);
 
-  if (subset) {
+  if (subset?.size) {
     if (matcher === true) {
       for (const hash of subset) {
         if (!shouldIgnore(hash)) {
@@ -1313,8 +1318,8 @@ function _matchAll<TDexEntry extends Entry>(
     }
   } else {
     if (matcher === true) {
-      for (const tag in tagsToSearch()) {
-        for (const hash in (dex as any)._hashesByTag.get(tag) as Set<HashKey>) {
+      for (const tag of tagsToSearch()) {
+        for (const hash of (dex as any)._hashesByTag.get(tag) as Set<HashKey>) {
           if (!shouldIgnore(hash)) {
             results.add(hash);
             ignore(hash);
@@ -1323,8 +1328,8 @@ function _matchAll<TDexEntry extends Entry>(
       }
     } else {
       let index = 0;
-      for (const tag in tagsToSearch()) {
-        for (const hash in (dex as any)._hashesByTag.get(tag) as Set<HashKey>) {
+      for (const tag of tagsToSearch()) {
+        for (const hash of (dex as any)._hashesByTag.get(tag) as Set<HashKey>) {
           if (!shouldIgnore(hash)) {
             const allTags = (dex as any)._tagsByHash.get(hash) as Set<Tag>;
             const result = matcher(hash, allTags, index++, dex, filter);
@@ -1351,15 +1356,15 @@ function _matchAll<TDexEntry extends Entry>(
 function _matchFirst<TDexEntry extends Entry>(
   toIgnore: Set<HashKey> | undefined,
   subset: Set<HashKey> | undefined,
-  matcher: true | IBreakable<[hash: HashKey, tags: Set<Tag>, index: number, dex: IReadOnlyDex<TDexEntry>, args: QueryFilter<TDexEntry>], boolean>,
-  dex: IReadOnlyDex<TDexEntry>,
+  matcher: true | IBreakable<[hash: HashKey, tags: Set<Tag>, index: number, dex: IReadonlyDex<TDexEntry>, args: QueryFilter<TDexEntry>], boolean>,
+  dex: IReadonlyDex<TDexEntry>,
   filter: QueryFilter<TDexEntry>,
   tagsToSearch: () => Iterable<Tag>
 ): HashKey | undefined {
   const shouldIgnore = (hash: HashKey) => toIgnore?.has(hash);
   const ignore = (hash: HashKey) => toIgnore?.add(hash);
 
-  if (subset) {
+  if (subset?.size) {
     if (matcher === true) {
       for (const hash of subset) {
         if (!shouldIgnore(hash)) {
@@ -1390,8 +1395,8 @@ function _matchFirst<TDexEntry extends Entry>(
     }
   } else {
     if (matcher === true) {
-      for (const tag in tagsToSearch()) {
-        for (const hash in (dex as any)._hashesByTag.get(tag) as Set<HashKey>) {
+      for (const tag of tagsToSearch()) {
+        for (const hash of (dex as any)._hashesByTag.get(tag) as Set<HashKey>) {
           if (!shouldIgnore(hash)) {
             return hash;
           }
@@ -1399,8 +1404,8 @@ function _matchFirst<TDexEntry extends Entry>(
       }
     } else {
       let index = 0;
-      for (const tag in tagsToSearch()) {
-        for (const hash in (dex as any)._hashesByTag.get(tag) as Set<HashKey>) {
+      for (const tag of tagsToSearch()) {
+        for (const hash of (dex as any)._hashesByTag.get(tag) as Set<HashKey>) {
           if (!shouldIgnore(hash)) {
             const allTags = (dex as any)._tagsByHash.get(hash) as Set<Tag>;
             const result = matcher(hash, allTags, index++, dex, filter);

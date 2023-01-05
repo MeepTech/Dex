@@ -6,7 +6,7 @@ import {
 } from "../queries/queries";
 import { IDexSubSet, SubSet } from "./subset";
 import { Tag } from "./tags";
-import { IReadOnlyDex } from "../idex";
+import { IReadonlyDex } from "../readonly";
 import { Result, NoEntryFound, ResultType } from "../queries/results";
 
 /**
@@ -36,7 +36,7 @@ export interface HashSet<TEntry extends Entry>
 
 /** @internal */
 export function HashSetConstructor<TEntry extends Entry>(
-  dex: IReadOnlyDex<TEntry>,
+  dex: IReadonlyDex<TEntry>,
   base: Set<HashKey>
 ): HashSet<TEntry> {
 
@@ -265,7 +265,6 @@ export function HashSetConstructor<TEntry extends Entry>(
       return base.values;
     },
     enumerable: false,
-    writable: false,
     configurable: false
   } as {
     get(): HashSet<TEntry>["values"],

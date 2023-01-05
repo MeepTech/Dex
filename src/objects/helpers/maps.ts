@@ -1,5 +1,5 @@
 import { IBreakable } from "../../utilities/iteration";
-import { IReadOnlyDex } from "../idex";
+import { IReadonlyDex } from "../readonly";
 import { Entry } from "../subsets/entries";
 import { Tag } from "../subsets/tags";
 
@@ -37,7 +37,7 @@ export interface Mapper<TEntry> {
 }
 
 /** @internal */
-export function MapperConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry>): Mapper<TEntry> {
+export function MapperConstructor<TEntry extends Entry>(dex: IReadonlyDex<TEntry>): Mapper<TEntry> {
   const func = dex.toMap as Mapper<TEntry>;
   func.tags = dex.splay;
   func.entries = dex.toArray;

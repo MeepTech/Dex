@@ -1,6 +1,6 @@
 {
   "files": [
-    "./src/lib.ts", "src/objects/queries/filters.ts", "src/objects/idex.ts"
+    "./src/lib.ts", "src/objects/queries/filters.ts", "src/objects/readonly.ts", "src/objects/errors.ts"
   ],
   "compilerOptions": {
       "paths": {

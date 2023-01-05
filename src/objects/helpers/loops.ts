@@ -1,5 +1,5 @@
 import { IBreakable } from "../../utilities/iteration";
-import { IReadOnlyDex } from "../idex";
+import { IReadonlyDex } from "../readonly";
 import { Entry } from "../subsets/entries";
 import { Tag } from "../subsets/tags";
 
@@ -58,7 +58,7 @@ export interface Looper<TEntry> {
 }
 
 /** @internal */
-export function LooperConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry>): Looper<TEntry> {
+export function LooperConstructor<TEntry extends Entry>(dex: IReadonlyDex<TEntry>): Looper<TEntry> {
   const func = dex.forEach as Looper<TEntry>;
   func.tags = dex.forEachTag;
   func.entries = dex.forEachEntry;

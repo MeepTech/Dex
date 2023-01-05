@@ -1,4 +1,3 @@
-import { IBreakable, Break } from "../utilities/iteration";
 import {
   isArray,
   isComplexEntry,
@@ -16,10 +15,8 @@ import { v4 as uuidv4 } from 'uuid';
 import {
   ComplexEntry,
   Entry,
-  EntryMapConstructor,
   EntryOrNone,
   IGuard,
-  EntrySet,
   XEntryWithTags,
   XEntryWithTagsTuple,
   XEntryWithTagsObject,
@@ -29,33 +26,24 @@ import {
   IObjectGuard,
   IHasher
 } from "./subsets/entries";
-import { Looper, LooperConstructor } from "./helpers/loops";
-import { Mapper, MapperConstructor } from "./helpers/maps";
 import {
   Tag,
-  TagSet,
-  TagSetConstructor,
   TagOrTags,
   toSet,
   Tags
 } from "./subsets/tags";
 import {
-  HashKey,
-  HashSet,
-  HashSetConstructor} from "./subsets/hashes";
-import { IReadOnlyDex } from "./idex";
+  HashKey
+} from "./subsets/hashes";
 import { CopierConstructor, Copier } from './helpers/copy';
 import {
   FullQuery,
-  FirstableQuery,
   _logicMultiQuery,
   _logicFirstQuery,
-  FullQueryConstructor,
-  SpecificQuery,
-  SpecificQueryConstructor,
-  FirstableQueryConstructor
-} from "./queries/queries";
-import { NoEntryFound, NO_RESULT, ResultType } from "./queries/results";
+  FullQueryConstructor} from "./queries/queries";
+import { NO_RESULT, ResultType } from "./queries/results";
+import { ReadableDex } from "./readonly";
+import { DexError, NotImplementedError } from "./errors";
 
 /**
  * Extra config options for a dex.
@@ -72,24 +60,12 @@ export interface Config<TEntry extends Entry = Entry> {
  * 
  * This represents a many to many replationship of Tags to Entries.
  */
-export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<TEntry> {
-  // data
-  private readonly _allTags
-    : Set<Tag>
-    = new Set<Tag>();
-  private readonly _allHashes
-    : Set<HashKey>
-    = new Set<HashKey>();
-  private readonly _hashesByTag
-    : Map<Tag, Set<HashKey>>
-    = new Map<Tag, Set<HashKey>>();
-  private readonly _tagsByHash
-    : Map<HashKey, Set<Tag>>
-    = new Map<HashKey, Set<Tag>>();
-  private readonly _entriesByHash
-    : Map<HashKey, TEntry>
-    = new Map<HashKey, TEntry>();
-
+export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntry> {
+  // lazy
+  // - queries
+  private _take?: FullQuery<TEntry, ResultType.Array, TEntry>;
+  // - helpers
+  private _copier?: Copier<TEntry>;
   // config
   /** @readonly */
   private _guards
@@ -98,30 +74,6 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
       array: IArrayGuard<TEntry>,
       object: IObjectGuard<TEntry>,
     } = null!;
-  /** @readonly */
-  private _hasher: IHasher
-    = null!;
-
-  // lazy
-  // - queries
-  private _query?: FullQuery<TEntry, ResultType, TEntry>;
-  private _filter?: SpecificQuery<TEntry, ResultType.Dex, TEntry>;
-  private _values?: FirstableQuery<TEntry, ResultType.Array, TEntry>;
-  private _keys?: FirstableQuery<HashKey, ResultType.Set, TEntry>;
-  private _first?: SpecificQuery<TEntry, ResultType.First, TEntry>;
-  private _any?: SpecificQuery<boolean, ResultType.First, TEntry>;
-  private _count?: SpecificQuery<number, ResultType.First, TEntry>;
-  private _take?: FullQuery<TEntry, ResultType.Array, TEntry>;
-
-  // - subsets
-  private _hashSet?: HashSet<TEntry>;
-  private _tagSet?: TagSet<TEntry>;
-  private _entrySet?: EntrySet<TEntry>;
-
-  // - helpers
-  private _forLooper?: Looper<TEntry>;
-  private _mapLooper?: Mapper<TEntry>;
-  private _copier?: Copier<TEntry>;
 
   //#region Defaults
 
@@ -183,29 +135,24 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
   constructor()
 
   /**
-   * Make a new dex of just empty tags
-   */
-  constructor(options: Config<TEntry>)
-
-  /**
    * Copy a new dex from an existing one
    */
   constructor(original: Dex<TEntry>, options?: Config<TEntry>)
 
   /**
-   * Make a new dex with just one empty tag
+   * Make a new dex from a map
    */
-  constructor(tag: Tag, options?: Config<TEntry>)
+  constructor(map: Map<EntryOrNone<TEntry>, TagOrTags>, options?: Config<TEntry>)
+
+  /**
+   * Make a new dex of just empty tags
+   */
+  constructor(options: Config<TEntry>)
 
   /**
    * Make a new dex with just one empty tag
    */
   constructor(options: Config<TEntry>, tag: Tag)
-
-  /**
-   * Make a new dex with just empty tags
-   */
-  constructor(...tags: Tag[])
 
   /**
    * Make a new dex with just empty tags
@@ -218,6 +165,31 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
   constructor(options: Config<TEntry>, tags: Tag[])
 
   /**
+   * Make a new dex from entries with their tags. 
+   */
+  constructor(options: Config<TEntry>, entriesWithTags: XEntryWithTagsTuple<TEntry>[])
+
+  /**
+   * Make a new dex from an object with entries and tags
+   */
+  constructor(options: Config<TEntry>, entryWithTags: XEntryWithTagsObject<TEntry>)
+
+  /**
+   * Make a new dex from an object with entries and tags
+   */
+  constructor(options: Config<TEntry>, ...entriesWithTags: XEntryWithTagsObject<TEntry>[])
+
+  /**
+   * Make a new dex from an object with entries and tags
+   */
+  constructor(options: Config<TEntry>, entriesWithTags: XEntryWithTags<TEntry>[])
+
+  /**
+   * Make a new dex with just one empty tag
+   */
+  constructor(tag: Tag, options?: Config<TEntry>)
+
+  /**
    * Make a new dex with just empty tags
    */
   constructor(tags: TagOrTags, options?: Config<TEntry>)
@@ -226,11 +198,6 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
    * Make a new dex from entries with their tags. 
    */
   constructor(entriesWithTags: XEntryWithTagsTuple<TEntry>[], options?: Config<TEntry>)
-
-  /**
-   * Make a new dex from entries with their tags. 
-   */
-  constructor(options: Config<TEntry>, entriesWithTags: XEntryWithTagsTuple<TEntry>[])
 
   /**
    * Make a new dex from an object with entries and tags
@@ -245,32 +212,12 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
   /**
    * Make a new dex from an object with entries and tags
    */
-  constructor(options: Config<TEntry>, entryWithTags: XEntryWithTagsObject<TEntry>)
-
-  /**
-   * Make a new dex from an object with entries and tags
-   */
-  constructor(options: Config<TEntry>, entriesWithTags: XEntryWithTags<TEntry>[])
-
-  /**
-   * Make a new dex from an object with entries and tags
-   */
   constructor(...entriesWithTags: XEntryWithTagsObject<TEntry>[])
 
   /**
-   * Make a new dex from an object with entries and tags
+   * Make a new dex with just empty tags
    */
-  constructor(options: Config<TEntry>, ...entriesWithTags: XEntryWithTagsObject<TEntry>[])
-
-  /**
-   * Make a new dex from an object with entries and tags
-   */
-  constructor(options: Config<TEntry>, entryWithTags: XEntryWithTagsObject<TEntry>)
-
-  /**
-   * Make a new dex from a map
-   */
-  constructor(map: Map<EntryOrNone<TEntry>, TagOrTags>, options?: Config<TEntry>)
+  constructor(...tags: Tag[])
 
   /**
    * Make a new dex
@@ -289,15 +236,14 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
       | XEntryWithTagsObject<TEntry>
       | XEntryWithTags<TEntry>[],
   ) {
+    super(
+      values as any,
+      (values as any)?.hasher || (optionsOrMoreValues as any)?.hasher
+    );
+
     // copy existing:
-    if (values instanceof Dex) {
-      this._allTags = values._allTags;
-      this._allHashes = values._allHashes;
-      this._entriesByHash = values._entriesByHash;
-      this._hashesByTag = values._hashesByTag;
-      this._tagsByHash = values._tagsByHash;
+    if (values instanceof ReadableDex) {
       this._guards = values._guards;
-      this._hasher = values._hasher;
       if (isConfig<TEntry>(optionsOrMoreValues)) {
         this._initOptions(optionsOrMoreValues);
       }
@@ -433,76 +379,11 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
       configurable: false,
       enumerable: false
     });
-
-    Object.defineProperty(this, "_hasher", {
-      value: config?.hasher ?? Dex.Defaults.getHashFunction(),
-      writable: false,
-      configurable: false,
-      enumerable: false
-    });
   }
 
   //#endregion
 
   //#region Properties
-
-  //#region Counts
-
-  /**
-   * How many uniue entries  are in the dex
-   */
-  get numberOfEntries()
-    : number {
-    return this._allHashes.size;
-  }
-
-  /**
-   * How many uniue tags are in the dex
-   */
-  get numberOfTags()
-    : number {
-    return this._allTags.size;
-  }
-
-  //#endregion
-
-  //#region Sub Sets
-
-  get entries(): EntrySet<TEntry> {
-    return this._entrySet
-      ??= EntryMapConstructor<TEntry>(this, this._entriesByHash);
-  }
-
-  get tags(): TagSet<TEntry> {
-    return this._tagSet
-      ??= TagSetConstructor<TEntry>(this, this._allTags);
-  }
-
-  get hashes(): HashSet<TEntry> {
-    return this._hashSet
-      ??= HashSetConstructor<TEntry>(this, this._allHashes);
-  }
-
-  //#endregion
-
-  //#region Loop Helpers
-
-  get for(): Looper<TEntry> {
-    return this._forLooper
-      ??= LooperConstructor(this);
-  }
-
-  get map(): Mapper<TEntry> {
-    return this._mapLooper
-      ??= MapperConstructor(this);
-  };
-
-  get copy(): Copier<TEntry> {
-    return this._copier
-      ??= CopierConstructor(this);
-  }
-
-  //#endregion
 
   get config(): Config<TEntry> {
     return {
@@ -513,145 +394,18 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
     };
   }
 
-  //#endregion
+  //#region Loop Helpers
 
-  //#region Methods
-
-  //#region Get
-
-  //#region General
-
-  get(key: HashKey): TEntry | NoEntryFound {
-    return this._entriesByHash.get(key);
+  get copy(): Copier<TEntry> {
+    return this._copier
+      ??= CopierConstructor(this);
   }
-
-  hash(entry: Entry): HashKey {
-    return this._hasher(entry);
-  }
-
-  contains(entry: TEntry | HashKey): boolean {
-    return this._allHashes.has(this.hash(entry));
-  }
-
-  has(tag: Tag): boolean {
-    return this._allTags.has(tag);
-  }
-
-  canContain(value: Entry): value is TEntry {
-    return this._guards.entry(value);
-  }
-
-  merge(other: Dex<TEntry>): Dex<TEntry> {
-    const dex = new Dex<TEntry>(this);
-    dex.copy.from(other);
-
-    return dex;
-  }
-
-  //#endregion
-
-  //#region Queries
-
-  //#region Generic
-
-  get query(): FullQuery<TEntry, ResultType, TEntry> {
-    return this._query ??= FullQueryConstructor(
-      this,
-      ResultType.Array,
-    );
-  }
-
-  //#endregion
-
-  //#region Chained
-
-  get filter(): SpecificQuery<TEntry, ResultType.Dex, TEntry> {
-    return this._filter ??= SpecificQueryConstructor(
-      this,
-      ResultType.Dex
-    );
-  }
-
-  //#endregion
-
-  //#region Values
-
-  get values(): FirstableQuery<TEntry, ResultType.Array, TEntry> {
-    return this._values ??= FirstableQueryConstructor(
-      this,
-      ResultType.Array,
-      {
-        allOnNoParams: true
-      }
-    );
-  }
-
-  //#region Hashes/Keys
-
-  get keys(): FirstableQuery<HashKey, ResultType.Set, TEntry> {
-    return this._keys ??= FirstableQueryConstructor(
-      this,
-      ResultType.Set,
-      {
-        allOnNoParams: true,
-        transform: false
-      }
-    );
-  }
-
-  //#endregion
-
-  //#region Single Value
-
-  get first(): SpecificQuery<TEntry, ResultType.First, TEntry> {
-    return this._first ??= SpecificQueryConstructor(
-      this,
-      ResultType.First
-    );
-  }
-
-  //#endregion  
-
-  //#endregion
-
-  //#region Utility
-
-  get any(): SpecificQuery<boolean, ResultType.First, TEntry> {
-    return this._any ??= SpecificQueryConstructor<boolean, ResultType.First, TEntry>(
-      this,
-      ResultType.First,
-      {
-        transform: result => result !== undefined
-      }
-    );
-  };
-
-  get count(): SpecificQuery<number, ResultType.First, TEntry> {
-    if (!this._count) {
-      const counter = SpecificQueryConstructor<HashKey, ResultType.Set, TEntry>(
-        this,
-        ResultType.Set,
-        {
-          transform: false,
-          allOnNoParams: true
-        }
-      );
-
-      const proxy = (...args: any[]) => counter(...args).size;
-      proxy.not = (...args: any[]) => counter.not(...args).size
-
-      this._count = proxy as SpecificQuery<number, ResultType.First, TEntry>;
-    }
-
-
-    return this._count;
-  };
 
   //#endregion
 
   //#endregion
 
-  //#endregion
+  //#region Methods
 
   //#region Modify
 
@@ -1023,10 +777,10 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
 
   private _putOneObject(entryWithTags: XEntryWithTagsObject<TEntry>): HashKey | NoEntries {
     if (entryWithTags.entry === undefined || entryWithTags.entry === null) {
-      this.set((entryWithTags.tags || entryWithTags.tag)!);
+      this.set((entryWithTags.tags || (entryWithTags as any).tag)!);
       return null;
     } else {
-      return this.add(entryWithTags.entry, (entryWithTags.tags || entryWithTags.tag)!);
+      return this.add(entryWithTags.entry, (entryWithTags.tags || (entryWithTags as any).tag)!);
     }
   }
 
@@ -1568,7 +1322,7 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
     const tagsToReset = (isIterable(tags)
       ? tags
       : [tags]) as Iterable<Tag>;
-    
+
     for (const tag in tagsToReset) {
       for (const hash in this._hashesByTag.get(tag) ?? []) {
         const tagsForHash = this._tagsByHash.get(hash);
@@ -1668,179 +1422,14 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
 
   //#endregion
 
-  //#region Looping
-
-  *[Symbol.iterator](): Iterator<[HashKey, TEntry, Set<Tag>]> {
-    for (const hash in this._allHashes) {
-      yield [hash, this.get(hash)!, this._tagsByHash.get(hash)!];
-    }    
-  }
-
-  //#region For
+  //#region Utility
 
   /**
-   * For each unique entry and tag pair.
-   * 
-   * @param func 
+   * Check if an item is a valid entry for this dex.
    */
-  forEach(
-    func: IBreakable<[entry: TEntry, tag: Tag, index: number], any>,
-    outerLoopType: 'entry' | 'tag' | undefined = 'entry'
-  ): void {
-    let index: number = 0;
-    if (outerLoopType === 'tag') {
-      for (const tag of this._allTags) {
-        for (const hash of this._hashesByTag.get(tag)!) {
-          if (func(this._entriesByHash.get(hash)!, tag, index++) instanceof Break) {
-            break;
-          }
-        }
-      }
-    } else {
-      for (const hash of this._allHashes) {
-        for (const tag of this._tagsByHash.get(hash)!) {
-          if (func(this._entriesByHash.get(hash)!, tag, index++) instanceof Break) {
-            break;
-          }
-        }
-      }
-    }
+  canContain(value: Entry): value is TEntry {
+    return this._guards.entry(value);
   }
-
-  /**
-   * Iterate logic on each tag in the dex.
-   */
-  forEachTag(
-    func: IBreakable<[tag: Tag, index: number, entries: Set<TEntry>], any>
-  ): void {
-    let index: number = 0;
-    for (const tag of this._allTags) {
-      const entries = new Set<TEntry>();
-      this._hashesByTag.get(tag)!.forEach(h =>
-        entries.add(this._entriesByHash.get(h)!)
-      )
-
-      if (func(tag, index++, entries) instanceof Break) {
-        break;
-      }
-    }
-  }
-
-  /**
-   * Iterate logic on each entry in the dex.
-   */
-  forEachEntry(
-    func: IBreakable<[entry: TEntry, index: number, tags: Set<Tag>], any>
-  ): void {
-    let index: number = 0;
-    for (const hash of this._allHashes) {
-      if (func(
-        this._entriesByHash.get(hash)!,
-        index++,
-        this._tagsByHash.get(hash)!
-      ) instanceof Break) {
-        break;
-      }
-    }
-  }
-
-  //#endregion
-
-  //#region Map
-
-  /**
-   * Get a map of the entries and their tags, or map all unique pairs to your own array of values.
-   * 
-   * @param transform The transform function. Takes every unique pair. If not provided, this returns a map of type Map<Entry, Tag[]>
-   * @param outerLoopType The type to use in the outer loop. This is to help speed in certain cases where you want to break out of the loop early.
-   * 
-   * @returns A mapped array of values, or a Map<Entry, Tag[]> if no transform was provided.
-   */
-  toMap<TResult = undefined>(
-    transform?: IBreakable<[entry: TEntry, tag: Tag, index: number], TResult>,
-    outerLoopType: 'entry' | 'tag' = 'entry'
-  ): (TResult extends undefined ? Map<Entry, Tag[]> : TResult[]) {
-    if (!transform) {
-      return new Map<TEntry, Tag[]>() as any;
-    }
-
-    const results: TResult[] = [];
-    let index: number = 0;
-    this.forEach((e, t, i) => {
-      const result = transform(e, t, i);
-      if (result instanceof Break) {
-        if (result.return) {
-          results.push(result.return);
-        }
-
-        return result;
-      }
-
-      results.push(result);
-    }, outerLoopType);
-
-    return results as any;
-  }
-
-  /**
-   * Map this dex's entries to an array.
-   */
-  toArray<TResult = TEntry>(
-    transform?: IBreakable<[entry: TEntry, index: number, tags: Set<Tag>], TResult>
-  ): TResult[] {
-    if (!transform) {
-      return this.entries as any as TResult[];
-    }
-
-    const results: TResult[] = [];
-    this.forEachEntry((e, i, t) => {
-      const result = transform(e, i, t);
-      if (result instanceof Break) {
-        if (result.return) {
-          results.push(result.return);
-        }
-
-        return result;
-      }
-
-      results.push(result);
-    });
-
-    return results;
-  }
-
-  /**
-   * Splay//map this dex's tags into an array.
-   */
-  splay<TResult>(
-    transform?: IBreakable<[tag: Tag, index: number, entries: Set<TEntry>], TResult>
-  ): TResult[] {
-    if (!transform) {
-      return this.tags as any as TResult[];
-    }
-
-    const results: TResult[] = [];
-    this.forEachTag((t, i, e) => {
-      const result = transform(t, i, e);
-      if (result instanceof Break) {
-        if (result.return) {
-          results.push(result.return);
-        }
-
-        return result;
-      }
-
-      results.push(result);
-    });
-
-    return results;
-  }
-
-  //#endregion
-
-  //#endregion
-
-  //#region Helpers
 
   /**
    * Get the uuid for a non primative object added to a dex.
@@ -1866,36 +1455,7 @@ export default class Dex<TEntry extends Entry = Entry> implements IReadOnlyDex<T
   //#endregion
 }
 
-//#region Errors
-
-export class DexError extends Error implements Error {
-  constructor(message: string) {
-    super(message);
-  }
-}
-
-/**
- * This is something that needs to be implemented but has not been yet.
- */
-export class NotImplementedError extends DexError {
-  constructor(propertyOrMethodName: string, message?: string) {
-    super("NOT IMPLEMENTED ERROR: " + propertyOrMethodName + ", has not been implemented by meep.tech yet.\n" + (message ?? ""));
-  }
-}
-
-/**
- * An error signifying an invalid combination of flags were passed to a Dex Query
- */
-export class InvalidQueryParamError extends DexError {
-  readonly arg: any;
-  constructor(arg: any, index: number | string) {
-    super(`Missing or Invalid Query Parameter: ${arg ?? 'undefined'}, at index: ${index}`);
-  }
-}
-
-//#endregion
-
-//#region Utilities
+//#region Other Utilities
 
 /**
  * Default entry hashing method.

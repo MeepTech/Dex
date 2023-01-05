@@ -1,6 +1,6 @@
 import { forEach, IBreakable } from "../../utilities/iteration";
 import { isArray, isFunction, isIterable, isObject } from "../../utilities/validators";
-import { IReadOnlyDex } from "../idex";
+import { IReadonlyDex } from "../readonly";
 import { Entry } from '../subsets/entries'
 import { HashKey, HashOrHashes } from "../subsets/hashes";
 import { Tag, TagOrTags } from "../subsets/tags";
@@ -20,7 +20,7 @@ export interface MatchFilter<TDexEntry extends Entry>
     entry: TDexEntry,
     tags: Set<Tag>,
     index: number,
-    dex: IReadOnlyDex<TDexEntry>,
+    dex: IReadonlyDex<TDexEntry>,
     args: QueryFilter<TDexEntry>,
     ...rest: any
   ], boolean> { };

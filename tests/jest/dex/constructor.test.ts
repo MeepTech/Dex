@@ -1,5 +1,6 @@
 import { describe, test } from '@jest/globals';
-import Dex from '../../../src/objects/dex';
+import Dex, { hash } from '../../../src/objects/dex';
+import { IHasher } from '../../../src/objects/subsets/entries';
 import { Tag } from '../../../src/objects/subsets/tags';
 import {
   expectDex_countsToEqual,
@@ -33,23 +34,6 @@ describe("constructor(...)", () => {
     });
   });
   describe("([TEntry, ...Tag[]][])", () => {
-    test("([TEntry, Tag]) => Dex with one item with one tag", () => {
-      const entry = {};
-      const dex = new Dex<{}>([entry, testTag]);
-
-      expectDex_countsToEqual(dex, 1, 1);
-      expectDex_entryToHaveTags(dex, entry, [testTag]);
-      expectDex_tagsToHaveEntries(dex, testTag, [entry]);
-    });
-    test("([TEntry, Tag, Tag]) => Dex with one item with multiple tags", () => {
-      const entry = {};
-      const dex = new Dex<{}>([entry, testTag, testTag2]);
-
-      expectDex_countsToEqual(dex, 1, 2);
-      expectDex_entryToHaveTags(dex, entry, [testTag, testTag2])
-      expectDex_tagsToHaveEntries(dex, testTag, [entry]);
-      expectDex_tagsToHaveEntries(dex, testTag2, [entry]);
-    });
     test("([[TEntry, Tag], [TEntry, Tag]]) => Dex with muiliple item with one tag each", () => {
       const entry = {};
       const entry2 = {};
@@ -466,5 +450,45 @@ describe("constructor(...)", () => {
     expectDex_entryToHaveTags(dex, entry2, [testTag2]);
     expectDex_tagsToHaveEntries(dex, testTag2, [entry, entry2]);
   });
-  // TODO: test creation from an existing dex
+  test("(Dex<TEntry>) => Dex copied from an existing dex", () => {
+    const entry = {};
+    const entry2 = {};
+
+    const original = new Dex<{}>([[entry, testTag, testTag2], [entry2, testTag2]]);
+    const copy = new Dex<{}>(original);
+
+    expectDex_countsToEqual(original, 2, 2);
+    expectDex_countsToEqual(copy, 2, 2);
+    expectDex_entryToHaveTags(original, entry, [testTag, testTag2]);
+    expectDex_entryToHaveTags(copy, entry, [testTag, testTag2]);
+    expectDex_entryToHaveTags(original, entry2, [testTag2]);
+    expectDex_entryToHaveTags(copy, entry2, [testTag2]);
+    expectDex_tagsToHaveEntries(original, testTag, [entry]);
+    expectDex_tagsToHaveEntries(copy, testTag, [entry]);
+    expectDex_tagsToHaveEntries(original, testTag2, [entry, entry2]);
+    expectDex_tagsToHaveEntries(copy, testTag2, [entry, entry2]);
+  });
+  test("(Dex<TEntry>) => Dex copied from an existing dex with settings overriden", () => {
+    const entry = {};
+    const entry2 = {};
+    const hasher: IHasher = entry => hash(entry);
+    (hasher as any)["testValue"] = "exists";
+
+    const original = new Dex<{}>([[entry, testTag, testTag2], [entry2, testTag2]]);
+    const copy = new Dex<{}>(original, {hasher});
+
+    expectDex_countsToEqual(original, 2, 2);
+    expectDex_countsToEqual(copy, 2, 2);
+    expectDex_entryToHaveTags(original, entry, [testTag, testTag2]);
+    expectDex_entryToHaveTags(copy, entry, [testTag, testTag2]);
+    expectDex_entryToHaveTags(original, entry2, [testTag2]);
+    expectDex_entryToHaveTags(copy, entry2, [testTag2]);
+    expectDex_tagsToHaveEntries(original, testTag, [entry]);
+    expectDex_tagsToHaveEntries(copy, testTag, [entry]);
+    expectDex_tagsToHaveEntries(original, testTag2, [entry, entry2]);
+    expectDex_tagsToHaveEntries(copy, testTag2, [entry, entry2]);
+
+    expect(original.config.hasher).not.toHaveProperty("testValue");
+    expect(copy.config.hasher).toHaveProperty("testValue");
+  });
 });

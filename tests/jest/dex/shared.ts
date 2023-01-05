@@ -1,38 +1,9 @@
 import { expect } from '@jest/globals';
-import Dex, { InvalidQueryParamError } from '../../../src/objects/dex';
-import { CHAIN_FLAG, IFlag, FLAGS } from '../../../src/objects/queries/flags';
-import { QueryResults, IQueryResult, Query } from '../../../src/objects/queries/queries';
-import { IReadOnlyDex } from '../../../src/objects/sealed';
+import Dex from '../../../src/objects/dex';
+import { FullQuery } from '../../../src/objects/queries/queries';
+import { ResultType } from '../../../src/objects/queries/results';
 import { Entry } from '../../../src/objects/subsets/entries';
 import { Tag } from '../../../src/objects/subsets/tags';
-import { isArray, isObject } from '../../../src/utilities/validators';
-
-function temp() {
-  const dex = new Dex<string>();
-  const _1 = dex.select.not("strictly-without-this-tag");
-  const _2 = dex.query("strictly-with-this-tag");
-  const _2_1 = dex.query(FLAGS.FIRST, "strictly-with-this-tag");
-  const _3 = dex.select.not.or("not-this", "or-this");
-  const _3_1 = dex.select.not.or(FLAGS.FIRST, "not-this", "or-this");
-  const _3_2 = dex.select.not.not(FLAGS.FIRST, "not-this", "or-this");
-  const _3_3 = dex.select.not.not("not-this", "or-this");
-  const _4 = dex.query([CHAIN_FLAG], "without-this").select("with-this-though")
-  const _4_3 = dex.query(CHAIN_FLAG, "without-this").select("with-this-though")
-  const _4_1 = dex.query([FLAGS.CHAIN], FLAGS.OR, "this", "or-this").first("one-that-has-this")
-  const _5 = dex.select.not(FLAGS.CHAIN, "without-this").and("with-this-though");
-  //const _6 = dex.select.not(FLAGS.FIRST, "without-this").and("this should be an error");
-  const f_1 = dex.tags.of("eNTRY ID 1");
-  const entries = dex.map.entries();
-  const tags = dex.map.tags();
-  const toObjects = dex.map.tags();
-  const mapObject = dex.map();
-
-  const object = {};
-  dex.for.entries((entry, tags) => {
-    // things
-  });
-}
-
 
 /**
  * A test case for Find.
@@ -80,56 +51,6 @@ export type QueryTestCase = {
   debug?: boolean 
 }
 
-export function expect_queryFunctionTestCaseSuccess<
-  TEntry extends Entry,
-  TDexEntry extends Entry | TEntry,
-  TDex extends IReadOnlyDex<TDexEntry>,
-  TValidFlags extends IFlag,
-  TDefaultResult extends QueryResults<TEntry, TDexEntry> = IQueryResult<TEntry, TValidFlags, TDexEntry>,
->(dex: TDex, queryMethod: Query<TEntry, TValidFlags, TDexEntry, TDefaultResult>, test: QueryTestCase) {
-  if (test.debug) {
-    debugger;
-  }
-
-  const method = queryMethod.bind(dex);
-
-  // error case
-  if (test.throws) {
-    expect(() => method(...(test.args as [any, any])))
-      .toThrowError(test.throws);
-  } // success case
-  else {
-    const result = method(...(test.args as [any, any]));
-
-    if (!test.instanceof) {
-      expect(isArray(result)).toStrictEqual(true);
-      test.expected.forEach(expected => {
-        expect((result as { key: number }[])
-          .find(e => e.key === expected!.key)
-        ).toStrictEqual(expected);
-      });
-    } else if (test.instanceof === Dex) {
-      expect(result).toBeInstanceOf(Dex);
-      test.expected.forEach(expected => {
-        const found = (result as Dex<{ key: number }>)
-          .entries
-          .first(e => e.key === expected!.key);
-
-        expect(found).toStrictEqual(expected);
-      });
-    } else if (isObject(test.instanceof)) {
-      if (test.expected[0] === undefined) {
-        expect(result).toBeUndefined();
-      } else {
-        expect(result).toBeInstanceOf(Object);
-        expect(result).toHaveProperty("key");
-        expect((result as { key: number }).key)
-          .toStrictEqual(test.expected[0].key);
-      }
-    }
-  }
-}
-
 export const expectDex_countsToEqual = (
   dex: Dex<any>,
   entries: number,
@@ -162,8 +83,8 @@ export const expectDex_entryHasNoTags = (
   const hash = dex.hash(entry)!;
 
   expect(dex.hashes.has(hash)).toBeTruthy();
-  expect(dex.tags.of(hash)).toStrictEqual([]);
-  expect(dex.tags.of(hash)!.length).toStrictEqual(0);
+  expect(dex.tags.of(hash)).toBeInstanceOf(Set);
+  expect(dex.tags.of(hash)!.size).toStrictEqual(0);
 }
 
 export const expectDex_entryToHaveTags = (
@@ -173,7 +94,7 @@ export const expectDex_entryToHaveTags = (
 ) => {
   const tagsForEntry = dex.tags.of(entry)!;
 
-  expect(tagsForEntry.length).toStrictEqual(tags.length);
+  expect(tagsForEntry.size).toStrictEqual(tags.length);
   tags.forEach(tag =>
     expect(tagsForEntry).toContain(tag));
 }
@@ -184,7 +105,22 @@ export const expectDex_tagsToHaveEntries = (
   entries: Entry[]
 ) => {
   const hashesForTag = dex.keys(tag);
-  expect(hashesForTag.length).toStrictEqual(entries.length);
+  expect(hashesForTag.size).toStrictEqual(entries.length);
   entries.map(dex.hash.bind(dex)).forEach(hash =>
     expect(hashesForTag).toContain(hash));
+}
+
+/**
+ * This function is here to observe for ts errors in the auto-mapping of ResultType. It should not be run.
+ */
+function ___test_ts_resultTypes() {
+  const testQuery: FullQuery<{}, ResultType.Array, string> = {} as any;
+
+  const _1 = testQuery(["a", "e", 1, 5]);
+  const _2 = testQuery(["a", "e", 1, 5], ResultType.Dex);
+  const _3 = testQuery(ResultType.Set, { and: ["one", "two"] });
+  const _3_1 = testQuery(ResultType.First, { and: ["one", "two"] });
+  const _4 = testQuery({ and: ["one", "two"] }, ResultType.First);
+  const _5 = testQuery({ and: ["one", "two"] }, { not: { hashes: ["ID:KW$#kj3tijergwigg"] } });
+  const _6 = testQuery({ not: { hashes: ["ID:KW$#kj3tijergwigg"] } });
 }

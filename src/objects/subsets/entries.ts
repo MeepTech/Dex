@@ -7,7 +7,7 @@ import {
 } from "../queries/queries";
 import { IBreakable } from "../../utilities/iteration";
 import { Tag, TagOrTags, TagSet } from "./tags";
-import { IReadOnlyDex } from "../idex";
+import { IReadonlyDex } from "../readonly";
 import { Result, NoEntryFound, ResultType } from "../queries/results";
 
 /**
@@ -54,7 +54,7 @@ export type EntryOrNone<TEntry extends Entry = Entry>
  * Inputable EntryWithTag set types.
  */
 export type EntryWithTags<TEntry extends Entry = Entry>
-  = { entry?: EntryOrNone<TEntry>, tags?: TagOrTags }
+  = { entry: EntryOrNone<TEntry>, tags: TagOrTags }
 
 /**
  * Standard array type container for a type of entry with all of it's tags.
@@ -84,7 +84,11 @@ export type XEntryWithTagsTuple<TEntry extends ComplexEntry = ComplexEntry>
  * Inputable EntryWithTag object types.
  */
 export type XEntryWithTagsObject<TEntry extends Entry = Entry>
-  = EntryWithTags<TEntry> & { tag?: TagOrTags, tags?: TagOrTags }
+  = EntryWithTags<TEntry>
+  | { tag: Tag, entry?: EntryOrNone<TEntry>, tags?: never }
+  | { tags: TagOrTags, entry?: EntryOrNone<TEntry>, tag?: never }
+  | { entry: EntryOrNone<TEntry>, tags?: TagOrTags, tag?: never }
+  | { entry: EntryOrNone<TEntry>, tag?: Tag, tags?: never }
 
 /**
  * Used to represent the value of a tag with no entries
@@ -138,7 +142,7 @@ export interface IArrayGuard<TEntry extends Entry> {
  */
 export interface EntrySet<TEntry extends Entry>
   extends IDexSubMap<TEntry>,
-  FullQuery<TEntry, ResultType.Array>
+  FullQuery<TEntry, ResultType.Array, TEntry>
 {
 
   /**
@@ -165,19 +169,17 @@ export interface EntrySet<TEntry extends Entry>
 
 /** @internal */
 export function EntryMapConstructor<TEntry extends Entry>(
-  dex: IReadOnlyDex<TEntry>,
+  dex: IReadonlyDex<TEntry>,
   base: Map<HashKey, TEntry>
 ): EntrySet<TEntry> {
   const query: EntrySet<TEntry>
-    = <EntrySet<TEntry>>(
-      FullQueryConstructor<TEntry, ResultType.Array, TEntry>(
+    = FullQueryConstructor<TEntry, ResultType.Array, TEntry>(
         dex,
         ResultType.Array,
         {
           allOnNoParams: true
         }
-      )
-    );
+      ) as EntrySet<TEntry>
   
   Object.defineProperty(query, "map", {
     value<TResult = never, TResults extends ResultType = ResultType.Array>(

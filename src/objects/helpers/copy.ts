@@ -1,8 +1,7 @@
 import { count, forEach } from "../../utilities/iteration";
 import { isArray, isObject } from "../../utilities/validators";
 import Dex from "../dex";
-import { SealedDex } from "../sealed";
-import { IReadOnlyDex } from "../idex";
+import { IReadonlyDex, SealedDex } from "../readonly";
 import { Entry } from "../subsets/entries";
 import { HashKey } from "../subsets/hashes";
 import { Tag, Tags } from "../subsets/tags";
@@ -22,7 +21,7 @@ export interface Copier<TEntry extends Entry> {
    *     - tags and entry hash keys can be seperated into an object with two lists as well.
    */
   from(
-    source: IReadOnlyDex<TEntry>,
+    source: IReadonlyDex<TEntry>,
     keys?: HashKey[] | Set<HashKey> | HashKey | {
       entry?: HashKey | TEntry,
       entries?: (TEntry | HashKey)[] | Set<HashKey | TEntry>,
