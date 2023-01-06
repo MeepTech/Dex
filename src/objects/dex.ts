@@ -604,7 +604,8 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    */
   add(
     entry: TEntry | XEntryWithTags<TEntry>[] | XEntryWithTagsObject<TEntry>,
-    tags?: TagOrTags | XEntryWithTagsObject<TEntry>
+    tags?: TagOrTags | XEntryWithTagsObject<TEntry>,
+    ...rest: any
   ): HashKey | (HashKey | NoEntries)[] | NoEntries | HashKey[] {
     // InputEntryWithTagsObject<TEntry>[] | InputEntryWithTagsArray<TEntry>[] | TEntry
     if (isArray(entry) && !tags) {
@@ -633,7 +634,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     tags = <TagOrTags | undefined>tags;
     tags = tags === undefined
       ? undefined
-      : toSet(tags);
+      : toSet(tags, ...rest);
 
     // if we're only provided an entry argument, then it's just for a tagless entry:
     if (!tags || !(tags as Set<Tag>).size) {
@@ -1387,33 +1388,6 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     this._entriesByHash.clear();
     this._hashesByTag.clear();
     this._tagsByHash.clear();
-  }
-
-  private _removeItemAt(hash: HashKey) {
-    this._tagsByHash.delete(hash);
-    this._entriesByHash.delete(hash);
-    this._allHashes.delete(hash);
-  }
-
-  private static _removeFromArray<T>(array: T[], target: (T | ((entry: T) => boolean)), thenDo: (entry: T) => void): number {
-    let count: number = 0;
-    let index: number = 0;
-
-    if (isFunction(target)) {
-      while ((index = array.findIndex(e => target(e))) > -1) {
-        const removed = array.splice(index, 1)[0];
-        thenDo(removed);
-        count++;
-      }
-    } else {
-      while ((index = array.indexOf(target, 0)) > -1) {
-        const removed = array.splice(index, 1)[0];
-        thenDo(removed);
-        count++;
-      }
-    }
-
-    return count;
   }
 
   //#endregion

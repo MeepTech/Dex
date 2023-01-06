@@ -110,6 +110,10 @@ export const expectDex_tagsToHaveEntries = (
     expect(hashesForTag).toContain(hash));
 }
 
+export function failFromType(type: ObjectConstructor | any, result: any) {
+  fail(`Type of result: ${typeof (result?.constructor ?? result)} is not equal to expected: ${type}.`)
+}
+
 /**
  * This function is here to observe for ts errors in the auto-mapping of ResultType. It should not be run.
  */

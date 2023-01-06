@@ -157,6 +157,9 @@ interface IQueryBase<
     }
   ): Result<TValue, TResult, TDexEntry>
 
+  (...tags: Tag[])
+    : Result<TValue, TResult, TDexEntry>
+
   (filter: XQueryFilter<TDexEntry>)
     : Result<TValue, TResult, TDexEntry>
 
@@ -237,7 +240,7 @@ export const FullQueryConstructor = <
         results = [];
 
         collectMatches
-          = (transform !== false)
+          = (transform === false)
             ? (hashes => (results = ([...hashes] as TQValue[])))
             : (hashes =>
               hashes.forEach(hash =>
@@ -259,7 +262,7 @@ export const FullQueryConstructor = <
       // set
       case ResultType.Set: {
         results = new Set<TQValue>();
-        collectMatches = (transform !== false)
+        collectMatches = (transform === false)
           ? (hashes => (results = hashes as Set<TQValue>))
           : (hashes =>
             hashes.forEach(hash =>
