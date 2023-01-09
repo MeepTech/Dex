@@ -1,5 +1,5 @@
 import { IBreakable } from "../../utilities/iteration";
-import { isIterable, isTag } from "../../utilities/validators";
+import { isNonStringIterable, isTag } from "../../utilities/validators";
 import { Result, NoEntryFound, ResultType } from "../queries/results";
 import { IReadonlyDex } from "../readonly";
 import { Entry } from "./entries";
@@ -93,7 +93,7 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadonlyDex<TEntry
   ): TShouldSplit extends undefined
     ? Set<Tag>
     : Map<HashKey, Set<Tag>> {
-    const targets = isIterable(forEntries)
+    const targets = isNonStringIterable(forEntries)
       ? forEntries
       : [forEntries];
     

@@ -20,8 +20,8 @@ export class NotImplementedError extends DexError {
 
 export class InvalidQueryParamError extends DexError {
   readonly arg: any;
-  constructor(arg: any, index: number | string) {
-    super(`Missing or Invalid Query Parameter: ${arg ?? 'undefined'}, at index: ${index}`);
+  constructor(arg: any, index: number | string, extraMessage?: string) {
+    super(`Missing or Invalid Query Parameter: ${arg ?? 'undefined'}, at index: ${index}` + (extraMessage ? ( ".\n\t" + extraMessage) : ""));
   }
 }
 

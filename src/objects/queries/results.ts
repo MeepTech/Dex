@@ -53,6 +53,20 @@ export enum ResultType {
 }
 
 /**
+ * All request types.
+ */
+export const RESULT_TYPES : Readonly<Set<ResultType>> = new Set<ResultType>([
+  ResultType.Vauge,
+  ResultType.Array,
+  ResultType.Dex,
+  ResultType.Set,
+  ResultType.First,
+  ResultType.Full,
+  ResultType.Pairs,
+  ResultType.Tuples
+]);
+
+/**
  * Returned when an entry is not found by a query.
  */
 export const NO_RESULT = undefined;

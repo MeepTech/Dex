@@ -4,7 +4,7 @@ import {
   isConfig,
   isFunction,
   isInputEntryWithTagsArray,
-  isIterable,
+  isNonStringIterable,
   isObject,
   isSimpleEntry,
   isTag,
@@ -484,7 +484,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     } else {
       // NoEntries or [] is passed in, set to empty:
       if (!entries || (entries instanceof Set ? !entries.size : !entries.length)) {
-        for (const tag in tags) {
+        for (const tag of tags) {
           if (this._hashesByTag.has(tag)) {
             const currentSet = this._hashesByTag.get(tag)!;
             currentSet.forEach(h => effectedHashes.push(h));
@@ -501,11 +501,11 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       } // set values
       else {
         const hashesToSet: Set<HashKey> = new Set<HashKey>();
-        for (const entry in entries) {
+        for (const entry of entries) {
           hashesToSet.add(this.hash(entry));
         }
 
-        for (const tag in tags) {
+        for (const tag of tags) {
           if (this._hashesByTag.has(tag)) {
             const currentSet = this._hashesByTag.get(tag)!;
             currentSet.forEach(hash => {
@@ -1022,14 +1022,14 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
         ? optionsOrTags
         : undefined;
 
-    const tags: Iterable<Tag> | undefined = isIterable(optionsOrTags)
+    const tags: Iterable<Tag> | undefined = isNonStringIterable(optionsOrTags)
       ? optionsOrTags as Iterable<Tag>
       : optionsOrTags !== undefined
         ? [optionsOrTags] as Iterable<Tag>
         : undefined;
 
     if (!config) {
-      if (isIterable(targets)) {
+      if (isNonStringIterable(targets)) {
         for (const entryOrKey of targets) {
           const hash = this.hash(entryOrKey);
           this.untagEntry(hash, tags);
@@ -1045,7 +1045,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
         }
       }
     } else {
-      if (isIterable(targets)) {
+      if (isNonStringIterable(targets)) {
         for (const entryOrKey of targets) {
           let tagsToCheck: Set<Tag> | undefined;
           const hash = this.hash(entryOrKey);
@@ -1058,7 +1058,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
             this._removeTaglessEntry(hash);
           }
           if (tagsToCheck) {
-            for (const tag in tagsToCheck) {
+            for (const tag of tagsToCheck) {
               if (!this._hashesByTag.get(tag)?.size) {
                 this._removeEmptyTag(tag);
               }
@@ -1077,7 +1077,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
           this._removeTaglessEntry(hash);
         }
         if (tagsToCheck) {
-          for (const tag in tagsToCheck) {
+          for (const tag of tagsToCheck) {
             if (!this._hashesByTag.get(tag)?.size) {
               this._removeEmptyTag(tag);
             }
@@ -1129,7 +1129,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       }
 
       currentTagsForEntry?.clear();
-    } else if (isIterable(tagsToRemove)) {
+    } else if (isNonStringIterable(tagsToRemove)) {
       for (const tag of tagsToRemove) {
         const currentEntriesForTag = this._hashesByTag.get(tag);
         currentTagsForEntry?.delete(tag);
@@ -1168,7 +1168,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    * Remove all the provided tags from one entry
    */
   untagEntries(entries: Iterable<TEntry> | Iterable<HashKey>, tagsToRemove?: TagOrTags): void {
-    for (const entry in entries) {
+    for (const entry of entries) {
       this.untagEntry(entry, tagsToRemove as any);
     }
   }
@@ -1217,7 +1217,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     entries: Iterable<TEntry> | Iterable<HashKey> | TEntry | HashKey,
     tags?: TagOrTags
   ): void {
-    if (isIterable(entries)) {
+    if (isNonStringIterable(entries)) {
       this.untagEntries(entries as Iterable<TEntry> | Iterable<HashKey>, tags as Tags);
     } else {
       this.untagEntry(entries, tags as Tag | undefined);
@@ -1243,7 +1243,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     }
   ): void {
     if (!options?.cleanUntaggedEntries) {
-      if (isIterable(tags)) {
+      if (isNonStringIterable(tags)) {
         for (const tag of tags) {
           this.resetTag(tag);
           if (!options?.leaveEmptyTags) {
@@ -1257,7 +1257,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
         }
       }
     } else {
-      if (isIterable(tags)) {
+      if (isNonStringIterable(tags)) {
         for (const tag of tags) {
           const hashesForTag = this._hashesByTag.get(tag);
           this.resetTag(tag);
@@ -1320,12 +1320,12 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       cleanEmptyTags?: boolean
     }
   ): void {
-    const tagsToReset = (isIterable(tags)
+    const tagsToReset = (isNonStringIterable(tags)
       ? tags
       : [tags]) as Iterable<Tag>;
 
-    for (const tag in tagsToReset) {
-      for (const hash in this._hashesByTag.get(tag) ?? []) {
+    for (const tag of tagsToReset) {
+      for (const hash of this._hashesByTag.get(tag) ?? []) {
         const tagsForHash = this._tagsByHash.get(hash);
         tagsForHash!.delete(tag);
         if (!tagsForHash!.size && options?.cleanUntaggedEntries) {

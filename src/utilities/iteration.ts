@@ -1,5 +1,5 @@
 import Dex from "../objects/dex";
-import { isArray, isIterable, isNumber, isObject, isString, isSymbol } from "./validators";
+import { isArray, isNonStringIterable, isNumber, isObject, isString, isSymbol } from "./validators";
 
 /**
  * Can be used to for(of) any iterable
@@ -29,6 +29,19 @@ export function map<T, R>(items: Iterable<T>, transform: (item: T) => R): Iterab
   } 
 
   return result;
+}
+
+/**
+ * Get the first item of an iterable.
+ */
+export function first<T>(items: Iterable<T>, where?: (item: T) => boolean): T | undefined {
+  for (const item of items) {
+    if (where?.(item) ?? true) {
+      return item;
+    }
+  }
+
+  return undefined;
 }
 
 /**
@@ -83,7 +96,7 @@ export function count(items: Iterable<any> | object | string | number | symbol):
     return items.size;
   } else if (items instanceof Dex) {
     return items.numberOfEntries;
-  } else if (isIterable(items)) {
+  } else if (isNonStringIterable(items)) {
     return [...items].length;
   } else if (isObject(items)) {
     return Object.keys(items).length;

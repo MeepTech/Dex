@@ -19,8 +19,10 @@
   },
   "scripts": {
     "dev": "tsc -skipLibCheck -p \"tsconfig-dev.json\" && node esbuild.config.mjs dev",
+    "dev-build": "tsc -skipLibCheck -p \"tsconfig-dev.json\" && node esbuild.config.mjs dev-nowatch",
     "build": "tsc -skipLibCheck -p \"tsconfig.json\" && node esbuild.config.mjs lib",
-    "test": "tsc -skipLibCheck -p \"tsconfig-tests.json\" && jest"
+    "test": "tsc -skipLibCheck -p \"tsconfig-tests.json\" && jest",
+    "dev-pack": "npx dev-build && npm pack --pack-destination \"build\\npm\\dev\\\""
   },
   "private": true,
   "dependencies": {

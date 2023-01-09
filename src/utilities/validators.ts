@@ -1,4 +1,6 @@
 import Dex, { Config } from '../objects/dex';
+import { XQueryFilter } from '../objects/queries/filters';
+import { ResultType, RESULT_TYPES } from '../objects/queries/results';
 import {
   ComplexEntry,
   Entry,
@@ -42,7 +44,8 @@ export function isEmptyObject(
     return false;
   }
 
-  return symbol.prototype === Object.prototype;
+  const proto = Object.getPrototypeOf(symbol);
+  return !proto || (proto === Object.prototype);
 }
 
 /**
@@ -80,6 +83,13 @@ export const isArray = (symbol: any)
 /**
  * Check if something is an itterable.
  */
+export const isNonStringIterable = (symbol: any)
+  : symbol is Exclude<Iterable<any>, string> =>
+  Symbol.iterator in Object(symbol) && !isString(symbol);
+
+/**
+ * Check if something is an itterable.
+ */
 export const isIterable = (symbol: any)
   : symbol is Iterable<any> =>
   Symbol.iterator in Object(symbol);
@@ -104,10 +114,25 @@ export const isDex = (symbol: any)
  */
 export const isTag = (symbol: any)
   : symbol is Tag =>
-  isString(symbol)
+  (isString(symbol) && !RESULT_TYPES.has(symbol as any))
   || isNumber(symbol)
   || isSymbol(symbol);
 
+/**
+ * Check if it's a query flter
+ */
+export const isFilter = <TDexEntry extends Entry>(symbol: any)
+  : symbol is XQueryFilter<TDexEntry> => 
+  isObject(symbol)
+  && (
+    (symbol.hasOwnProperty("and") && !symbol.hasOwnProperty("or"))
+    || (symbol.hasOwnProperty("or") && !symbol.hasOwnProperty("and"))
+    || symbol.hasOwnProperty("not")
+  );
+
+/**
+ * Type guard for initial input arrays for the Dex constructor.
+ */
 export function isInputEntryWithTagsArray<TEntry extends Entry = Entry>(
   value: Entry
 ): value is XEntryWithTagsTuple<TEntry> {
