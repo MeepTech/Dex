@@ -1,30 +1,37 @@
-import { IBreakable } from "../../utilities/iteration";
+import Loop from "../../utilities/iteration";
 import { Entry } from "./entries";
-import {
-  FullQueryConstructor,
-  FullQuery,
-} from "../queries/queries";
+import Queries from "../queries/queries";
 import { IDexSubSet, SubSet } from "./subset";
 import { Tag } from "./tags";
 import { IReadonlyDex } from "../readonly";
-import { Result, NoEntryFound, ResultType } from "../queries/results";
+import {
+  Result,
+  NoEntryFound,
+  ResultType
+} from "../queries/results";
 
 /**
  * A hash key for a dex item.
  */
 export type HashKey = string | number | symbol;
+export default HashKey;
+
+/**
+ * multiple hash keys for a dex.
+ */
+export type HashKeys = Iterable<HashKey>;
 
 /**
  * One or more hash keys.
  */
-export type HashOrHashes = HashKey | Iterable<HashKey>
+export type HashKeyOrKeys = HashKey | HashKeys
 
 /**
  * A collection used to access hashes
  */
 export interface HashSet<TEntry extends Entry>
   extends IDexSubSet<HashKey, TEntry>,
-  FullQuery<HashKey, ResultType.Set, TEntry> { 
+  Queries.Full<HashKey, ResultType.Set, TEntry> { 
   
     /**
      * Fetch all the items that match a given entry into a set.
@@ -34,6 +41,12 @@ export interface HashSet<TEntry extends Entry>
   ): HashKey | undefined;
 }
 
+export {
+  HashSet as Set
+}
+
+//#region Internal
+
 /** @internal */
 export function HashSetConstructor<TEntry extends Entry>(
   dex: IReadonlyDex<TEntry>,
@@ -41,7 +54,7 @@ export function HashSetConstructor<TEntry extends Entry>(
 ): HashSet<TEntry> {
 
   // Basic query function
-  const query = FullQueryConstructor<
+  const query = Queries.FullQueryConstructor<
     HashKey,
     ResultType.Set,
     TEntry
@@ -56,7 +69,7 @@ export function HashSetConstructor<TEntry extends Entry>(
 
   Object.defineProperty(query, 'map', {
     value<TResult, TResults extends ResultType>(
-      transform: IBreakable<[key: HashKey, index: number], TResult>,
+      transform: Loop.IBreakable<[key: HashKey, index: number], TResult>,
       resultType?: TResults
     ): Result<TResult, TResults, TEntry> {
       return SubSet.map<TResult, TResults, HashKey, TEntry>(
@@ -77,7 +90,7 @@ export function HashSetConstructor<TEntry extends Entry>(
 
   Object.defineProperty(query, 'filter', {
     value<TResults extends ResultType = ResultType.Array>(
-      where: IBreakable<[hashKey: HashKey, index: number], boolean>,
+      where: Loop.IBreakable<[hashKey: HashKey, index: number], boolean>,
       resultType?: TResults
     ): Result<HashKey, TResults, TEntry> {
       return SubSet.filter<TResults, HashKey, TEntry>(
@@ -98,7 +111,7 @@ export function HashSetConstructor<TEntry extends Entry>(
 
   Object.defineProperty(query, 'first', {
     value(
-      where: IBreakable<[item: HashKey, index: number], boolean>
+      where: Loop.IBreakable<[item: HashKey, index: number], boolean>
     ): HashKey | NoEntryFound {
       return SubSet.first<HashKey, TEntry>(
         dex,
@@ -274,3 +287,5 @@ export function HashSetConstructor<TEntry extends Entry>(
 
   return query;
 }
+
+//#endregion

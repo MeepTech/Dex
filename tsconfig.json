@@ -1,6 +1,6 @@
 {
   "files": [
-    "./src/lib.ts", "src/objects/queries/filters.ts", "src/objects/readonly.ts", "src/objects/errors.ts"
+    "./src/lib.ts"
   ],
   "compilerOptions": {
       "paths": {
@@ -23,6 +23,6 @@
     "strictNullChecks": true,
     "stripInternal": true,
     "allowJs": true,
-    "outDir": "./build/prod/types/"
+    "outDir": "./build/prod/"
   }
 }

@@ -1,7 +1,6 @@
 {
   "include": [
-    "./src/lib.ts",
-    "./tests/jest/**/*.ts"
+    "./src/lib.ts"
   ],
   "compilerOptions": {
     "incremental": true,
@@ -20,6 +19,6 @@
     "importHelpers": true,
     "strictNullChecks": true,
     "allowJs": true,
-    "outDir": "./build/dev/types/"
+    "outDir": "./build/dev/"
   }
 }

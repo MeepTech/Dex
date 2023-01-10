@@ -1,6 +1,6 @@
 import { expect } from '@jest/globals';
 import Dex from '../../../src/objects/dex';
-import { FullQuery } from '../../../src/objects/queries/queries';
+import Queries from '../../../src/objects/queries/queries';
 import { ResultType } from '../../../src/objects/queries/results';
 import { Entry } from '../../../src/objects/subsets/entries';
 import { Tag } from '../../../src/objects/subsets/tags';
@@ -110,11 +110,15 @@ export const expectDex_tagsToHaveEntries = (
     expect(hashesForTag).toContain(hash));
 }
 
+export function failFromType(type: ObjectConstructor | any, result: any) {
+  fail(`Type of result: ${typeof (result?.constructor ?? result)} is not equal to expected: ${type}.`)
+}
+
 /**
  * This function is here to observe for ts errors in the auto-mapping of ResultType. It should not be run.
  */
 function ___test_ts_resultTypes() {
-  const testQuery: FullQuery<{}, ResultType.Array, string> = {} as any;
+  const testQuery: Queries.Full<{}, ResultType.Array, string> = {} as any;
 
   const _1 = testQuery(["a", "e", 1, 5]);
   const _2 = testQuery(["a", "e", 1, 5], ResultType.Dex);

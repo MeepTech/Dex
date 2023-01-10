@@ -13,7 +13,7 @@
     "noImplicitAny": true,
     "moduleResolution": "node",
     "declaration": true,
-	  "emitDeclarationOnly": true,
+    "noEmit": true,
     "esModuleInterop": true,
     "inlineSourceMap": true,
     "resolveJsonModule": true,

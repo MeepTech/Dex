@@ -1,4 +1,4 @@
-import { IBreakable } from "../../utilities/iteration";
+import Loop from "../../utilities/iteration";
 import { IReadonlyDex } from "../readonly";
 import { Entry } from "../subsets/entries";
 import { Tag } from "../subsets/tags";
@@ -17,7 +17,7 @@ export interface Mapper<TEntry> {
    * @returns A mapped array of values, or a Map<Entry, Tag[]> if no transform was provided.
    */
   <TResult = undefined>(
-    transform?: IBreakable<[entry: TEntry, tag: Tag, index: number], TResult>,
+    transform?: Loop.IBreakable<[entry: TEntry, tag: Tag, index: number], TResult>,
     outerLoopType?: 'entry' | 'tag'
   ): TResult extends undefined ? Map<TEntry, Set<Tag>> : TResult[];
 
@@ -25,16 +25,18 @@ export interface Mapper<TEntry> {
    * Map all unique entries
    */
   entries: <TResult = TEntry>(
-    transform?: IBreakable<[entry: TEntry, index: number, tags: Set<Tag>], TResult>
+    transform?: Loop.IBreakable<[entry: TEntry, index: number, tags: Set<Tag>], TResult>
   ) => TResult[];
 
   /**
    * Map all unique tags
    */
   tags: <TResult = Tag>(
-    transform?: IBreakable<[tag: Tag, index: number, entries: Set<TEntry>], TResult>
+    transform?: Loop.IBreakable<[tag: Tag, index: number, entries: Set<TEntry>], TResult>
   ) => TResult[];
 }
+
+//#region Internal
 
 /** @internal */
 export function MapperConstructor<TEntry extends Entry>(dex: IReadonlyDex<TEntry>): Mapper<TEntry> {
@@ -44,3 +46,5 @@ export function MapperConstructor<TEntry extends Entry>(dex: IReadonlyDex<TEntry
 
   return func;
 }
+
+//#endregion

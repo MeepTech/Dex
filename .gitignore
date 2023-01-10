@@ -1,4 +1,7 @@
 # The build output folders:
 build
+dist
 node_modules
 tests/npm-lib
+*.code-workspace
+*.tgz

@@ -1,3 +1,6 @@
+
+// dex classes
+import Dex from './objects/dex';
 /**
  * Type Prefixes:
  * =========================
@@ -5,54 +8,79 @@
  * T...: (for Type) A Generic Type Argument
  * X...: (for eXtended) An extension of a Solid type or interface type, usually just for varying the shapes of allowed input.
  */
-
-/*
-export * from './utilities/validators';
-export * from './utilities/iteration';
-
-export * from './objects/unique'
+export default Dex;
 
 export {
-  IHashKey,
-  IHashSet
-} from './objects/subsets/hashes'
+  IReadonlyDex,
+  ReadableDex,
+  SealedDex
+} from './objects/readonly';
 
+// sub types and sets
 export {
-  ITag,
-  ITags,
-  ITagSet,
-  ITagOrTags
-} from './objects/subsets/tags'; 
-
-export {
-  Entry as IEntry,
-  ISimpleEntry,
-  ComplexEntry as IComplexEntry,
-  EntryOrNone as IEntryOrNone,
-  NoEntries,
-  IEntrySet,
-  EntryWithTags as IEntryWithTags,
-  EntryWithTagsTuple as IEntryWithTagsArray,
-  XEntryWithTags as IInputEntryWithTags,
-  XEntryWithTagsTuple as IInputEntryWithTagsArray,
-  XEntryWithTagsObject as IInputEntryWithTagsObject,
-  IHasher,
-  IGuardFunction,
-  IArrayGuardFunction,
-  IObjectGuardFunction
+  Entry,
+  OrNone as EntryOrNone,
+  EntrySet as EntrySet
 } from './objects/subsets/entries';
 
 export {
-  IQuery
-} from './objects/queries/queries'
+  Tag,
+  TagOrTags,
+  TagSet
+} from './objects/subsets/tags';
 
-export { ICopier } from './objects/helpers/copy';
-export { ILooper } from './objects/helpers/loops';
-export { IMapper } from './objects/helpers/maps';
+export {
+  HashKey,
+  HashKeys,
+  HashKeyOrKeys,
+  HashSet
+} from './objects/subsets/hashes'
 
-export * from './objects/readonly';
+export {
+  Query
+} from './objects/queries/queries';
 
-import Dex from './objects/dex';
-export * from './objects/dex';
+export {
+  Filter
+} from './objects/queries/filters';
 
-export default Dex;*/
+// child namespaces
+import Entries from './objects/subsets/entries';
+import Tags from './objects/subsets/tags';
+import Hashes from './objects/subsets/hashes';
+import Filters from './objects/queries/filters'
+import Queries from './objects/queries/queries'
+export {
+  Entries,
+  Tags,
+  Hashes,
+  Filters,
+  Queries
+}
+
+// helpers
+export {
+  Copier
+} from './objects/helpers/copy';
+export {
+  Looper
+} from './objects/helpers/loops';
+export
+{ Mapper } from './objects/helpers/maps';
+
+// utility
+import IUnique from './objects/unique'
+import Check from './utilities/validators';
+import Loop from './utilities/iteration';
+
+export {
+  IUnique,
+  Check,
+  Loop,
+}
+
+// loose validators
+export const isDex = Check.isDex;
+export const isTag = Check.isTag;
+export const isFilter = Check.isFilter;
+export const isConfig = Check.isDex;
