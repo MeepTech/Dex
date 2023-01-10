@@ -1,5 +1,5 @@
-import { IBreakable } from "../../utilities/iteration";
-import { isNonStringIterable, isTag } from "../../utilities/validators";
+import Loop from "../../utilities/iteration";
+import Check from "../../utilities/validators";
 import { Result, NoEntryFound, ResultType } from "../queries/results";
 import { IReadonlyDex } from "../readonly";
 import { Entry } from "./entries";
@@ -15,6 +15,7 @@ export type Tag = string | symbol | number;
  * A collection of tags for a dex.
  */
 export type Tags = Iterable<Tag>;
+export default Tags;
 
 /**
  * A single tag, or collection of tags for a dex.
@@ -62,19 +63,23 @@ export interface TagSet<TEntry extends Entry = Entry>
   ): Set<Tag> | undefined;
 }
 
+export { TagSet as Set };
+
 //#region Utility
 
 /**
  * Turn a tag or tags into an easy to use Set<ITag>
  */
 export function toSet(tags: TagOrTags, ...otherTags: Tag[]): Set<Tag> {
-  tags = tags instanceof Set ? tags : isTag(tags) ? new Set<Tag>([tags]) : new Set<Tag>(tags);
+  tags = tags instanceof Set ? tags : Check.isTag(tags) ? new Set<Tag>([tags]) : new Set<Tag>(tags);
   otherTags.forEach(o => (tags as Set<Tag>).add(o));
 
   return tags as Set<Tag>;
 }
 
 //#endregion
+
+//#region Internal
 
 /** @internal */
 export function TagSetConstructor<TEntry extends Entry>(dex: IReadonlyDex<TEntry>, base: Set<Tag>): TagSet<TEntry> {
@@ -93,7 +98,7 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadonlyDex<TEntry
   ): TShouldSplit extends undefined
     ? Set<Tag>
     : Map<HashKey, Set<Tag>> {
-    const targets = isNonStringIterable(forEntries)
+    const targets = Check.isNonStringIterable(forEntries)
       ? forEntries
       : [forEntries];
     
@@ -158,7 +163,7 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadonlyDex<TEntry
   
   Object.defineProperty(tagSet, 'map', {
     value<TResult, TResults extends ResultType>(
-      transform: IBreakable<[tag: Tag, index: number], TResult>,
+      transform: Loop.IBreakable<[tag: Tag, index: number], TResult>,
       resultType?: TResults
     ): Result<TResult, TResults, TEntry> {
       return SubSet.map<TResult, TResults, Tag, TEntry>(
@@ -179,7 +184,7 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadonlyDex<TEntry
 
   Object.defineProperty(tagSet, 'filter', {
     value<TResults extends ResultType = ResultType.Array>(
-      where: IBreakable<[tag: Tag, index: number], boolean>,
+      where: Loop.IBreakable<[tag: Tag, index: number], boolean>,
       resultType?: TResults
     ): Result<Tag, TResults, TEntry> {
       return SubSet.filter<TResults, Tag, TEntry>(
@@ -200,7 +205,7 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadonlyDex<TEntry
 
   Object.defineProperty(tagSet, 'first', {
     value(
-      where: IBreakable<[tag: Tag, index: number], boolean>
+      where: Loop.IBreakable<[tag: Tag, index: number], boolean>
     ): Tag | NoEntryFound {
       return SubSet.first<Tag, TEntry>(
         dex,
@@ -372,3 +377,5 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadonlyDex<TEntry
 
   return tagSet;
 }
+
+//#endregion

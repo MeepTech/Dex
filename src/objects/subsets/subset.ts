@@ -1,4 +1,4 @@
-import { Break, IBreakable } from "../../utilities/iteration";
+import Loop from "../../utilities/iteration";
 import Dex from "../dex";
 import { Result, NO_RESULT, ResultType } from "../queries/results";
 import { IReadonlyDex } from "../readonly";
@@ -40,7 +40,7 @@ interface IDexSubCollection<
    * Get all entries as a record indeed by key
    */
   map<TResult, TResults extends ResultType>(
-    transform: IBreakable<TIteratorIndex, TResult>,
+    transform: Loop.IBreakable<TIteratorIndex, TResult>,
     resultType?: TResults
   ): Result<TResult, TResults, TDexEntry>
 
@@ -48,14 +48,14 @@ interface IDexSubCollection<
    * Get the first matching entry
    */
   first(
-    where: IBreakable<TIteratorIndex, boolean>
+    where: Loop.IBreakable<TIteratorIndex, boolean>
   ): TValue | undefined;
 
   /**
    * Get all matching entries
    */
   filter<TResultType extends ResultType>(
-    where: IBreakable<TIteratorIndex, boolean>,
+    where: Loop.IBreakable<TIteratorIndex, boolean>,
     resultType?: TResultType
   ): Result<TValue, TResultType>;
 }
@@ -129,12 +129,14 @@ export interface IDexSubSet<
   ): TValue[] | Set<TValue> | TValue | undefined;
 }
 
+//#region Internal
+
 /** @internal */
 export namespace SubSet {
   /** @internal */
   export function map<TResult, TResults extends ResultType, TValue = HashKey, TDexEntry extends Entry = Entry>(
     dex: IReadonlyDex<TDexEntry>,
-    transform: IBreakable<[key: TValue, index: number], TResult>,
+    transform: Loop.IBreakable<[key: TValue, index: number], TResult>,
     resultType?: TResults,
     preTransform?: (key: HashKey) => TValue
   ): Result<TResult, TResults, TDexEntry> {
@@ -168,7 +170,7 @@ export namespace SubSet {
     let index = 0;
     for (const e of dex.hashes) {
       const result = transform((preTransform?.(e)! ?? e), index++);
-      if (result instanceof Break) {
+      if (result instanceof Loop.Break) {
         if (result.hasReturn) {
           if (collector === false) {
             return result.return as TResult as Result<TResult, TResults, TDexEntry>;
@@ -200,7 +202,7 @@ export namespace SubSet {
   /** @internal */
   export function filter<TResults extends ResultType, TValue, TDexEntry extends Entry = Entry>(
     dex: IReadonlyDex<TDexEntry>,
-    where: IBreakable<[entry: TValue, index: number], boolean>,
+    where: Loop.IBreakable<[entry: TValue, index: number], boolean>,
     resultType?: TResults,
     transform?: (key: HashKey) => TValue
   ): Result<TValue, TResults, TDexEntry> {
@@ -235,7 +237,7 @@ export namespace SubSet {
     for (const e of dex.hashes) {
       const value = (transform?.(e)! ?? e);
       const result = where(value, index++);
-      if (result instanceof Break) {
+      if (result instanceof Loop.Break) {
         if (result.hasReturn && result.return) {
           if (collector === false) {
             return e as Result<TValue, TResults, TDexEntry>;
@@ -267,14 +269,14 @@ export namespace SubSet {
   /** @internal */
   export function first<TValue, TDexEntry extends Entry = Entry>(
     dex: IReadonlyDex<TDexEntry>,
-    where: IBreakable<[entry: TValue, index: number], boolean>,
+    where: Loop.IBreakable<[entry: TValue, index: number], boolean>,
     transform?: (key: HashKey) => TValue
   ): Result<TValue, ResultType.First, TDexEntry> {
     let index = 0;
     for (const e of dex.hashes) {
       const value = (transform?.(e)! ?? e);
       const result = where(value, index++);
-      if (result instanceof Break) {
+      if (result instanceof Loop.Break) {
         if (result.hasReturn && result.return) {
           return (transform?.(e) ?? e) as TValue;
         }
@@ -288,3 +290,5 @@ export namespace SubSet {
     return NO_RESULT;
   }
 }
+
+//#endregion

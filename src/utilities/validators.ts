@@ -1,20 +1,15 @@
 import Dex, { Config } from '../objects/dex';
-import { XQueryFilter } from '../objects/queries/filters';
-import { ResultType, RESULT_TYPES } from '../objects/queries/results';
-import {
-  ComplexEntry,
-  Entry,
-  XEntryWithTagsTuple,
-  SimpleEntry,
-  NO_ENTRIES_FOR_TAG
-} from '../objects/subsets/entries';
+import Filters from '../objects/queries/filters';
+import { RESULT_TYPES } from '../objects/queries/results';
+import {Entry} from '../objects/subsets/entries';
+import * as Entries from '../objects/subsets/entries';
 import { Tag } from '../objects/subsets/tags';
 import IUnique from '../objects/unique';
 
+namespace Check {
+
 /**
  * Helper to check if something's a function.
- * 
- * @param symbol The symbol to test
  * 
  * @returns true if the item is a function
  */
@@ -27,8 +22,6 @@ export const isFunction = (symbol: any)
  * 
  * @param symbol The symbol to check 
  * @param includeNulls (optional) If the value of 'null' returns true or not. (Defaults to false)
- * 
- * @returns true if it's an object 
  */
 export const isObject = (symbol: any)
   : symbol is Record<any, any> & object =>
@@ -71,14 +64,20 @@ export const isSymbol = (symbol: any)
 
 /**
  * Helper to check if somethings specifically an array.
- * 
- * @param symbol The symbol to check 
- * 
- * @returns true if it's an array
  */
-export const isArray = (symbol: any)
-  : symbol is Array<any> =>
-  Array.isArray(symbol);
+  export const isArray = <T = any>(
+    symbol: any,
+    options: {
+      entryGuard?: (item: any) => item is T,
+      allowEmpty?: boolean
+    } = {
+      allowEmpty: true
+    })
+  : symbol is Array<T> =>
+  Array.isArray(symbol)
+  && (symbol.length
+    ? options?.entryGuard?.(symbol) || true
+    : options?.allowEmpty ?? true)
 
 /**
  * Check if something is an itterable.
@@ -122,7 +121,7 @@ export const isTag = (symbol: any)
  * Check if it's a query flter
  */
 export const isFilter = <TDexEntry extends Entry>(symbol: any)
-  : symbol is XQueryFilter<TDexEntry> => 
+  : symbol is Filters.XFilter<TDexEntry> => 
   isObject(symbol)
   && (
     (symbol.hasOwnProperty("and") && !symbol.hasOwnProperty("or"))
@@ -135,10 +134,10 @@ export const isFilter = <TDexEntry extends Entry>(symbol: any)
  */
 export function isInputEntryWithTagsArray<TEntry extends Entry = Entry>(
   value: Entry
-): value is XEntryWithTagsTuple<TEntry> {
+): value is Entries.XWithTagsTuple<TEntry> {
   return (isArray(value))
     // if the first item in the array is a potential complex entry or an empty tag value...
-    && (isComplexEntry(value[0]) || value[0] === NO_ENTRIES_FOR_TAG)
+    && (isComplexEntry(value[0]) || value[0] === Entries.NONE_FOR_TAG)
     // if the second item of that array is a potental tag
     && (isTag(value[1])
       // or if it's an array of tags or empty array
@@ -152,7 +151,7 @@ export function isInputEntryWithTagsArray<TEntry extends Entry = Entry>(
  */
 export function isSimpleEntry(
   value: Entry
-): value is SimpleEntry {
+): value is Entries.Simple {
   return isString(value) || isSymbol(value) || isNumber(value)
 }
 
@@ -161,10 +160,13 @@ export function isSimpleEntry(
  */
 export function isComplexEntry(
   value: Entry
-): value is ComplexEntry {
-  return isObject(value) || isFunction(value) || isArray(value)
+): value is Entries.Complex {
+  return isObject(value) || isFunction(value) ||Check.isArray(value)
 }
 
+/**
+ * Validate a dex config
+ */
 export function isConfig<TEntry extends Entry = Entry>(
   value: any
 ): value is Config<TEntry> {
@@ -174,4 +176,7 @@ export function isConfig<TEntry extends Entry = Entry>(
       || typeof value.objectGuard === 'function'
       || typeof value.hasher === 'function'
       || isEmptyObject(value));
+  }
 }
+
+export default Check;

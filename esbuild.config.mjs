@@ -1,5 +1,7 @@
 import esbuild from "esbuild";
 import process from "process";
+import { clean } from 'esbuild-plugin-clean';
+import { copy } from 'esbuild-plugin-copy';
 
 const banner =
 `/*
@@ -8,10 +10,8 @@ const banner =
 */
 `;
 
-
 const nowatch = (process.argv[2] === 'dev-nowatch');
 const dev = nowatch || (process.argv[2] === 'dev');
-
 
 // plugin:
 esbuild.build({
@@ -35,4 +35,9 @@ esbuild.build({
       ? 'dev'
       : 'prod')
   + '/lib.js',
+  plugins: [
+    clean({
+      patterns: [dev ? './build/dev/*' : './build/prod/*'],
+    })
+  ],
 }).catch(() => process.exit(1));

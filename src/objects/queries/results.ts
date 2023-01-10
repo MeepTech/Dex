@@ -106,6 +106,9 @@ export type Result<TValue, TResultType extends ResultType = ResultType.Vauge, TD
   ? VaugeResult<TValue, TDexEntry>
   : SpecificResult<TValue, TResultType, TDexEntry>;
 
+/**
+ * A specific result
+ */
 export type SpecificResult<TValue, TResultType extends ResultType, TDexEntry extends Entry = TValue extends Entry ? TValue : Entry>
   = TResultType extends ResultType.First
   ? (TValue | NoEntryFound)
@@ -117,6 +120,9 @@ export type SpecificResult<TValue, TResultType extends ResultType, TDexEntry ext
   ? Dex<TDexEntry>
   : never;
 
+/**
+ * A vauge result
+ */
 export type VaugeResult<TValue, TDexEntry extends Entry = TValue extends Entry ? TValue : Entry>
   = TValue[]
   | Dex<TDexEntry>

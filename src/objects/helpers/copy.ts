@@ -1,5 +1,5 @@
-import { count, forEach } from "../../utilities/iteration";
-import { isArray, isObject } from "../../utilities/validators";
+import Loop from "../../utilities/iteration";
+import Check from "../../utilities/validators";
 import Dex from "../dex";
 import { IReadonlyDex, SealedDex } from "../readonly";
 import { Entry } from "../subsets/entries";
@@ -33,6 +33,8 @@ export interface Copier<TEntry extends Entry> {
   sealed(): SealedDex<TEntry>;
 }
 
+//#region Internal
+
 /** @internal */
 export function CopierConstructor<TEntry extends Entry>(base: Dex<TEntry>): Copier<TEntry> {
   const copyFunction = (): Dex<TEntry> => {
@@ -49,8 +51,8 @@ export function CopierConstructor<TEntry extends Entry>(base: Dex<TEntry>): Copi
         tag?: Tag
       }
     ): void {
-      if (isObject(keys)) {
-        if (isArray(keys) || keys instanceof Set) {
+      if (Check.isObject(keys)) {
+        if (Check.isArray(keys) || keys instanceof Set) {
           keys.forEach((key: HashKey) => {
             base.add(
               (source as any)._entriesByHash.get(key)!,
@@ -77,7 +79,7 @@ export function CopierConstructor<TEntry extends Entry>(base: Dex<TEntry>): Copi
           }
 
           // []: Entries with no tags
-          if (keys.tags && (keys.tags instanceof Set ? keys.tags.size : count(keys.tags)) === 0) {
+          if (keys.tags && (keys.tags instanceof Set ? keys.tags.size : Loop.count(keys.tags)) === 0) {
             for (const key of source.hashes) {
               if (source.tags.of(key)!.size === 0) {
                 base.add(
@@ -88,7 +90,7 @@ export function CopierConstructor<TEntry extends Entry>(base: Dex<TEntry>): Copi
             }
           } else if (keys.tags) {
             // [...]
-            forEach(keys.tags, (tag: Tag) => {
+            Loop.forEach(keys.tags, (tag: Tag) => {
               (source as any)._hashesByTag.get(tag)?.forEach((hash: HashKey) => {
                 base.add(
                   (source as any)._entriesByHash.get(hash)!,
@@ -130,3 +132,5 @@ export function CopierConstructor<TEntry extends Entry>(base: Dex<TEntry>): Copi
 
   return copyFunction as Copier<TEntry>;
 }
+
+//#endregion

@@ -1,4 +1,4 @@
-import { IBreakable } from "../../utilities/iteration";
+import Loop from "../../utilities/iteration";
 import { IReadonlyDex } from "../readonly";
 import { Entry } from "../subsets/entries";
 import { Tag } from "../subsets/tags";
@@ -17,7 +17,7 @@ export interface Looper<TEntry> {
    * @alias {@link pairs}
    * @alias {@link Dex.forEach}
    */
-  (func: IBreakable<[entry: TEntry, tag: Tag, index: number], any>,
+  (func: Loop.IBreakable<[entry: TEntry, tag: Tag, index: number], any>,
     outerLoopType?: 'entry' | 'tag'
   ): void;
 
@@ -29,7 +29,7 @@ export interface Looper<TEntry> {
    * @alias {@link Dex.forEachTag}
    */
   tags: (
-    func: IBreakable<[tag: Tag, index: number, entries: Set<TEntry>], any>
+    func: Loop.IBreakable<[tag: Tag, index: number, entries: Set<TEntry>], any>
   ) => void;
 
   /**
@@ -40,7 +40,7 @@ export interface Looper<TEntry> {
    * @alias {@link Dex.forEachEntry}
    */
   entries: (
-    func: IBreakable<[entry: TEntry, index: number, tags: Set<Tag>], any>
+    func: Loop.IBreakable<[entry: TEntry, index: number, tags: Set<Tag>], any>
   ) => void;
 
   /**
@@ -52,10 +52,12 @@ export interface Looper<TEntry> {
    * @alias {@link Dex.forEach}
    */
   pairs: (
-    func: IBreakable<[entry: TEntry, tag: Tag, index: number], any>,
+    func: Loop.IBreakable<[entry: TEntry, tag: Tag, index: number], any>,
     outerLoopType?: 'entry' | 'tag'
   ) => void;
 }
+
+//#region Internal
 
 /** @internal */
 export function LooperConstructor<TEntry extends Entry>(dex: IReadonlyDex<TEntry>): Looper<TEntry> {
@@ -66,3 +68,5 @@ export function LooperConstructor<TEntry extends Entry>(dex: IReadonlyDex<TEntry
 
   return func;
 }
+
+//#endregion

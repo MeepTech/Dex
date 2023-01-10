@@ -2,7 +2,7 @@
   "name": "@meep-tech/dex",
   "version": "0.0.1",
   "description": "A JS/TS data structure for a collection of tagged entries.",
-  "main": "build/prod/lib.js",
+  "main": "lib.js",
   "homepage": "https://github.com/MeepTech/Dex",
   "bugs": {
     "url": "https://github.com/MeepTech/Dex/issues"
@@ -18,11 +18,12 @@
     "url": "http://meep.tech"
   },
   "scripts": {
-    "dev": "tsc -skipLibCheck -p \"tsconfig-dev.json\" && node esbuild.config.mjs dev",
-    "dev-build": "tsc -skipLibCheck -p \"tsconfig-dev.json\" && node esbuild.config.mjs dev-nowatch",
-    "build": "tsc -skipLibCheck -p \"tsconfig.json\" && node esbuild.config.mjs lib",
-    "test": "tsc -skipLibCheck -p \"tsconfig-tests.json\" && jest",
-    "dev-pack": "npx dev-build && npm pack --pack-destination \"build\\npm\\dev\\\""
+    "dev": "tsc -skipLibCheck -noEmit -p \"tsconfig-dev-check.json\" && node esbuild.config.mjs dev && tsc -skipLibCheck -p \"tsconfig-dev.json\"",
+    "dev-build": "tsc -skipLibCheck -noEmit -p \"tsconfig-dev-check.json\" && node esbuild.config.mjs dev-nowatch && tsc -skipLibCheck -p \"tsconfig-dev.json\"",
+    "build": "tsc -skipLibCheck -noEmit -p \"tsconfig-check.json\" && node esbuild.config.mjs lib && tsc -skipLibCheck -p \"tsconfig.json\" ",
+    "test": "tsc -skipLibCheck -noEmit -p \"tsconfig-tests-check.json\" && jest && tsc -skipLibCheck -p \"tsconfig-tests.json\"",
+    "pack": "cd \"dist\\npm\\prod\" && npm pack \"../../../build/prod\"",
+    "dev-pack": "cd \"dist\\npm\\dev\" && npm pack \"../../../build/dev\""
   },
   "private": true,
   "dependencies": {
@@ -37,7 +38,9 @@
     "@types/node": "18.7.6",
     "@types/uuid": "^9.0.0",
     "babel-jest": "^29.3.1",
+    "cp": "^0.2.0",
     "esbuild": "0.14.47",
+    "esbuild-plugin-clean": "^1.0.1",
     "jest": "^28.1.3",
     "jest-environment-jsdom": "^28.1.3",
     "ts-node": "^10.9.1",

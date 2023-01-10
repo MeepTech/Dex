@@ -1,28 +1,17 @@
-import {
-  isArray,
-  isComplexEntry,
-  isConfig,
-  isFunction,
-  isInputEntryWithTagsArray,
-  isNonStringIterable,
-  isObject,
-  isSimpleEntry,
-  isTag,
-  isUnique
-} from "../utilities/validators";
+import Check from "../utilities/validators";
 import IUnique from "./unique";
 import { v4 as uuidv4 } from 'uuid';
 import {
-  ComplexEntry,
+  Complex,
   Entry,
-  EntryOrNone,
+  OrNone,
   IGuard,
-  XEntryWithTags,
-  XEntryWithTagsTuple,
-  XEntryWithTagsObject,
-  NoEntries,
+  XWithTags,
+  XWithTagsTuple,
+  XWithTagsObject,
+  None,
   IArrayGuard,
-  NO_ENTRIES_FOR_TAG,
+  NONE_FOR_TAG,
   IObjectGuard,
   IHasher
 } from "./subsets/entries";
@@ -36,14 +25,11 @@ import {
   HashKey
 } from "./subsets/hashes";
 import { CopierConstructor, Copier } from './helpers/copy';
-import {
-  FullQuery,
-  _logicMultiQuery,
-  _logicFirstQuery,
-  FullQueryConstructor} from "./queries/queries";
+import Queries from "./queries/queries";
 import { NO_RESULT, ResultType } from "./queries/results";
 import { ReadableDex } from "./readonly";
 import { DexError, NotImplementedError } from "./errors";
+import Loop from "../utilities/iteration";
 
 /**
  * Extra config options for a dex.
@@ -63,17 +49,17 @@ export interface Config<TEntry extends Entry = Entry> {
 export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntry> {
   // lazy
   // - queries
-  private _take?: FullQuery<TEntry, ResultType.Array, TEntry>;
+  private _take?: Queries.Full<TEntry, ResultType.Array, TEntry>;
   // - helpers
   private _copier?: Copier<TEntry>;
+
   // config
   /** @readonly */
-  private _guards
-    : {
-      entry: IGuard<TEntry>
-      array: IArrayGuard<TEntry>,
-      object: IObjectGuard<TEntry>,
-    } = null!;
+  private _guards : {
+    entry: IGuard<TEntry>
+    array: IArrayGuard<TEntry>,
+    object: IObjectGuard<TEntry>,
+  } = null!;
 
   //#region Defaults
 
@@ -82,26 +68,26 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    */
   static Defaults = {
     getHashFunction() {
-      return function (entry: Entry) {
-        return isUnique(entry)
+      return function (entry: Entry): HashKey {
+        return Check.isUnique(entry)
           ? entry.getHashKey()
-          : isSimpleEntry(entry)
+          : Check.isSimpleEntry(entry)
             ? entry
-            : isComplexEntry(entry)
+            : Check.isComplexEntry(entry)
               ? Dex.getUuidFor(entry)
               : undefined!;
       }
     },
 
     getArrayEntryGuardFunction<TEntry extends Entry>() {
-      return function (entry: Entry): entry is TEntry & ComplexEntry & any[] {
-        return !isInputEntryWithTagsArray<TEntry>(entry);
+      return function (entry: Entry): entry is TEntry & Complex & any[] {
+        return !Check.isInputEntryWithTagsArray<TEntry>(entry);
       }
     },
 
     getObjectEntryGuardFunction<TEntry extends Entry>() {
-      return function (entry: Entry): entry is TEntry & ComplexEntry & object & { [key: string]: any } {
-        return isObject(entry)
+      return function (entry: Entry): entry is TEntry & Complex & object & { [key: string]: any } {
+        return Check.isObject(entry)
           && (!entry.hasOwnProperty("entry")
             && (!entry.hasOwnProperty("tags")
               || !entry.hasOwnProperty("tag")));
@@ -115,12 +101,12 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       return function (
         entry: Entry
       ): entry is TEntry {
-        return isSimpleEntry(entry)
-          || (isArray(entry)
+        return Check.isSimpleEntry(entry)
+          || (Check.isArray(entry)
             ? arrayGuard(entry)
-            : isObject(entry)
+            : Check.isObject(entry)
               ? objectGuard(entry)
-              : isComplexEntry(entry));
+              : Check.isComplexEntry(entry));
       }
     }
   }
@@ -142,7 +128,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   /**
    * Make a new dex from a map
    */
-  constructor(map: Map<EntryOrNone<TEntry>, TagOrTags>, options?: Config<TEntry>)
+  constructor(map: Map<OrNone<TEntry>, TagOrTags>, options?: Config<TEntry>)
 
   /**
    * Make a new dex of just empty tags
@@ -167,22 +153,22 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   /**
    * Make a new dex from entries with their tags. 
    */
-  constructor(options: Config<TEntry>, entriesWithTags: XEntryWithTagsTuple<TEntry>[])
+  constructor(options: Config<TEntry>, entriesWithTags: XWithTagsTuple<TEntry>[])
 
   /**
    * Make a new dex from an object with entries and tags
    */
-  constructor(options: Config<TEntry>, entryWithTags: XEntryWithTagsObject<TEntry>)
+  constructor(options: Config<TEntry>, entryWithTags: XWithTagsObject<TEntry>)
 
   /**
    * Make a new dex from an object with entries and tags
    */
-  constructor(options: Config<TEntry>, ...entriesWithTags: XEntryWithTagsObject<TEntry>[])
+  constructor(options: Config<TEntry>, ...entriesWithTags: XWithTagsObject<TEntry>[])
 
   /**
    * Make a new dex from an object with entries and tags
    */
-  constructor(options: Config<TEntry>, entriesWithTags: XEntryWithTags<TEntry>[])
+  constructor(options: Config<TEntry>, entriesWithTags: XWithTags<TEntry>[])
 
   /**
    * Make a new dex with just one empty tag
@@ -197,22 +183,22 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   /**
    * Make a new dex from entries with their tags. 
    */
-  constructor(entriesWithTags: XEntryWithTagsTuple<TEntry>[], options?: Config<TEntry>)
+  constructor(entriesWithTags: XWithTagsTuple<TEntry>[], options?: Config<TEntry>)
 
   /**
    * Make a new dex from an object with entries and tags
    */
-  constructor(entryWithTags: XEntryWithTagsObject<TEntry>, options?: Config<TEntry>)
+  constructor(entryWithTags: XWithTagsObject<TEntry>, options?: Config<TEntry>)
 
   /**
    * Make a new dex from an object with entries and tags
    */
-  constructor(entriesWithTags: XEntryWithTags<TEntry>[], options?: Config<TEntry>)
+  constructor(entriesWithTags: XWithTags<TEntry>[], options?: Config<TEntry>)
 
   /**
    * Make a new dex from an object with entries and tags
    */
-  constructor(...entriesWithTags: XEntryWithTagsObject<TEntry>[])
+  constructor(...entriesWithTags: XWithTagsObject<TEntry>[])
 
   /**
    * Make a new dex with just empty tags
@@ -225,16 +211,16 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   constructor(
     values?:
       Dex<TEntry>
-      | Map<EntryOrNone<TEntry>, TagOrTags>
+      | Map<OrNone<TEntry>, TagOrTags>
       | Config<TEntry>
       | TagOrTags
-      | XEntryWithTagsObject<TEntry>
-      | XEntryWithTags<TEntry>[],
+      | XWithTagsObject<TEntry>
+      | XWithTags<TEntry>[],
     optionsOrMoreValues?:
       Config<TEntry>
       | TagOrTags
-      | XEntryWithTagsObject<TEntry>
-      | XEntryWithTags<TEntry>[],
+      | XWithTagsObject<TEntry>
+      | XWithTags<TEntry>[],
   ) {
     super(
       values as any,
@@ -244,7 +230,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     // copy existing:
     if (values instanceof ReadableDex) {
       this._guards = values._guards;
-      if (isConfig<TEntry>(optionsOrMoreValues)) {
+      if (Check.isConfig<TEntry>(optionsOrMoreValues)) {
         this._initOptions(optionsOrMoreValues);
       }
 
@@ -253,10 +239,10 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       // init config
       let config: Config<TEntry> | undefined = undefined;
 
-      if (isConfig<TEntry>(optionsOrMoreValues)) {
+      if (Check.isConfig<TEntry>(optionsOrMoreValues)) {
         config = optionsOrMoreValues;
         this._initOptions(optionsOrMoreValues);
-      } else if (isConfig<TEntry>(values)) {
+      } else if (Check.isConfig<TEntry>(values)) {
         this._initOptions(values);
         config = values;
         values = optionsOrMoreValues as any;
@@ -271,7 +257,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       // if it's a map of values
       if (values instanceof Map) {
         values.forEach((t, e) =>
-          (e === NO_ENTRIES_FOR_TAG
+          (e === NONE_FOR_TAG
             || e === NO_RESULT)
             ? this.set(t)
             : this.add(e, t)
@@ -281,7 +267,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       } // TagOrTags | InputEntryWithTags<TEntry> | InputEntryWithTags<TEntry>[]
       else {
         // if the initial values are in an array:
-        if (isArray(values)) {
+        if (Check.isArray(values)) {
           // empty array is taken as tags.
           if (!values.length) {
             // empty array of tags shouldn't have any other non confi options.
@@ -293,9 +279,9 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
             return;
           } else {
             // tags, set them:
-            if (isTag(values[0])) {
+            if (Check.isTag(values[0])) {
               if (!config && optionsOrMoreValues) {
-                if (isArray(optionsOrMoreValues)) {
+                if (Check.isArray(optionsOrMoreValues)) {
                   values = [...values, ...optionsOrMoreValues] as Iterable<Tag> as Tag[];
                 } else {
                   (values as Iterable<Tag> as Tag[]).push(optionsOrMoreValues as Tag);
@@ -308,25 +294,25 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
             } // entries, put them:
             else {
               if (!config && optionsOrMoreValues) {
-                if (isArray(optionsOrMoreValues)) {
-                  values = [...values, ...optionsOrMoreValues] as XEntryWithTags<TEntry>[];
+                if (Check.isArray(optionsOrMoreValues)) {
+                  values = [...values, ...optionsOrMoreValues] as XWithTags<TEntry>[];
                 } else {
-                  (values as XEntryWithTags<TEntry>[]).push(optionsOrMoreValues as XEntryWithTags<TEntry>);
+                  (values as XWithTags<TEntry>[]).push(optionsOrMoreValues as XWithTags<TEntry>);
                 }
               }
 
-              this.put(values as XEntryWithTags<TEntry>[])
+              this.put(values as XWithTags<TEntry>[])
 
               return;
             }
           }
         } // single object
-        else if (isObject(values)) {
+        else if (Check.isObject(values)) {
           if (!config && optionsOrMoreValues) {
-            this.put([values, optionsOrMoreValues] as XEntryWithTagsObject<TEntry>[]);
+            this.put([values, optionsOrMoreValues] as XWithTagsObject<TEntry>[]);
             return;
           } else {
-            this.put(values as XEntryWithTagsObject<TEntry>);
+            this.put(values as XWithTagsObject<TEntry>);
             return;
           }
         } // one tag
@@ -338,6 +324,9 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     }
   }
 
+  //#region Internal
+
+  /** @internal */
   private _initOptions(config?: Config<TEntry>) {
     const guards: {
       entry: IGuard<TEntry>,
@@ -380,6 +369,8 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       enumerable: false
     });
   }
+
+  //#endregion
 
   //#endregion
 
@@ -442,58 +433,52 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    * 
    * @returns any effected entries' hash keys.
    */
-  set(tag: Tag, entries: [] | NoEntries): HashKey[];
+  set(tag: Tag, entries?: [] | None): HashKey[];
 
   /**
    * Add a empty tags to the dex, or set the existing tags to empty.
    * 
    * @returns any effected entries' hash keys.
    */
-  set(tags: TagOrTags, entries: [] | NoEntries): HashKey[];
+  set(tags: TagOrTags, entries?: [] | None): HashKey[];
 
   /**
    * Add a new tag with specific entries to the dex, or override the existing values for an existing tag.
    * 
    * @returns any effected entries' hash keys (only entries removed from the tags, not entries added to the tags).
    */
-  set(tag: Tag, entries: TEntry[] | Set<TEntry>): HashKey[];
+  set(tag: Tag, entries?: Iterable<TEntry>): HashKey[];
 
   /**
    * Add a new tag with specific entries to the dex, or override the existing values for an existing tag.
    * 
    * @returns any effected entries' hash keys (only entries removed from the tags, not entries added to the tags).
    */
-  set(tags: TagOrTags, entries: TEntry[] | Set<TEntry>): HashKey[];
+  set(tags: TagOrTags, entries?: Iterable<TEntry>): HashKey[];
 
   set(
     tags: TagOrTags,
-    entries?: TEntry[] | Set<TEntry> | [] | NoEntries
+    entries?: Iterable<TEntry> | [] | None
   ): HashKey[] {
-    const effectedHashes: HashKey[] = [];
+    let effectedHashes: HashKey[] = [];
     tags = toSet(tags);
 
     // undefined means nothing gets touched
     if (entries === undefined) {
       (tags as Set<Tag>).forEach(tag => {
         if (!this._allTags.has(tag)) {
-          this._allTags.add(tag);
-          this._hashesByTag.set(tag, new Set<HashKey>());
+          this._addNewTag(tag);
         }
       });
       return [];
     } else {
       // NoEntries or [] is passed in, set to empty:
-      if (!entries || (entries instanceof Set ? !entries.size : !entries.length)) {
+      if (!entries || (entries instanceof Set ? !entries.size : !Loop.count(entries))) {
         for (const tag of tags) {
-          if (this._hashesByTag.has(tag)) {
-            const currentSet = this._hashesByTag.get(tag)!;
-            currentSet.forEach(h => effectedHashes.push(h));
-            currentSet.forEach(hash =>
-              this._tagsByHash.get(hash)?.delete(tag));
-            currentSet.clear()
+          if (this._allTags.has(tag)) {
+            effectedHashes = this._setEntriesForExistingTag(tag, []).effected;
           } else {
-            this._allTags.add(tag);
-            this._hashesByTag.set(tag, new Set<HashKey>());
+            this._addNewTag(tag);
           }
         }
 
@@ -506,18 +491,10 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
         }
 
         for (const tag of tags) {
-          if (this._hashesByTag.has(tag)) {
-            const currentSet = this._hashesByTag.get(tag)!;
-            currentSet.forEach(hash => {
-              if (!hashesToSet.has(hash)) {
-                effectedHashes.push(hash);
-                this._tagsByHash.get(hash)?.delete(tag)
-              }
-            });
-            this._hashesByTag.set(tag, hashesToSet);
+          if (this._allTags.has(tag)) {
+            effectedHashes = this._setEntriesForExistingTag(tag, hashesToSet).effected;
           } else {
-            this._allTags.add(tag);
-            this._hashesByTag.set(tag, hashesToSet);
+            this._addNewTag(tag, hashesToSet);
           }
         }
 
@@ -525,6 +502,48 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       }
     }
   }
+
+  //#region Internal
+
+  /** @internal */
+  protected _setEntriesForExistingTag(tag: Tag, hashesToSet: Set<HashKey> | []): { added?: HashKey[], removed?: HashKey[], effected: HashKey[] } {
+    const currentSet = this._hashesByTag.get(tag)!;
+
+    if (Check.isArray(hashesToSet)) {
+      const hashes = [...currentSet];
+      hashes.forEach(hash =>
+        this._tagsByHash.get(hash)?.delete(tag));
+      
+      this._hashesByTag.get(tag)?.clear();
+      return { removed: hashes, effected: hashes };
+    } else {
+      const hashesToRemove: HashKey[] = [];
+      currentSet.forEach(hash => {
+        if (!hashesToSet.has(hash)) {
+          hashesToRemove.push(hash);
+          this._tagsByHash.get(hash)?.delete(tag)
+        }
+      });
+
+      const addedHashes = [...hashesToSet].filter(h => !currentSet.has(h));
+
+      this._hashesByTag.set(tag, hashesToSet);
+      
+      return {
+        removed: hashesToRemove,
+        added: addedHashes,
+        effected: hashesToRemove.concat(addedHashes)
+      };
+    }
+  }
+
+  /** @internal */
+  protected _addNewTag(tag: Tag, hashesToSet = new Set<HashKey>()): void {
+    this._allTags.add(tag);
+    this._hashesByTag.set(tag, hashesToSet);
+  }
+
+  //#endregion
 
   //#endregion
 
@@ -536,7 +555,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    * @returns The uniqueid/hash of the item added to the dex
    */
   add(
-    entry: TEntry,
+    entry: TEntry | HashKey,
     tag: Tag
   ): HashKey;
 
@@ -546,8 +565,8 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    * @returns The uniqueid/hash of the items added to the dex
    */
   add(
-    entries: XEntryWithTags<TEntry>[],
-  ): (HashKey | NoEntries)[];
+    entries: XWithTags<TEntry>[],
+  ): (HashKey | None)[];
 
   /**
    * Add data about an entry to the dex.
@@ -555,8 +574,8 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    * @returns The uniqueid/hash of the item added to the dex
    */
   add(
-    entryWithTags: XEntryWithTagsObject<TEntry>
-  ): HashKey | NoEntries;
+    entryWithTags: XWithTagsObject<TEntry>
+  ): HashKey | None;
 
   /**
    * Add data about an entry to the dex.
@@ -564,8 +583,8 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    * @returns The uniqueid/hash of the item added to the dex
    */
   add(
-    ...entriesWithTags: XEntryWithTagsObject<TEntry>[]
-  ): (HashKey | NoEntries)[];
+    ...entriesWithTags: XWithTagsObject<TEntry>[]
+  ): (HashKey | None)[];
 
   /**
    * Add an entry with any number of tags to the dex
@@ -573,7 +592,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    * @returns The uniqueid/hash of the item added to the dex
    */
   add(
-    entry: TEntry,
+    entry: TEntry | HashKey,
     ...tags: Tag[]
   ): HashKey;
 
@@ -583,7 +602,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    * @returns The uniqueid/hash of the item added to the dex
    */
   add(
-    entry: TEntry,
+    entry: TEntry | HashKey,
     tags: TagOrTags
   ): HashKey;
 
@@ -593,7 +612,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    * @returns The uniqueid/hash of the item added to the dex
    */
   add(
-    entry: TEntry,
+    entry: TEntry | HashKey,
   ): HashKey;
 
   /**
@@ -603,30 +622,30 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    * , or if just an empty tag was added: just the name of the tag is returned.
    */
   add(
-    entry: TEntry | XEntryWithTags<TEntry>[] | XEntryWithTagsObject<TEntry>,
-    tags?: TagOrTags | XEntryWithTagsObject<TEntry>,
+    entry: TEntry | HashKey | XWithTags<TEntry>[] | XWithTagsObject<TEntry>,
+    tags?: TagOrTags | XWithTagsObject<TEntry>,
     ...rest: any
-  ): HashKey | (HashKey | NoEntries)[] | NoEntries | HashKey[] {
+  ): HashKey | (HashKey | None)[] | None | HashKey[] {
     // InputEntryWithTagsObject<TEntry>[] | InputEntryWithTagsArray<TEntry>[] | TEntry
-    if (isArray(entry) && !tags) {
+    if (Check.isArray(entry) && !tags) {
       // InputEntryWithTagsArray<TEntry>[] | TEntry
-      if (isArray(entry[0])) {
+      if (Check.isArray(entry[0])) {
         // InputEntryWithTagsArray<TEntry>[]
         if (!this.canContain(entry[0])) { // [0: [0: entry, ...tags], 1: [entry, ...tags]]
-          return (entry as XEntryWithTagsTuple<TEntry>[])
+          return (entry as XWithTagsTuple<TEntry>[])
             .map(this._putOneArray.bind(this)) as any;
         }
       } // InputEntryWithTagsObject<TEntry>[]
-      else if (isObject(entry[0]) && !this.canContain(entry[0])) {
-        return (entry as XEntryWithTagsObject<TEntry>[])
+      else if (Check.isObject(entry[0]) && !this.canContain(entry[0])) {
+        return (entry as XWithTagsObject<TEntry>[])
           .map(this._putOneObject.bind(this)) as any;
       }
     } // InputEntryWithTagsObject<TEntry>
-    else if (isObject(entry) && !this.canContain(entry)) {
+    else if (Check.isObject(entry) && !this.canContain(entry)) {
       if (tags) {
-        this.put([entry, tags] as XEntryWithTagsObject<TEntry>[])
+        this.put([entry, tags] as XWithTagsObject<TEntry>[])
       }
-      return this._putOneObject(entry as XEntryWithTagsObject<TEntry>);
+      return this._putOneObject(entry as XWithTagsObject<TEntry>);
     }
 
     // TEntry and Tags
@@ -697,7 +716,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    * @returns The uniqueid/hash of the items added to the dex
    */
   put(
-    entries: XEntryWithTags<TEntry>[],
+    entries: XWithTags<TEntry>[],
   ): HashKey[];
 
   /**
@@ -706,7 +725,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    * @returns The uniqueid/hash of the item added to the dex
    */
   put(
-    ...entriesWithTags: XEntryWithTags<TEntry>[]
+    ...entriesWithTags: XWithTags<TEntry>[]
   ): HashKey[];
 
   /**
@@ -715,8 +734,8 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    * @returns The uniqueid/hash of the item added to the dex
    */
   put(
-    entry: XEntryWithTags<TEntry>
-  ): HashKey | NoEntries;
+    entry: XWithTags<TEntry>
+  ): HashKey | None;
 
   /**
    * Add data about entries to the dex.
@@ -724,7 +743,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    * @returns The uniqueid/hash of the items added to the dex
    */
   put(
-    entries: (XEntryWithTagsObject<TEntry> | XEntryWithTagsTuple<TEntry>)[],
+    entries: (XWithTagsObject<TEntry> | XWithTagsTuple<TEntry>)[],
   ): HashKey[];
 
   /**
@@ -733,7 +752,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    * @returns The uniqueid/hash of the item added to the dex
    */
   put(
-    ...entriesWithTags: (XEntryWithTagsObject<TEntry> | XEntryWithTagsTuple<TEntry>)[]
+    ...entriesWithTags: (XWithTagsObject<TEntry> | XWithTagsTuple<TEntry>)[]
   ): HashKey[];
 
   /**
@@ -742,41 +761,42 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    * @returns The uniqueid/hash of the item added to the dex
    */
   put(
-    entry: (XEntryWithTagsObject<TEntry> | XEntryWithTagsTuple<TEntry>)
-  ): HashKey | NoEntries;
+    entry: (XWithTagsObject<TEntry> | XWithTagsTuple<TEntry>)
+  ): HashKey | None;
 
-  put<TInput extends XEntryWithTags<TEntry>[] | XEntryWithTags<TEntry>>(
+  put<TInput extends XWithTags<TEntry>[] | XWithTags<TEntry>>(
     entryOrEntriesWithTags: TInput
-  ): TInput extends XEntryWithTags<TEntry>[] ? (HashKey | NoEntries)[] : (HashKey | NoEntries) {
+  ): TInput extends XWithTags<TEntry>[] ? (HashKey | None)[] : (HashKey | None) {
     // InputEntryWithTags<TEntry>[] | InputEntryWithTagsArray<TEntry>
-    if (isArray(entryOrEntriesWithTags)) {
+    if (Check.isArray(entryOrEntriesWithTags)) {
       // InputEntryWithTagsArray<TEntry>[] | InputEntryWithTagsArray<TEntry>
-      if (isArray(entryOrEntriesWithTags[0])) {
+      if (Check.isArray(entryOrEntriesWithTags[0])) {
         // InputEntryWithTagsArray<TEntry>[]
         if (!this.canContain(entryOrEntriesWithTags[0])) { // [0: [0: entry, ...tags], 1: [entry, ...tags]]
-          return (entryOrEntriesWithTags as XEntryWithTagsTuple<TEntry>[])
+          return (entryOrEntriesWithTags as XWithTagsTuple<TEntry>[])
             .map(this._putOneArray.bind(this)) as any;
         } // InputEntryWithTagsArray<TEntry>
         else { // [0: array shaped entry, 1..: ...tags]
-          return this._putOneArray(entryOrEntriesWithTags as XEntryWithTagsTuple<TEntry>) as any;
+          return this._putOneArray(entryOrEntriesWithTags as XWithTagsTuple<TEntry>) as any;
         }
       } // InputEntryWithTagsObject<TEntry>[]
-      else if (isObject(entryOrEntriesWithTags[0]) && !this.canContain(entryOrEntriesWithTags[0])) {
-        return (entryOrEntriesWithTags as XEntryWithTagsObject<TEntry>[])
+      else if (Check.isObject(entryOrEntriesWithTags[0]) && !this.canContain(entryOrEntriesWithTags[0])) {
+        return (entryOrEntriesWithTags as XWithTagsObject<TEntry>[])
           .map(this._putOneObject.bind(this)) as any;
       } // InputEntryWithTagsArray<TEntry>
       else {
-        return this._putOneArray(entryOrEntriesWithTags as XEntryWithTagsTuple<TEntry>) as any;
+        return this._putOneArray(entryOrEntriesWithTags as XWithTagsTuple<TEntry>) as any;
       }
     } // InputEntryWithTagsObject<TEntry>
     else {
-      return this._putOneObject(entryOrEntriesWithTags as XEntryWithTagsObject<TEntry>) as any;
+      return this._putOneObject(entryOrEntriesWithTags as XWithTagsObject<TEntry>) as any;
     }
   }
 
   //#region Internal
 
-  private _putOneObject(entryWithTags: XEntryWithTagsObject<TEntry>): HashKey | NoEntries {
+  /** @internal */
+  private _putOneObject(entryWithTags: XWithTagsObject<TEntry>): HashKey | None {
     if (entryWithTags.entry === undefined || entryWithTags.entry === null) {
       this.set((entryWithTags.tags || (entryWithTags as any).tag)!);
       return null;
@@ -785,13 +805,14 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     }
   }
 
-  private _putOneArray(entryWithTags: XEntryWithTagsTuple<TEntry>): HashKey | NoEntries {
+  /** @internal */
+  private _putOneArray(entryWithTags: XWithTagsTuple<TEntry>): HashKey | None {
     if (entryWithTags[0] === undefined || entryWithTags[0] === null) {
       this.set(entryWithTags.slice(1) as Tag[]);
       return null;
     } else {
       return this.add(entryWithTags[0] as TEntry, (
-        isArray(entryWithTags[1])
+        Check.isArray(entryWithTags[1])
           ? entryWithTags[1]
           : entryWithTags.slice(1)
       ) as Tag[]);
@@ -829,9 +850,9 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   /**
    * Remove entries matching a query from the current dex while returning the results as well.
    */
-  get take(): FullQuery<TEntry, ResultType.Array, TEntry> {
+  get take(): Queries.Full<TEntry, ResultType.Array, TEntry> {
     if (!this._take) {
-      const toRemove = FullQueryConstructor<TEntry, ResultType.Array, TEntry>(
+      const toRemove = Queries.FullQueryConstructor<TEntry, ResultType.Array, TEntry>(
         this,
         ResultType.Array
       );
@@ -860,7 +881,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
         return result;
       }
 
-      this._take = proxy as FullQuery<TEntry, ResultType.Array, TEntry>;
+      this._take = proxy as Queries.Full<TEntry, ResultType.Array, TEntry>;
     }
 
     return this._take;
@@ -1018,18 +1039,18 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   ): void {
     const config = options !== undefined
       ? options
-      : (isObject(optionsOrTags) && !isArray(optionsOrTags))
+      : (Check.isObject(optionsOrTags) && !Check.isArray(optionsOrTags))
         ? optionsOrTags
         : undefined;
 
-    const tags: Iterable<Tag> | undefined = isNonStringIterable(optionsOrTags)
+    const tags: Iterable<Tag> | undefined = Check.isNonStringIterable(optionsOrTags)
       ? optionsOrTags as Iterable<Tag>
       : optionsOrTags !== undefined
         ? [optionsOrTags] as Iterable<Tag>
         : undefined;
 
     if (!config) {
-      if (isNonStringIterable(targets)) {
+      if (Check.isNonStringIterable(targets)) {
         for (const entryOrKey of targets) {
           const hash = this.hash(entryOrKey);
           this.untagEntry(hash, tags);
@@ -1045,7 +1066,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
         }
       }
     } else {
-      if (isNonStringIterable(targets)) {
+      if (Check.isNonStringIterable(targets)) {
         for (const entryOrKey of targets) {
           let tagsToCheck: Set<Tag> | undefined;
           const hash = this.hash(entryOrKey);
@@ -1087,10 +1108,15 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     }
   }
 
+  //#region Internal
+
+  /** @internal */
   private _removeTaglessEntry(key: HashKey) {
     this._entriesByHash.delete(key);
     this._allHashes.delete(key);
   }
+
+  //#endregion
 
   //#endregion
 
@@ -1129,13 +1155,13 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       }
 
       currentTagsForEntry?.clear();
-    } else if (isNonStringIterable(tagsToRemove)) {
+    } else if (Check.isNonStringIterable(tagsToRemove)) {
       for (const tag of tagsToRemove) {
         const currentEntriesForTag = this._hashesByTag.get(tag);
         currentTagsForEntry?.delete(tag);
         currentEntriesForTag?.delete(hash);
       }
-    } else if (isTag(tagsToRemove)) {
+    } else if (Check.isTag(tagsToRemove)) {
       if (currentTagsForEntry) {
         currentTagsForEntry.delete(tagsToRemove);
       }
@@ -1217,7 +1243,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     entries: Iterable<TEntry> | Iterable<HashKey> | TEntry | HashKey,
     tags?: TagOrTags
   ): void {
-    if (isNonStringIterable(entries)) {
+    if (Check.isNonStringIterable(entries)) {
       this.untagEntries(entries as Iterable<TEntry> | Iterable<HashKey>, tags as Tags);
     } else {
       this.untagEntry(entries, tags as Tag | undefined);
@@ -1243,7 +1269,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     }
   ): void {
     if (!options?.cleanUntaggedEntries) {
-      if (isNonStringIterable(tags)) {
+      if (Check.isNonStringIterable(tags)) {
         for (const tag of tags) {
           this.resetTag(tag);
           if (!options?.leaveEmptyTags) {
@@ -1257,7 +1283,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
         }
       }
     } else {
-      if (isNonStringIterable(tags)) {
+      if (Check.isNonStringIterable(tags)) {
         for (const tag of tags) {
           const hashesForTag = this._hashesByTag.get(tag);
           this.resetTag(tag);
@@ -1284,11 +1310,6 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
         }
       }
     }
-  }
-
-  private _removeEmptyTag(tag: Tag) {
-    this._hashesByTag.delete(tag);
-    this._allTags.delete(tag);
   }
 
   /**
@@ -1320,7 +1341,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       cleanEmptyTags?: boolean
     }
   ): void {
-    const tagsToReset = (isNonStringIterable(tags)
+    const tagsToReset = (Check.isNonStringIterable(tags)
       ? tags
       : [tags]) as Iterable<Tag>;
 
@@ -1338,6 +1359,16 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       }
     }
   }
+
+  //#region Internal
+
+  /** @internal */
+  private _removeEmptyTag(tag: Tag) {
+    this._hashesByTag.delete(tag);
+    this._allTags.delete(tag);
+  }
+
+  //#endregion
 
   //#endregion
 

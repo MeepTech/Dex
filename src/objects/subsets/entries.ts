@@ -1,11 +1,8 @@
 import { HashKey } from "./hashes";
 import IUnique from "../unique";
 import { IDexSubMap, SubSet } from "./subset";
-import {
-  FullQueryConstructor,
-  FullQuery
-} from "../queries/queries";
-import { IBreakable } from "../../utilities/iteration";
+import Queries from "../queries/queries";
+import Loop from "../../utilities/iteration";
 import { Tag, TagOrTags, TagSet } from "./tags";
 import { IReadonlyDex } from "../readonly";
 import { Result, NoEntryFound, ResultType } from "../queries/results";
@@ -14,15 +11,16 @@ import { Result, NoEntryFound, ResultType } from "../queries/results";
  * Valid entry types.
  */
 export type Entry
-  = SimpleEntry
-  | ComplexEntry
+  = Simple
+  | Complex
+export default Entry;
 
 //#region Sub Types
 
 /**
  * Entries that are not tag-like
  */
-export type ComplexEntry
+export type Complex
   = Function
   | Array<unknown>
   | []
@@ -35,7 +33,7 @@ export type ComplexEntry
 /**
  * Entries that are tag like
  */
-export type SimpleEntry
+export type Simple
   = string
   | number
   | symbol
@@ -47,59 +45,59 @@ export type SimpleEntry
 /**
  * Values that can be used to initialize the entries 
  */
-export type EntryOrNone<TEntry extends Entry = Entry>
-  = NoEntries | NoEntryFound | TEntry;
+export type OrNone<TEntry extends Entry = Entry>
+  = None | NoEntryFound | TEntry;
 
 /**
  * Inputable EntryWithTag set types.
  */
-export type EntryWithTags<TEntry extends Entry = Entry>
-  = { entry: EntryOrNone<TEntry>, tags: TagOrTags }
+export type WithTags<TEntry extends Entry = Entry>
+  = { entry: OrNone<TEntry>, tags: TagOrTags }
 
 /**
  * Standard array type container for a type of entry with all of it's tags.
  */
-export type EntryWithTagsTuple<TEntry extends ComplexEntry = ComplexEntry>
-  = [EntryOrNone<TEntry>, Tag[]]
+export type WithTagsTuple<TEntry extends Complex = Complex>
+  = [OrNone<TEntry>, Tag[]]
 
 /**
  * All ways to input an entry with tags. Used mostly for dex construction and the add function.
  */
-export type XEntryWithTags<TEntry extends Entry = Entry>
-  = TEntry extends ComplexEntry
-  ? (XEntryWithTagsObject<TEntry> | XEntryWithTagsTuple<TEntry>)
-  : XEntryWithTagsObject<TEntry>
+export type XWithTags<TEntry extends Entry = Entry>
+  = TEntry extends Complex
+  ? (XWithTagsObject<TEntry> | XWithTagsTuple<TEntry>)
+  : XWithTagsObject<TEntry>
 
 /**
  * Inputable EntryWithTag array types.
  */
-export type XEntryWithTagsTuple<TEntry extends ComplexEntry = ComplexEntry>
-  = [EntryOrNone<TEntry>, ...Tag[]]
-  | [EntryOrNone<TEntry>, Set<Tag>]
-  | [EntryOrNone<TEntry>, Tag]
-  | [EntryOrNone<TEntry>, TagSet]
-  | EntryWithTagsTuple
+export type XWithTagsTuple<TEntry extends Complex = Complex>
+  = [OrNone<TEntry> | HashKey, ...Tag[]]
+  | [OrNone<TEntry> | HashKey, Iterable<Tag>]
+  | [OrNone<TEntry> | HashKey, Tag]
+  | WithTagsTuple
 
 /**
  * Inputable EntryWithTag object types.
  */
-export type XEntryWithTagsObject<TEntry extends Entry = Entry>
-  = EntryWithTags<TEntry>
-  | { tag: Tag, entry?: EntryOrNone<TEntry>, tags?: never }
-  | { tags: TagOrTags, entry?: EntryOrNone<TEntry>, tag?: never }
-  | { entry: EntryOrNone<TEntry>, tags?: TagOrTags, tag?: never }
-  | { entry: EntryOrNone<TEntry>, tag?: Tag, tags?: never }
+export type XWithTagsObject<TEntry extends Entry = Entry>
+  = WithTags<TEntry>
+  | { entry: OrNone<TEntry> | HashKey, tags: TagOrTags }
+  | { tag: Tag, entry?: OrNone<TEntry> | HashKey, tags?: never }
+  | { tags: TagOrTags, entry?: OrNone<TEntry> | HashKey, tag?: never }
+  | { entry: OrNone<TEntry> | HashKey, tags?: TagOrTags, tag?: never }
+  | { entry: OrNone<TEntry> | HashKey, tag?: Tag, tags?: never }
 
 /**
  * Used to represent the value of a tag with no entries
  */
-export const NO_ENTRIES_FOR_TAG = null;
+export const NONE_FOR_TAG = null;
 
 /**
  * Used to represent the value of a tag with no entries
  */
-export type NoEntries
-  = typeof NO_ENTRIES_FOR_TAG;
+export type None
+  = typeof NONE_FOR_TAG;
 
 //#endregion
 
@@ -123,33 +121,33 @@ export interface IGuard<TEntry extends Entry> {
  * Represents a guard function for an object type of entry.
  */
 export interface IObjectGuard<TEntry extends Entry> {
-  (entry: Entry): entry is object & {[key: string]: any} & ComplexEntry & TEntry
+  (entry: Entry): entry is object & {[key: string]: any} & Complex & TEntry
 }
 
 /**
  * Represents a guard function for an array type of entry.
  */
 export interface IArrayGuard<TEntry extends Entry> {
-  (entry: Entry): entry is any[] & ComplexEntry & TEntry
+  (entry: Entry): entry is any[] & Complex & TEntry
 }
  
 //#endregion
 
-//#region Entry Set
+//#region Set
 
 /**
  * A set used to contain entries
  */
 export interface EntrySet<TEntry extends Entry>
   extends IDexSubMap<TEntry>,
-  FullQuery<TEntry, ResultType.Array, TEntry>
+  Queries.Full<TEntry, ResultType.Array, TEntry>
 {
 
   /**
    * Get all entries as a record indeed by key
    */
   map<TResult, TResults extends ResultType = ResultType.Array>(
-    transform: IBreakable<[entry: TEntry, index: number], TResult>,
+    transform: Loop.IBreakable<[entry: TEntry, index: number], TResult>,
     resultType?: TResults
   ): TResult[];
 
@@ -162,10 +160,16 @@ export interface EntrySet<TEntry extends Entry>
    * Get all matching entries
    */
   filter<TResultType extends ResultType = ResultType.Array>(
-    where: IBreakable<[entry: TEntry, index: number], boolean>,
+    where: Loop.IBreakable<[entry: TEntry, index: number], boolean>,
     resultType?: TResultType
   ): Result<TEntry, TResultType>;
 }
+
+export {
+  EntrySet as Set
+}
+
+//#region Internal
 
 /** @internal */
 export function EntryMapConstructor<TEntry extends Entry>(
@@ -173,7 +177,7 @@ export function EntryMapConstructor<TEntry extends Entry>(
   base: Map<HashKey, TEntry>
 ): EntrySet<TEntry> {
   const query: EntrySet<TEntry>
-    = FullQueryConstructor<TEntry, ResultType.Array, TEntry>(
+    = Queries.FullQueryConstructor<TEntry, ResultType.Array, TEntry>(
         dex,
         ResultType.Array,
         {
@@ -183,7 +187,7 @@ export function EntryMapConstructor<TEntry extends Entry>(
   
   Object.defineProperty(query, "map", {
     value<TResult = never, TResults extends ResultType = ResultType.Array>(
-      transform?: IBreakable<[entry: TEntry, index: number], TResult>,
+      transform?: Loop.IBreakable<[entry: TEntry, index: number], TResult>,
       resultType?: TResults
     ): Result<TResult, TResults, TEntry> | Map<HashKey, TEntry> {
       if (transform !== undefined) {
@@ -209,7 +213,7 @@ export function EntryMapConstructor<TEntry extends Entry>(
 
   Object.defineProperty(query, "filter", {
     value<TResults extends ResultType = ResultType.Array>(
-      where: IBreakable<[entry: TEntry, index: number], boolean>,
+      where: Loop.IBreakable<[entry: TEntry, index: number], boolean>,
       resultType?: TResults
     ): Result<TEntry, TResults, TEntry> {
       return SubSet.filter<TResults, TEntry, TEntry>(
@@ -231,7 +235,7 @@ export function EntryMapConstructor<TEntry extends Entry>(
   
   Object.defineProperty(query, "first", {
     value(
-      where: IBreakable<[entry: TEntry, index: number], boolean>
+      where: Loop.IBreakable<[entry: TEntry, index: number], boolean>
     ): TEntry | NoEntryFound {
       return SubSet.first<TEntry, TEntry>(
         dex,
@@ -393,5 +397,7 @@ export function EntryMapConstructor<TEntry extends Entry>(
 
   return query;
 }
+
+//#endregion
 
 //#endregion

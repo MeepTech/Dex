@@ -1,25 +1,28 @@
 {
-  "include": [
-    "./src/lib.ts",
-    "./tests/jest/**/*.ts"
+  "files": [
+    "./src/lib.ts"
   ],
   "compilerOptions": {
+      "paths": {
+        "tslib" : ["./node_modules/tslib/tslib.d.ts"]
+    },
     "incremental": true,
     "target": "es2021",
     "module": "commonjs",
     "lib": ["dom", "es2021"],
     "jsx": "react-jsx",
     "strict": true,
+    "sourceMap": true,
     "noImplicitAny": true,
     "moduleResolution": "node",
+    "noEmit": true,
     "declaration": true,
-	  "emitDeclarationOnly": true,
     "esModuleInterop": true,
-    "inlineSourceMap": true,
     "resolveJsonModule": true,
     "importHelpers": true,
     "strictNullChecks": true,
+    "stripInternal": true,
     "allowJs": true,
-    "outDir": "./build/dev/"
+    "outDir": "./build/prod/"
   }
 }

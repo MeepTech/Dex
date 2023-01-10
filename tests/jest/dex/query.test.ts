@@ -2,7 +2,7 @@ import { describe, test } from '@jest/globals';
 import Dex from '../../../src/objects/dex';
 import { InvalidQueryParamError } from '../../../src/objects/errors';
 import { ResultType } from '../../../src/objects/queries/results';
-import { isArray } from '../../../src/utilities/validators';
+import Check from '../../../src/utilities/validators';
 import { expectDex_entryToHaveTags, expectDex_tagsToHaveEntries, failFromType } from './shared';
 
 describe("query(...)", () => {
@@ -54,7 +54,7 @@ describe("query(...)", () => {
       const result = dex.query(tag);
 
       expect(result).toBeInstanceOf(Array);
-      if (isArray(result)) {
+      if (Check.isArray(result)) {
         expect(result.length).toStrictEqual(1);
         expect(result[0]).toBeInstanceOf(Object);
         expect(result[0].key).toStrictEqual(entry.key);
@@ -66,7 +66,7 @@ describe("query(...)", () => {
       const result = dex.query(tag2);
 
       expect(result).toBeInstanceOf(Array);
-      if (isArray(result)) {
+      if (Check.isArray(result)) {
         expect(result.length).toStrictEqual(2);
         expect(result[0]).toBeInstanceOf(Object);
         expect(result[0].key).toStrictEqual(entry.key);
@@ -80,7 +80,7 @@ describe("query(...)", () => {
       const result = dex.query(tag5);
 
       expect(result).toBeInstanceOf(Array);
-      if (isArray(result)) {
+      if (Check.isArray(result)) {
         expect(result.length).toStrictEqual(0);
       } else {
         failFromType(Array, result);
@@ -90,7 +90,7 @@ describe("query(...)", () => {
       const result = dex.query(tag6);
 
       expect(result).toBeInstanceOf(Array);
-      if (isArray(result)) {
+      if (Check.isArray(result)) {
         expect(result.length).toStrictEqual(0);
       } else {
         failFromType(Array, result);
@@ -107,7 +107,7 @@ describe("query(...)", () => {
       const result = dex.query(tag2);
 
       expect(result).toBeInstanceOf(Array);
-      if (isArray(result)) {
+      if (Check.isArray(result)) {
         expect(result.length).toStrictEqual(2);
         expect(result[0]).toBeInstanceOf(Object);
         expect(result[0].key).toStrictEqual(entry.key);
@@ -182,7 +182,7 @@ describe("query(...)", () => {
         const result = dex.query(tag, {});
 
         expect(result).toBeInstanceOf(Array);
-        if (isArray(result)) {
+        if (Check.isArray(result)) {
           expect(result.length).toStrictEqual(1);
           expect(result[0]).toBeInstanceOf(Object);
           expect(result[0].key).toStrictEqual(entry.key);
@@ -194,7 +194,7 @@ describe("query(...)", () => {
         const result = dex.query(tag2, {});
 
         expect(result).toBeInstanceOf(Array);
-        if (isArray(result)) {
+        if (Check.isArray(result)) {
           expect(result.length).toStrictEqual(2);
           expect(result[0]).toBeInstanceOf(Object);
           expect(result[0].key).toStrictEqual(entry.key);
@@ -208,7 +208,7 @@ describe("query(...)", () => {
         const result = dex.query(tag5, {});
 
         expect(result).toBeInstanceOf(Array);
-        if (isArray(result)) {
+        if (Check.isArray(result)) {
           expect(result.length).toStrictEqual(0);
         } else {
           failFromType(Array, result);
@@ -220,7 +220,7 @@ describe("query(...)", () => {
         const result = dex.query(tag2);
 
         expect(result).toBeInstanceOf(Array);
-        if (isArray(result)) {
+        if (Check.isArray(result)) {
           expect(result.length).toStrictEqual(2);
           expect(result[0]).toBeInstanceOf(Object);
           expect(result[0].key).toStrictEqual(entry.key);
@@ -271,7 +271,7 @@ describe("query(...)", () => {
                 const result = dex.query(tag, { filters: { and: { hash: dex.hash(entry) } } })
 
                 expect(result).toBeInstanceOf(Array);
-                if (isArray(result)) {
+                if (Check.isArray(result)) {
                   expect(result.length).toStrictEqual(1);
                   expect(result[0]).toBeInstanceOf(Object);
                   expect(result[0].key).toStrictEqual(entry.key);
@@ -283,7 +283,7 @@ describe("query(...)", () => {
                 const result = dex.query(tag, { filters: { and: { hashes: dex.hash(entry) } } })
 
                 expect(result).toBeInstanceOf(Array);
-                if (isArray(result)) {
+                if (Check.isArray(result)) {
                   expect(result.length).toStrictEqual(1);
                   expect(result[0]).toBeInstanceOf(Object);
                   expect(result[0].key).toStrictEqual(entry.key);
@@ -295,7 +295,7 @@ describe("query(...)", () => {
                 const result = dex.query(tag, { filters: { and: { hashes: [dex.hash(entry), dex.hash(entry2)] } } })
 
                 expect(result).toBeInstanceOf(Array);
-                if (isArray(result)) {
+                if (Check.isArray(result)) {
                   expect(result.length).toStrictEqual(1);
                   expect(result[0]).toBeInstanceOf(Object);
                   expect(result[0].key).toStrictEqual(entry.key);
@@ -307,7 +307,7 @@ describe("query(...)", () => {
                 const result = dex.query(tag, { filters: { and: { hash: dex.hash(entry2) } } })
 
                 expect(result).toBeInstanceOf(Array);
-                if (isArray(result)) {
+                if (Check.isArray(result)) {
                   expect(result.length).toStrictEqual(0);
                 } else {
                   failFromType(Array, result);
@@ -320,7 +320,7 @@ describe("query(...)", () => {
                   const result = dex.query(tag, { filters: { and: { tag: tag3 } } })
 
                   expect(result).toBeInstanceOf(Array);
-                  if (isArray(result)) {
+                  if (Check.isArray(result)) {
                     expect(result.length).toStrictEqual(0);
                   } else {
                     failFromType(Array, result);
@@ -330,7 +330,7 @@ describe("query(...)", () => {
                   const result = dex.query(tag, { filters: { and: { tag: tag2 } } })
 
                   expect(result).toBeInstanceOf(Array);
-                  if (isArray(result)) {
+                  if (Check.isArray(result)) {
                     expect(result.length).toStrictEqual(1);
                     expect(result[0]).toBeInstanceOf(Object);
                     expect(result[0].key).toStrictEqual(entry.key);
@@ -342,7 +342,7 @@ describe("query(...)", () => {
                   const result = dex.query(tag2, { filters: { and: { tag: tag } } })
 
                   expect(result).toBeInstanceOf(Array);
-                  if (isArray(result)) {
+                  if (Check.isArray(result)) {
                     expect(result.length).toStrictEqual(1);
                     expect(result[0]).toBeInstanceOf(Object);
                     expect(result[0].key).toStrictEqual(entry.key);
@@ -354,7 +354,7 @@ describe("query(...)", () => {
                   const result = dex.query(tag3, { filters: { and: { tag: tag2 } } })
 
                   expect(result).toBeInstanceOf(Array);
-                  if (isArray(result)) {
+                  if (Check.isArray(result)) {
                     expect(result.length).toStrictEqual(1);
                     expect(result[0]).toBeInstanceOf(Object);
                     expect(result[0].key).toStrictEqual(entry2.key);
@@ -368,7 +368,7 @@ describe("query(...)", () => {
                   const result = dex.query(tag, { filters: { and: { tags: tag3 } } })
 
                   expect(result).toBeInstanceOf(Array);
-                  if (isArray(result)) {
+                  if (Check.isArray(result)) {
                     expect(result.length).toStrictEqual(0);
                   } else {
                     failFromType(Array, result);
@@ -378,7 +378,7 @@ describe("query(...)", () => {
                   const result = dex.query(tag, { filters: { and: { tags: tag2 } } })
 
                   expect(result).toBeInstanceOf(Array);
-                  if (isArray(result)) {
+                  if (Check.isArray(result)) {
                     expect(result.length).toStrictEqual(1);
                     expect(result[0]).toBeInstanceOf(Object);
                     expect(result[0].key).toStrictEqual(entry.key);
@@ -390,7 +390,7 @@ describe("query(...)", () => {
                   const result = dex.query(tag2, { filters: { and: { tags: tag } } })
 
                   expect(result).toBeInstanceOf(Array);
-                  if (isArray(result)) {
+                  if (Check.isArray(result)) {
                     expect(result.length).toStrictEqual(1);
                     expect(result[0]).toBeInstanceOf(Object);
                     expect(result[0].key).toStrictEqual(entry.key);
@@ -402,7 +402,7 @@ describe("query(...)", () => {
                   const result = dex.query(tag3, { filters: { and: { tags: tag2 } } })
 
                   expect(result).toBeInstanceOf(Array);
-                  if (isArray(result)) {
+                  if (Check.isArray(result)) {
                     expect(result.length).toStrictEqual(1);
                     expect(result[0]).toBeInstanceOf(Object);
                     expect(result[0].key).toStrictEqual(entry2.key);
@@ -414,7 +414,7 @@ describe("query(...)", () => {
                   const result = dex.query(tag3, { filters: { and: { tags: tag7 } } })
 
                   expect(result).toBeInstanceOf(Array);
-                  if (isArray(result)) {
+                  if (Check.isArray(result)) {
                     expect(result.length).toStrictEqual(2);
                     expect(result[0]).toBeInstanceOf(Object);
                     expect(result[0].key).toStrictEqual(entry2.key);
@@ -430,7 +430,7 @@ describe("query(...)", () => {
                   const result = dex.query(tag, { filters: { and: { tags: [tag3] } } })
 
                   expect(result).toBeInstanceOf(Array);
-                  if (isArray(result)) {
+                  if (Check.isArray(result)) {
                     expect(result.length).toStrictEqual(0);
                   } else {
                     failFromType(Array, result);
@@ -440,7 +440,7 @@ describe("query(...)", () => {
                   const result = dex.query(tag, { filters: { and: { tags: [tag3, tag] } } })
 
                   expect(result).toBeInstanceOf(Array);
-                  if (isArray(result)) {
+                  if (Check.isArray(result)) {
                     expect(result.length).toStrictEqual(0);
                   } else {
                     failFromType(Array, result);
@@ -450,7 +450,7 @@ describe("query(...)", () => {
                   const result = dex.query(tag, { filters: { and: { tags: [tag2, tag] } } })
 
                   expect(result).toBeInstanceOf(Array);
-                  if (isArray(result)) {
+                  if (Check.isArray(result)) {
                     expect(result.length).toStrictEqual(1);
                     expect(result[0]).toBeInstanceOf(Object);
                     expect(result[0].key).toStrictEqual(entry.key);
@@ -462,7 +462,7 @@ describe("query(...)", () => {
                   const result = dex.query(tag, { filters: { and: { tags: tag2 } } })
 
                   expect(result).toBeInstanceOf(Array);
-                  if (isArray(result)) {
+                  if (Check.isArray(result)) {
                     expect(result.length).toStrictEqual(1);
                     expect(result[0]).toBeInstanceOf(Object);
                     expect(result[0].key).toStrictEqual(entry.key);
@@ -474,7 +474,7 @@ describe("query(...)", () => {
                   const result = dex.query(tag2, { filters: { and: { tags: tag } } })
 
                   expect(result).toBeInstanceOf(Array);
-                  if (isArray(result)) {
+                  if (Check.isArray(result)) {
                     expect(result.length).toStrictEqual(1);
                     expect(result[0]).toBeInstanceOf(Object);
                     expect(result[0].key).toStrictEqual(entry.key);
@@ -486,7 +486,7 @@ describe("query(...)", () => {
                   const result = dex.query(tag3, { filters: { and: { tags: [tag7, tag3] } } })
 
                   expect(result).toBeInstanceOf(Array);
-                  if (isArray(result)) {
+                  if (Check.isArray(result)) {
                     expect(result.length).toStrictEqual(2);
                     expect(result[0]).toBeInstanceOf(Object);
                     expect(result[0].key).toStrictEqual(entry2.key);
@@ -558,7 +558,7 @@ describe("query(...)", () => {
       const result = dex.query([tag]);
 
       expect(result).toBeInstanceOf(Array);
-      if (isArray(result)) {
+      if (Check.isArray(result)) {
         expect(result.length).toStrictEqual(1);
         expect(result[0]).toBeInstanceOf(Object);
         expect(result[0].key).toStrictEqual(entry.key);
@@ -570,7 +570,7 @@ describe("query(...)", () => {
       const result = dex.query([tag, tag2]);
 
       expect(result).toBeInstanceOf(Array);
-      if (isArray(result)) {
+      if (Check.isArray(result)) {
         expect(result.length).toStrictEqual(2);
         expect(result[0]).toBeInstanceOf(Object);
         expect(result[0].key).toStrictEqual(entry.key);
@@ -584,7 +584,7 @@ describe("query(...)", () => {
       const result = dex.query([tag, tag2, tag6]);
 
       expect(result).toBeInstanceOf(Array);
-      if (isArray(result)) {
+      if (Check.isArray(result)) {
         expect(result.length).toStrictEqual(2);
         expect(result[0]).toBeInstanceOf(Object);
         expect(result[0].key).toStrictEqual(entry.key);
@@ -598,7 +598,7 @@ describe("query(...)", () => {
       const result = dex.query([tag, tag2, tag3]);
 
       expect(result).toBeInstanceOf(Array);
-      if (isArray(result)) {
+      if (Check.isArray(result)) {
         expect(result.length).toStrictEqual(4);
         expect(result[0]).toBeInstanceOf(Object);
         expect(result[0].key).toStrictEqual(entry.key);
@@ -658,7 +658,7 @@ describe("query(...)", () => {
       const result = dex.query(tag, tag5);
 
       expect(result).toBeInstanceOf(Array);
-      if (isArray(result)) {
+      if (Check.isArray(result)) {
         expect(result.length).toStrictEqual(1);
         expect(result[0]).toBeInstanceOf(Object);
         expect(result[0].key).toStrictEqual(entry.key);
@@ -670,7 +670,7 @@ describe("query(...)", () => {
       const result = dex.query(tag, tag2);
 
       expect(result).toBeInstanceOf(Array);
-      if (isArray(result)) {
+      if (Check.isArray(result)) {
         expect(result.length).toStrictEqual(2);
         expect(result[0]).toBeInstanceOf(Object);
         expect(result[0].key).toStrictEqual(entry.key);
@@ -684,7 +684,7 @@ describe("query(...)", () => {
       const result = dex.query(tag, tag2, tag6);
 
       expect(result).toBeInstanceOf(Array);
-      if (isArray(result)) {
+      if (Check.isArray(result)) {
         expect(result.length).toStrictEqual(2);
         expect(result[0]).toBeInstanceOf(Object);
         expect(result[0].key).toStrictEqual(entry.key);
@@ -698,7 +698,7 @@ describe("query(...)", () => {
       const result = dex.query(tag, tag2, tag3);
 
       expect(result).toBeInstanceOf(Array);
-      if (isArray(result)) {
+      if (Check.isArray(result)) {
         expect(result.length).toStrictEqual(4);
         expect(result[0]).toBeInstanceOf(Object);
         expect(result[0].key).toStrictEqual(entry.key);

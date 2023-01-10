@@ -12,15 +12,8 @@ import {
   HashSet,
   HashSetConstructor
 } from "./subsets/hashes";
-import {
-  FirstableQuery,
-  FirstableQueryConstructor,
-  FullQuery,
-  FullQueryConstructor,
-  SpecificQuery,
-  SpecificQueryConstructor
-} from "./queries/queries";
-import { Break, IBreakable } from "../utilities/iteration";
+import Queries from "./queries/queries";
+import Loop from "../utilities/iteration";
 import Dex, { Config } from "./dex";
 import { NoEntryFound, ResultType } from "./queries/results";
 
@@ -123,39 +116,39 @@ export interface IReadonlyDex<TEntry extends Entry = Entry> extends Iterable<[Ha
   /**
    * Get an array or dex of all entries that match a given set of tags and the optionally provided settings.
    */
-  get query(): FullQuery<TEntry, ResultType, TEntry>;
+  get query(): Queries.Full<TEntry, ResultType, TEntry>;
 
   /**
    * Returns a new dex filtered by the given tags and options.
    */
-  get filter(): SpecificQuery<TEntry, ResultType.Dex, TEntry>;
+  get filter(): Queries.Specific<TEntry, ResultType.Dex, TEntry>;
 
   /**
    * Returns an array of values filtered by the given tags and options.
    * Returns all results as an array if no parameters are provided.
    */
-  get values(): FirstableQuery<TEntry, ResultType.Array, TEntry>;
+  get values(): Queries.Firstable<TEntry, ResultType.Array, TEntry>;
 
   /**
    * Get hashes of the entries matching the results of the query.
    * Returns all results as an array if no parameters are provided.
    */
-  get keys(): FirstableQuery<HashKey, ResultType.Set, TEntry>;
+  get keys(): Queries.Firstable<HashKey, ResultType.Set, TEntry>;
 
   /**
    * Get the first entry matching the query tags and options.
    */
-  get first(): SpecificQuery<TEntry, ResultType.First, TEntry>;
+  get first(): Queries.Specific<TEntry, ResultType.First, TEntry>;
 
   /**
    * Returns true if any entries match the query.
    */
-  get any(): SpecificQuery<boolean, ResultType.First, TEntry>;
+  get any(): Queries.Specific<boolean, ResultType.First, TEntry>;
 
   /**
    * Returns the unique entry count of a given query.
    */
-  get count(): SpecificQuery<number, ResultType.First, TEntry>;
+  get count(): Queries.Specific<number, ResultType.First, TEntry>;
 
   //#endregion
   //#region Loops
@@ -166,7 +159,7 @@ export interface IReadonlyDex<TEntry extends Entry = Entry> extends Iterable<[Ha
     * @param func
     */
   forEach(
-    func: IBreakable<[entry: TEntry, tag: Tag, index: number], any>,
+    func: Loop.IBreakable<[entry: TEntry, tag: Tag, index: number], any>,
     outerLoopType?: 'entry' | 'tag'
   ): void;
 
@@ -174,14 +167,14 @@ export interface IReadonlyDex<TEntry extends Entry = Entry> extends Iterable<[Ha
    * Iterate logic on each tag in the dex.
    */
   forEachTag(
-    func: IBreakable<[tag: Tag, index: number, entries: Set<TEntry>], any>
+    func: Loop.IBreakable<[tag: Tag, index: number, entries: Set<TEntry>], any>
   ): void;
 
   /**
    * Iterate logic on each entry in the dex.
    */
   forEachEntry(
-    func: IBreakable<[entry: TEntry, index: number, tags: Set<Tag>], any>
+    func: Loop.IBreakable<[entry: TEntry, index: number, tags: Set<Tag>], any>
   ): void;
 
   //#endregion
@@ -195,7 +188,7 @@ export interface IReadonlyDex<TEntry extends Entry = Entry> extends Iterable<[Ha
    * @returns A mapped array of values, or a Map<Entry, Tag[]> if no transform was provided.
    */
   toMap<TResult = undefined>(
-    transform?: IBreakable<[entry: TEntry, tag: Tag, index: number], TResult>,
+    transform?: Loop.IBreakable<[entry: TEntry, tag: Tag, index: number], TResult>,
     outerLoopType?: 'entry' | 'tag'
   ): (TResult extends undefined ? Map<Entry, Tag[]> : TResult[]);
 
@@ -203,14 +196,14 @@ export interface IReadonlyDex<TEntry extends Entry = Entry> extends Iterable<[Ha
    * Map this dex's entries to an array.
    */
   toArray<TResult = TEntry>(
-    transform?: IBreakable<[entry: TEntry, index: number, tags: Set<Tag>], TResult>
+    transform?: Loop.IBreakable<[entry: TEntry, index: number, tags: Set<Tag>], TResult>
   ): TResult[];
 
   /**
    * Splay/map this dex's tags into an array.
    */
   splay<TResult>(
-    transform?: IBreakable<[tag: Tag, index: number, entries: Set<TEntry>], TResult>
+    transform?: Loop.IBreakable<[tag: Tag, index: number, entries: Set<TEntry>], TResult>
   ): TResult[];
 
 }
@@ -239,13 +232,13 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
 
   // lazy
   // - queries
-  private _query?: FullQuery<TEntry, ResultType, TEntry>;
-  private _filter?: SpecificQuery<TEntry, ResultType.Dex, TEntry>;
-  private _values?: FirstableQuery<TEntry, ResultType.Array, TEntry>;
-  private _keys?: FirstableQuery<HashKey, ResultType.Set, TEntry>;
-  private _first?: SpecificQuery<TEntry, ResultType.First, TEntry>;
-  private _any?: SpecificQuery<boolean, ResultType.First, TEntry>;
-  private _count?: SpecificQuery<number, ResultType.First, TEntry>;
+  private _query?: Queries.Full<TEntry, ResultType, TEntry>;
+  private _filter?: Queries.Specific<TEntry, ResultType.Dex, TEntry>;
+  private _values?: Queries.Firstable<TEntry, ResultType.Array, TEntry>;
+  private _keys?: Queries.Firstable<HashKey, ResultType.Set, TEntry>;
+  private _first?: Queries.Specific<TEntry, ResultType.First, TEntry>;
+  private _any?: Queries.Specific<boolean, ResultType.First, TEntry>;
+  private _count?: Queries.Specific<number, ResultType.First, TEntry>;
 
   // - subsets
   private _hashSet?: HashSet<TEntry>;
@@ -415,8 +408,8 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
 
   //#region Generic
 
-  get query(): FullQuery<TEntry, ResultType, TEntry> {
-    return this._query ??= FullQueryConstructor(
+  get query(): Queries.Full<TEntry, ResultType, TEntry> {
+    return this._query ??= Queries.FullQueryConstructor(
       this,
       ResultType.Array,
     );
@@ -426,8 +419,8 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
 
   //#region Chained
 
-  get filter(): SpecificQuery<TEntry, ResultType.Dex, TEntry> {
-    return this._filter ??= SpecificQueryConstructor(
+  get filter(): Queries.Specific<TEntry, ResultType.Dex, TEntry> {
+    return this._filter ??= Queries.SpecificQueryConstructor(
       this,
       ResultType.Dex
     );
@@ -437,8 +430,8 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
 
   //#region Values
 
-  get values(): FirstableQuery<TEntry, ResultType.Array, TEntry> {
-    return this._values ??= FirstableQueryConstructor(
+  get values(): Queries.Firstable<TEntry, ResultType.Array, TEntry> {
+    return this._values ??= Queries.FirstableQueryConstructor(
       this,
       ResultType.Array,
       {
@@ -451,8 +444,8 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
 
   //#region Hashes/Keys
 
-  get keys(): FirstableQuery<HashKey, ResultType.Set, TEntry> {
-    return this._keys ??= FirstableQueryConstructor(
+  get keys(): Queries.Firstable<HashKey, ResultType.Set, TEntry> {
+    return this._keys ??= Queries.FirstableQueryConstructor(
       this,
       ResultType.Set,
       {
@@ -466,8 +459,8 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
 
   //#region First Value
 
-  get first(): SpecificQuery<TEntry, ResultType.First, TEntry> {
-    return this._first ??= SpecificQueryConstructor(
+  get first(): Queries.Specific<TEntry, ResultType.First, TEntry> {
+    return this._first ??= Queries.SpecificQueryConstructor(
       this,
       ResultType.First
     );
@@ -495,14 +488,14 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
    * @param func 
    */
   forEach(
-    func: IBreakable<[entry: TEntry, tag: Tag, index: number], any>,
+    func: Loop.IBreakable<[entry: TEntry, tag: Tag, index: number], any>,
     outerLoopType: 'entry' | 'tag' | undefined = 'entry'
   ): void {
     let index: number = 0;
     if (outerLoopType === 'tag') {
       for (const tag of this._allTags) {
         for (const hash of this._hashesByTag.get(tag)!) {
-          if (func(this._entriesByHash.get(hash)!, tag, index++) instanceof Break) {
+          if (func(this._entriesByHash.get(hash)!, tag, index++) instanceof Loop.Break) {
             break;
           }
         }
@@ -510,7 +503,7 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
     } else {
       for (const hash of this._allHashes) {
         for (const tag of this._tagsByHash.get(hash)!) {
-          if (func(this._entriesByHash.get(hash)!, tag, index++) instanceof Break) {
+          if (func(this._entriesByHash.get(hash)!, tag, index++) instanceof Loop.Break) {
             break;
           }
         }
@@ -522,7 +515,7 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
    * Iterate logic on each tag in the dex.
    */
   forEachTag(
-    func: IBreakable<[tag: Tag, index: number, entries: Set<TEntry>], any>
+    func: Loop.IBreakable<[tag: Tag, index: number, entries: Set<TEntry>], any>
   ): void {
     let index: number = 0;
     for (const tag of this._allTags) {
@@ -531,7 +524,7 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
         entries.add(this._entriesByHash.get(h)!)
       )
 
-      if (func(tag, index++, entries) instanceof Break) {
+      if (func(tag, index++, entries) instanceof Loop.Break) {
         break;
       }
     }
@@ -541,7 +534,7 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
    * Iterate logic on each entry in the dex.
    */
   forEachEntry(
-    func: IBreakable<[entry: TEntry, index: number, tags: Set<Tag>], any>
+    func: Loop.IBreakable<[entry: TEntry, index: number, tags: Set<Tag>], any>
   ): void {
     let index: number = 0;
     for (const hash of this._allHashes) {
@@ -549,7 +542,7 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
         this._entriesByHash.get(hash)!,
         index++,
         this._tagsByHash.get(hash)!
-      ) instanceof Break) {
+      ) instanceof Loop.Break) {
         break;
       }
     }
@@ -568,7 +561,7 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
    * @returns A mapped array of values, or a Map<Entry, Tag[]> if no transform was provided.
    */
   toMap<TResult = undefined>(
-    transform?: IBreakable<[entry: TEntry, tag: Tag, index: number], TResult>,
+    transform?: Loop.IBreakable<[entry: TEntry, tag: Tag, index: number], TResult>,
     outerLoopType: 'entry' | 'tag' = 'entry'
   ): (TResult extends undefined ? Map<Entry, Tag[]> : TResult[]) {
     if (!transform) {
@@ -579,7 +572,7 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
     let index: number = 0;
     this.forEach((e, t, i) => {
       const result = transform(e, t, i);
-      if (result instanceof Break) {
+      if (result instanceof Loop.Break) {
         if (result.return) {
           results.push(result.return);
         }
@@ -597,7 +590,7 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
    * Map this dex's entries to an array.
    */
   toArray<TResult = TEntry>(
-    transform?: IBreakable<[entry: TEntry, index: number, tags: Set<Tag>], TResult>
+    transform?: Loop.IBreakable<[entry: TEntry, index: number, tags: Set<Tag>], TResult>
   ): TResult[] {
     if (!transform) {
       return this.entries as any as TResult[];
@@ -606,7 +599,7 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
     const results: TResult[] = [];
     this.forEachEntry((e, i, t) => {
       const result = transform(e, i, t);
-      if (result instanceof Break) {
+      if (result instanceof Loop.Break) {
         if (result.return) {
           results.push(result.return);
         }
@@ -624,7 +617,7 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
    * Splay//map this dex's tags into an array.
    */
   splay<TResult>(
-    transform?: IBreakable<[tag: Tag, index: number, entries: Set<TEntry>], TResult>
+    transform?: Loop.IBreakable<[tag: Tag, index: number, entries: Set<TEntry>], TResult>
   ): TResult[] {
     if (!transform) {
       return this.tags as any as TResult[];
@@ -633,7 +626,7 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
     const results: TResult[] = [];
     this.forEachTag((t, i, e) => {
       const result = transform(t, i, e);
-      if (result instanceof Break) {
+      if (result instanceof Loop.Break) {
         if (result.return) {
           results.push(result.return);
         }
@@ -653,8 +646,8 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
 
   //#region Utility
 
-  get any(): SpecificQuery<boolean, ResultType.First, TEntry> {
-    return this._any ??= SpecificQueryConstructor<boolean, ResultType.First, TEntry>(
+  get any(): Queries.Specific<boolean, ResultType.First, TEntry> {
+    return this._any ??= Queries.SpecificQueryConstructor<boolean, ResultType.First, TEntry>(
       this,
       ResultType.First,
       {
@@ -663,9 +656,9 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
     );
   };
 
-  get count(): SpecificQuery<number, ResultType.First, TEntry> {
+  get count(): Queries.Specific<number, ResultType.First, TEntry> {
     if (!this._count) {
-      const counter = SpecificQueryConstructor<HashKey, ResultType.Set, TEntry>(
+      const counter = Queries.SpecificQueryConstructor<HashKey, ResultType.Set, TEntry>(
         this,
         ResultType.Set,
         {
@@ -677,7 +670,7 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
       const proxy = (...args: any[]) => counter(...args).size;
       proxy.not = (...args: any[]) => counter.not(...args).size
 
-      this._count = proxy as SpecificQuery<number, ResultType.First, TEntry>;
+      this._count = proxy as Queries.Specific<number, ResultType.First, TEntry>;
     }
 
 
