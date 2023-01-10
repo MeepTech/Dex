@@ -22,7 +22,7 @@ import {
   Tags
 } from "./subsets/tags";
 import {
-  HashKey
+  HashKey, HashKeys
 } from "./subsets/hashes";
 import { CopierConstructor, Copier } from './helpers/copy';
 import Queries from "./queries/queries";
@@ -49,13 +49,12 @@ export interface Config<TEntry extends Entry = Entry> {
 export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntry> {
   // lazy
   // - queries
-  private _take?: Queries.Full<TEntry, ResultType.Array, TEntry>;
+  #take?: Queries.Full<TEntry, ResultType.Array, TEntry>;
   // - helpers
-  private _copier?: Copier<TEntry>;
+  #copier?: Copier<TEntry>;
 
   // config
-  /** @readonly */
-  private _guards : {
+  #guards: {
     entry: IGuard<TEntry>
     array: IArrayGuard<TEntry>,
     object: IObjectGuard<TEntry>,
@@ -229,7 +228,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
 
     // copy existing:
     if (values instanceof ReadableDex) {
-      this._guards = values._guards;
+      this.#guards = values.#guards;
       if (Check.isConfig<TEntry>(optionsOrMoreValues)) {
         this._initOptions(optionsOrMoreValues);
       }
@@ -362,12 +361,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       enumerable: false
     });
 
-    Object.defineProperty(this, "_guards", {
-      value: guards,
-      writable: false,
-      configurable: false,
-      enumerable: false
-    });
+    this.#guards = guards;
   }
 
   //#endregion
@@ -378,9 +372,9 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
 
   get config(): Config<TEntry> {
     return {
-      arrayGuard: this._guards.array,
-      entryGuard: this._guards.entry,
-      objectGuard: this._guards.object,
+      arrayGuard: this.#guards.array,
+      entryGuard: this.#guards.entry,
+      objectGuard: this.#guards.object,
       hasher: this._hasher
     };
   }
@@ -388,7 +382,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   //#region Loop Helpers
 
   get copy(): Copier<TEntry> {
-    return this._copier
+    return this.#copier
       ??= CopierConstructor(this);
   }
 
@@ -466,7 +460,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     // undefined means nothing gets touched
     if (entries === undefined) {
       (tags as Set<Tag>).forEach(tag => {
-        if (!this._allTags.has(tag)) {
+        if (!this.has(tag)) {
           this._addNewTag(tag);
         }
       });
@@ -475,7 +469,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       // NoEntries or [] is passed in, set to empty:
       if (!entries || (entries instanceof Set ? !entries.size : !Loop.count(entries))) {
         for (const tag of tags) {
-          if (this._allTags.has(tag)) {
+          if (this.has(tag)) {
             effectedHashes = this._setEntriesForExistingTag(tag, []).effected;
           } else {
             this._addNewTag(tag);
@@ -491,7 +485,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
         }
 
         for (const tag of tags) {
-          if (this._allTags.has(tag)) {
+          if (this.has(tag)) {
             effectedHashes = this._setEntriesForExistingTag(tag, hashesToSet).effected;
           } else {
             this._addNewTag(tag, hashesToSet);
@@ -506,18 +500,28 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   //#region Internal
 
   /** @internal */
-  protected _setEntriesForExistingTag(tag: Tag, hashesToSet: Set<HashKey> | []): { added?: HashKey[], removed?: HashKey[], effected: HashKey[] } {
+  protected _setEntriesForExistingTag(tag: Tag, hashesToSet: Set<HashKey> | [], beforeSetCallback?: (effected: { added?: HashKey[], removed?: HashKey[], effected: HashKey[] }) => void): { added?: HashKey[], removed?: HashKey[], effected: HashKey[] } {
     const currentSet = this._hashesByTag.get(tag)!;
+    let hashesToRemove: HashKey[] = [];
 
     if (Check.isArray(hashesToSet)) {
-      const hashes = [...currentSet];
-      hashes.forEach(hash =>
+      hashesToRemove = [...currentSet];
+
+      const effected = {
+        removed: hashesToRemove,
+        added: [],
+        effected: hashesToRemove
+      };
+
+      beforeSetCallback?.(effected);
+
+      hashesToRemove.forEach(hash =>
         this._tagsByHash.get(hash)?.delete(tag));
-      
       this._hashesByTag.get(tag)?.clear();
-      return { removed: hashes, effected: hashes };
+
+      return effected;
     } else {
-      const hashesToRemove: HashKey[] = [];
+      hashesToRemove = [];
       currentSet.forEach(hash => {
         if (!hashesToSet.has(hash)) {
           hashesToRemove.push(hash);
@@ -527,13 +531,17 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
 
       const addedHashes = [...hashesToSet].filter(h => !currentSet.has(h));
 
-      this._hashesByTag.set(tag, hashesToSet);
-      
-      return {
+      const effected = {
         removed: hashesToRemove,
         added: addedHashes,
         effected: hashesToRemove.concat(addedHashes)
       };
+
+      beforeSetCallback?.(effected);
+
+      this._hashesByTag.set(tag, hashesToSet);
+
+      return effected;
     }
   }
 
@@ -658,32 +666,27 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     // if we're only provided an entry argument, then it's just for a tagless entry:
     if (!tags || !(tags as Set<Tag>).size) {
       // add the new empty entry:
-      this._addEntry(<TEntry>entry, hash);
+      if (!this.contains(hash)) {
+        this._addNewEntry(<TEntry>entry, hash);
+      }
 
       return hash;
     } // if we have tags howerver~
     else {
       // set the entries by tag.
-      (tags as Set<Tag>).forEach(t => {
-        this._allTags.add(t);
-        if (this._hashesByTag.has(t)) {
-          this._hashesByTag.get(t)!.add(hash);
-        } else {
-          this._hashesByTag.set(t, new Set<HashKey>([hash]));
+      (tags as Set<Tag>).forEach(tag => {
+        // set the tag
+        if (!this.has(tag)) {
+          this._addNewTag(tag);
         }
 
-        if (this._tagsByHash.has(hash)) {
-          this._tagsByHash.get(hash)!.add(t);
-        } else {
-          this._tagsByHash.set(hash, new Set<Tag>([t]));
+        // set the hash key
+        if (!this.contains(hash)) {
+          this._addNewEntry(<TEntry>entry, hash);
         }
+
+        this._addTagToEntry(tag, hash);
       });
-
-      // set the hash key
-      if (!this._allHashes.has(hash)) {
-        this._allHashes.add(hash);
-        this._entriesByHash.set(hash, entry as TEntry);
-      }
 
       return hash;
     }
@@ -691,18 +694,19 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
 
   //#region Internal
 
-  private _addEntry(entry: TEntry, key?: HashKey) {
-    const hash: HashKey = key ?? this.hash(entry);
-
-    // add the new empty entry:
-    if (!this._allHashes.has(hash)) {
-      this._allHashes.add(hash);
-      this._entriesByHash.set(hash, entry);
-      if (!this._tagsByHash.get(hash)) {
-        this._tagsByHash.set(hash, new Set<HashKey>());
-      }
-    }
+  /** @internal */
+  protected _addNewEntry(entry: TEntry, key: HashKey) {
+    this._allHashes.add(key);
+    this._entriesByHash.set(key, entry);
+    this._tagsByHash.set(key, new Set<HashKey>());
   }
+
+  /** @internal */
+  protected _addTagToEntry(tag: Tag, key: HashKey) {
+    this._tagsByHash.get(key)?.add(tag);
+    this._hashesByTag.get(tag)?.add(key);
+  }
+
 
   //#endregion
 
@@ -851,7 +855,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    * Remove entries matching a query from the current dex while returning the results as well.
    */
   get take(): Queries.Full<TEntry, ResultType.Array, TEntry> {
-    if (!this._take) {
+    if (!this.#take) {
       const toRemove = Queries.FullQueryConstructor<TEntry, ResultType.Array, TEntry>(
         this,
         ResultType.Array
@@ -881,10 +885,10 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
         return result;
       }
 
-      this._take = proxy as Queries.Full<TEntry, ResultType.Array, TEntry>;
+      this.#take = proxy as Queries.Full<TEntry, ResultType.Array, TEntry>;
     }
 
-    return this._take;
+    return this.#take;
   }
 
   /**
@@ -1027,7 +1031,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    * Used to remove entries from the dex.
    */
   remove(
-    targets: Iterable<TEntry> | Iterable<HashKey> | HashKey | TEntry,
+    targets: Iterable<TEntry | HashKey> | HashKey | TEntry,
     optionsOrTags?: TagOrTags | {
       leaveUntaggedEntries?: boolean,
       cleanEmptyTags?: boolean
@@ -1053,16 +1057,16 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       if (Check.isNonStringIterable(targets)) {
         for (const entryOrKey of targets) {
           const hash = this.hash(entryOrKey);
-          this.untagEntry(hash, tags);
+          this._untagEntry(hash, tags);
           if (!this._tagsByHash.get(hash)?.size) {
-            this._removeTaglessEntry(hash);
+            this._removeEntry(hash);
           }
         }
       } else {
         const hash = this.hash(targets);
-        this.untagEntry(hash, tags);
+        this._untagEntry(hash, tags);
         if (!this._tagsByHash.get(hash)?.size) {
-          this._removeTaglessEntry(hash);
+          this._removeEntry(hash);
         }
       }
     } else {
@@ -1074,14 +1078,14 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
             tagsToCheck = this._tagsByHash.get(hash);
           }
 
-          this.untagEntry(hash, tags);
+          this._untagEntry(hash, tags);
           if (!(config as any)?.leaveUntaggedEntries && !this._tagsByHash.get(hash)?.size) {
-            this._removeTaglessEntry(hash);
+            this._removeEntry(hash);
           }
           if (tagsToCheck) {
             for (const tag of tagsToCheck) {
               if (!this._hashesByTag.get(tag)?.size) {
-                this._removeEmptyTag(tag);
+                this._removeTag(tag);
               }
             }
           }
@@ -1093,14 +1097,14 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
           tagsToCheck = this._tagsByHash.get(hash);
         }
 
-        this.untagEntry(hash, tags);
+        this._untagEntry(hash, tags);
         if (!(config as any)?.leaveUntaggedEntries && !this._tagsByHash.get(hash)?.size) {
-          this._removeTaglessEntry(hash);
+          this._removeEntry(hash);
         }
         if (tagsToCheck) {
           for (const tag of tagsToCheck) {
             if (!this._hashesByTag.get(tag)?.size) {
-              this._removeEmptyTag(tag);
+              this._removeTag(tag);
             }
           }
         }
@@ -1111,7 +1115,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   //#region Internal
 
   /** @internal */
-  private _removeTaglessEntry(key: HashKey) {
+  protected _removeEntry(key: HashKey) {
     this._entriesByHash.delete(key);
     this._allHashes.delete(key);
   }
@@ -1123,29 +1127,72 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   //#region Remove Tags
 
   /**
-   * Remove all tags from one entry
+   * Remove all tags from the provided entry
    */
-  untagEntry(entry: TEntry | HashKey): void;
+  untag(entry: TEntry | HashKey): void
+
+  /**
+   * Remove all tags from the provided entries
+   */
+  untag(entries: Iterable<TEntry | HashKey>): void
+
+  /**
+   * Remove the given tags from the provided entry
+   */
+  untag(entry: TEntry | HashKey, tagToRemove?: Tag): void
+
+  /**
+   * Remove the given tags from the provided entries
+   */
+  untag(entries: Iterable<TEntry | HashKey>, tagToRemove?: Tag): void
+
+  /**
+   * Remove the given tags from the provided entry
+   */
+  untag(entry: TEntry | HashKey, tagsToRemove?: TagOrTags): void
+
+  /**
+   * Remove the given tags from the provided entries
+   */
+  untag(entries: Iterable<TEntry | HashKey>, tagsToRemove?: TagOrTags): void
+
+  /**
+   * Remove the given tags from the provided entry
+   */
+  untag(entry: TEntry | HashKey, ...tagsToRemove: Tag[]): void
+
+  /**
+   * Remove the given tags from the provided entry
+   */
+  untag(entries: Iterable<TEntry | HashKey>, ...tagsToRemove: Tag[]): void
+
+  /**
+   * Remove the given tags from the provided entries
+   */
+  untag(entries: Iterable<TEntry | HashKey>, ...tagsToRemove: Tag[]): void
+
+  /**
+   * Remove the given tags or all tags from the provided entry
+   */
+  untag(
+    entries: Iterable<TEntry | HashKey> | TEntry | HashKey,
+    tags?: TagOrTags
+  ): void {
+    if (Check.isNonStringIterable(entries)) {
+      for (const entry of entries) {
+        this._untagEntry(this.hash(entry), tags as Tags);
+      }
+    } else {
+      this._untagEntry(this.hash(entries), tags as Tag | undefined);
+    }
+  }
+
+  //#region Internal
 
   /**
    * Remove all the provided tags from one entry
    */
-  untagEntry(entry: TEntry | HashKey, tagToRemove?: Tag): void;
-
-  /**
-   * Remove all the provided tags from one entry
-   */
-  untagEntry(entry: TEntry | HashKey, tagsToRemove?: Tags): void;
-
-  /**
-   * Remove all the provided tags from one entry
-   */
-  untagEntry(entry: TEntry | HashKey, ...tagsToRemove: Tag[]): void;
-
-  /**
-   * Remove all the provided tags from one entry
-   */
-  untagEntry(entry: TEntry | HashKey, tagsToRemove?: TagOrTags): void {
+  protected _untagEntry(entry: HashKey, tagsToRemove?: TagOrTags): void {
     const hash = this.hash(entry);
     const currentTagsForEntry = this._tagsByHash.get(hash);
     if (!tagsToRemove) {
@@ -1170,85 +1217,15 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     }
   }
 
-  /**
-   * Remove all tags from one entry
-   */
-  untagEntries(entries: Iterable<TEntry> | Iterable<HashKey>): void;
-
-  /**
-   * Remove all the provided tags from one entry
-   */
-  untagEntries(entries: Iterable<TEntry> | Iterable<HashKey>, tagToRemove?: Tag): void;
-
-  /**
-   * Remove all the provided tags from one entry
-   */
-  untagEntries(entries: Iterable<TEntry> | Iterable<HashKey>, tagsToRemove?: Tags): void;
-
-  /**
-   * Remove all the provided tags from one entry
-   */
-  untagEntries(entries: Iterable<TEntry> | Iterable<HashKey>, ...tagsToRemove: Tag[]): void;
-
-  /**
-   * Remove all the provided tags from one entry
-   */
-  untagEntries(entries: Iterable<TEntry> | Iterable<HashKey>, tagsToRemove?: TagOrTags): void {
-    for (const entry of entries) {
-      this.untagEntry(entry, tagsToRemove as any);
-    }
+  /** @internal */
+  protected _removeTagFromEntry(tag: Tag, key: HashKey) {
+    this._tagsByHash.get(key)?.delete(tag);
+    this._hashesByTag.get(tag)?.delete(key);
   }
 
-  /**
-   * Remove all tags from the provided entry
-   */
-  untag(entry: TEntry | HashKey): void
+  //#endregion
 
-  /**
-   * Remove all tags from the provided entries
-   */
-  untag(entries: Iterable<TEntry> | Iterable<HashKey>): void
-
-  /**
-   * Remove the given tags from the provided entry
-   */
-  untag(entry: TEntry | HashKey, tagToRemove?: Tag): void
-
-  /**
-   * Remove the given tags from the provided entries
-   */
-  untag(entries: Iterable<TEntry> | Iterable<HashKey>, tagToRemove?: Tag): void
-
-  /**
-   * Remove the given tags from the provided entry
-   */
-  untag(entry: TEntry | HashKey, tagsToRemove?: TagOrTags): void
-
-  /**
-   * Remove the given tags from the provided entries
-   */
-  untag(entries: Iterable<TEntry> | Iterable<HashKey>, tagsToRemove?: TagOrTags): void
-
-  /**
-   * Remove the given tags from the provided entry
-   */
-  untag(entry: TEntry | HashKey, ...tagsToRemove: Tag[]): void
-
-  /**
-   * Remove the given tags from the provided entries
-   */
-  untag(entries: Iterable<TEntry> | Iterable<HashKey>, ...tagsToRemove: Tag[]): void
-
-  untag(
-    entries: Iterable<TEntry> | Iterable<HashKey> | TEntry | HashKey,
-    tags?: TagOrTags
-  ): void {
-    if (Check.isNonStringIterable(entries)) {
-      this.untagEntries(entries as Iterable<TEntry> | Iterable<HashKey>, tags as Tags);
-    } else {
-      this.untagEntry(entries, tags as Tag | undefined);
-    }
-  }
+  //#region Drop Tags
 
   /**
    * Used to remove a whole tag from the dex
@@ -1273,13 +1250,13 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
         for (const tag of tags) {
           this.resetTag(tag);
           if (!options?.leaveEmptyTags) {
-            this._removeEmptyTag(tag);
+            this._removeTag(tag);
           }
         }
       } else {
         this.resetTag(tags);
         if (!options?.leaveEmptyTags) {
-          this._removeEmptyTag(tags);
+          this._removeTag(tags);
         }
       }
     } else {
@@ -1288,12 +1265,12 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
           const hashesForTag = this._hashesByTag.get(tag);
           this.resetTag(tag);
           if (!options?.leaveEmptyTags) {
-            this._removeEmptyTag(tag);
+            this._removeTag(tag);
           }
 
           for (const hash of hashesForTag ?? []) {
             if (!this._tagsByHash.get(hash)?.size) {
-              this._removeTaglessEntry(hash);
+              this._removeEntry(hash);
             }
           }
         }
@@ -1301,16 +1278,30 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
         const hashesForTag = this._hashesByTag.get(tags);
         this.resetTag(tags);
         if (!options?.leaveEmptyTags) {
-          this._removeEmptyTag(tags);
+          this._removeTag(tags);
         }
         for (const hash of hashesForTag ?? []) {
           if (!this._tagsByHash.get(hash)?.size) {
-            this._removeTaglessEntry(hash);
+            this._removeEntry(hash);
           }
         }
       }
     }
   }
+
+  //#region Internal
+
+  /** @internal */
+  protected _removeTag(tag: Tag) {
+    this._hashesByTag.delete(tag);
+    this._allTags.delete(tag);
+  }
+
+  //#endregion
+
+  //#endregion
+
+  //#region Reset Tags
 
   /**
    * Clear all entries from a given tag without removing anything by default.
@@ -1348,27 +1339,17 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     for (const tag of tagsToReset) {
       for (const hash of this._hashesByTag.get(tag) ?? []) {
         const tagsForHash = this._tagsByHash.get(hash);
-        tagsForHash!.delete(tag);
+        this._removeTagFromEntry(tag, hash);
         if (!tagsForHash!.size && options?.cleanUntaggedEntries) {
-          this._removeTaglessEntry(hash);
+          this._removeEntry(hash);
         }
       }
 
       if (options?.cleanEmptyTags) {
-        this._removeEmptyTag(tag);
+        this._removeTag(tag);
       }
     }
   }
-
-  //#region Internal
-
-  /** @internal */
-  private _removeEmptyTag(tag: Tag) {
-    this._hashesByTag.delete(tag);
-    this._allTags.delete(tag);
-  }
-
-  //#endregion
 
   //#endregion
 
@@ -1394,7 +1375,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     if (options.taglessEntries) {
       for (const [k, t] of this._tagsByHash) {
         if (!t.size) {
-          this._removeTaglessEntry(k);
+          this._removeEntry(k);
         }
       }
     }
@@ -1402,7 +1383,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     if (options.emptyTags) {
       for (const [t, k] of this._hashesByTag) {
         if (!k.size) {
-          this._removeEmptyTag(t);
+          this._removeTag(t);
         }
       }
     }
@@ -1433,7 +1414,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    * Check if an item is a valid entry for this dex.
    */
   canContain(value: Entry): value is TEntry {
-    return this._guards.entry(value);
+    return this.#guards.entry(value);
   }
 
   /**

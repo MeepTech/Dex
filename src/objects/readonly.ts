@@ -232,23 +232,23 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
 
   // lazy
   // - queries
-  private _query?: Queries.Full<TEntry, ResultType, TEntry>;
-  private _filter?: Queries.Specific<TEntry, ResultType.Dex, TEntry>;
-  private _values?: Queries.Firstable<TEntry, ResultType.Array, TEntry>;
-  private _keys?: Queries.Firstable<HashKey, ResultType.Set, TEntry>;
-  private _first?: Queries.Specific<TEntry, ResultType.First, TEntry>;
-  private _any?: Queries.Specific<boolean, ResultType.First, TEntry>;
-  private _count?: Queries.Specific<number, ResultType.First, TEntry>;
+  #query?: Queries.Full<TEntry, ResultType, TEntry>;
+  #filter?: Queries.Specific<TEntry, ResultType.Dex, TEntry>;
+  #values?: Queries.Firstable<TEntry, ResultType.Array, TEntry>;
+  #keys?: Queries.Firstable<HashKey, ResultType.Set, TEntry>;
+  #first?: Queries.Specific<TEntry, ResultType.First, TEntry>;
+  #any?: Queries.Specific<boolean, ResultType.First, TEntry>;
+  #count?: Queries.Specific<number, ResultType.First, TEntry>;
 
   // - subsets
-  private _hashSet?: HashSet<TEntry>;
-  private _tagSet?: TagSet<TEntry>;
-  private _entrySet?: EntrySet<TEntry>;
+  #hashSet?: HashSet<TEntry>;
+  #tagSet?: TagSet<TEntry>;
+  #entrySet?: EntrySet<TEntry>;
 
   // - helpers
-  private _forLooper?: Looper<TEntry>;
-  private _mapLooper?: Mapper<TEntry>;
-  private _partialCopier?: (() => Dex<TEntry>) & { sealed(): SealedDex<TEntry> };
+  #forLooper?: Looper<TEntry>;
+  #mapLooper?: Mapper<TEntry>;
+  #partialCopier?: (() => Dex<TEntry>) & { sealed(): SealedDex<TEntry> };
 
   //#region Initialization
 
@@ -330,17 +330,17 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
   //#region Sub Sets
 
   get entries(): EntrySet<TEntry> {
-    return this._entrySet
+    return this.#entrySet
       ??= EntryMapConstructor<TEntry>(this, this._entriesByHash);
   }
 
   get tags(): TagSet<TEntry> {
-    return this._tagSet
+    return this.#tagSet
       ??= TagSetConstructor<TEntry>(this, this._allTags);
   }
 
   get hashes(): HashSet<TEntry> {
-    return this._hashSet
+    return this.#hashSet
       ??= HashSetConstructor<TEntry>(this, this._allHashes);
   }
 
@@ -349,24 +349,24 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
   //#region Loop Helpers
 
   get for(): Looper<TEntry> {
-    return this._forLooper
+    return this.#forLooper
       ??= LooperConstructor(this);
   }
 
   get map(): Mapper<TEntry> {
-    return this._mapLooper
+    return this.#mapLooper
       ??= MapperConstructor(this);
   };
 
   get copy(): (() => Dex<TEntry>) & { sealed(): SealedDex<TEntry> } {
-    if (!this._partialCopier) {
+    if (!this.#partialCopier) {
       const copy = (() => new ReadableDex(this)) as (() => Dex<TEntry>) & { sealed(): SealedDex<TEntry> };
       copy.sealed = () => new SealedDex(this);
 
-      this._partialCopier = copy;
+      this.#partialCopier = copy;
     }
 
-    return this._partialCopier;
+    return this.#partialCopier;
   }
 
   //#endregion
@@ -409,7 +409,7 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
   //#region Generic
 
   get query(): Queries.Full<TEntry, ResultType, TEntry> {
-    return this._query ??= Queries.FullQueryConstructor(
+    return this.#query ??= Queries.FullQueryConstructor(
       this,
       ResultType.Array,
     );
@@ -420,7 +420,7 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
   //#region Chained
 
   get filter(): Queries.Specific<TEntry, ResultType.Dex, TEntry> {
-    return this._filter ??= Queries.SpecificQueryConstructor(
+    return this.#filter ??= Queries.SpecificQueryConstructor(
       this,
       ResultType.Dex
     );
@@ -431,7 +431,7 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
   //#region Values
 
   get values(): Queries.Firstable<TEntry, ResultType.Array, TEntry> {
-    return this._values ??= Queries.FirstableQueryConstructor(
+    return this.#values ??= Queries.FirstableQueryConstructor(
       this,
       ResultType.Array,
       {
@@ -445,7 +445,7 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
   //#region Hashes/Keys
 
   get keys(): Queries.Firstable<HashKey, ResultType.Set, TEntry> {
-    return this._keys ??= Queries.FirstableQueryConstructor(
+    return this.#keys ??= Queries.FirstableQueryConstructor(
       this,
       ResultType.Set,
       {
@@ -460,7 +460,7 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
   //#region First Value
 
   get first(): Queries.Specific<TEntry, ResultType.First, TEntry> {
-    return this._first ??= Queries.SpecificQueryConstructor(
+    return this.#first ??= Queries.SpecificQueryConstructor(
       this,
       ResultType.First
     );
@@ -647,7 +647,7 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
   //#region Utility
 
   get any(): Queries.Specific<boolean, ResultType.First, TEntry> {
-    return this._any ??= Queries.SpecificQueryConstructor<boolean, ResultType.First, TEntry>(
+    return this.#any ??= Queries.SpecificQueryConstructor<boolean, ResultType.First, TEntry>(
       this,
       ResultType.First,
       {
@@ -657,7 +657,7 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
   };
 
   get count(): Queries.Specific<number, ResultType.First, TEntry> {
-    if (!this._count) {
+    if (!this.#count) {
       const counter = Queries.SpecificQueryConstructor<HashKey, ResultType.Set, TEntry>(
         this,
         ResultType.Set,
@@ -670,11 +670,11 @@ export class ReadableDex<TEntry extends Entry> implements IReadonlyDex<TEntry> {
       const proxy = (...args: any[]) => counter(...args).size;
       proxy.not = (...args: any[]) => counter.not(...args).size
 
-      this._count = proxy as Queries.Specific<number, ResultType.First, TEntry>;
+      this.#count = proxy as Queries.Specific<number, ResultType.First, TEntry>;
     }
 
 
-    return this._count;
+    return this.#count;
   };
 
   //#endregion
