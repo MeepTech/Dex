@@ -1,58 +1,74 @@
 import { expect } from '@jest/globals';
-import Dex from '../../../src/objects/dex';
+import Dex from '../../../src/objects/dexes/dex';
+import { IReadOnlyDex } from '../../../src/objects/dexes/readonly';
 import Queries from '../../../src/objects/queries/queries';
 import { ResultType } from '../../../src/objects/queries/results';
 import { Entry } from '../../../src/objects/subsets/entries';
 import { Tag } from '../../../src/objects/subsets/tags';
 
-/**
- * A test case for Find.
- */
-export type QueryTestCase = {
+export function buildSimpleMockDex() {
+  // entries
+  const entry = { key: 1 };
+  const entry2 = { key: 2 };
+  const entry3 = { key: 3 };
+  const entry4 = { key: 4 };
+  const entry5 = { key: 5 };
+
+  // tags
+  /**
+   * entry
+   */
+  const tag = "tag";
 
   /**
-   * The names of the types of the params.
+   * entry, entry2
    */
-  params: string[],
+  const tag2 = "tag2";
 
   /**
-   * The args to pass in
+   * entry2, entry3, entry4
    */
-  args: [...any],
+  const tag3 = "tag3";
 
   /**
-   * The expected entries returned
+   * entry4
    */
-  expected: ({ key: number } | undefined)[],
+  const tag4 = "tag4";
 
   /**
-   * The text to print for what the test should return.
+   * empty tag
    */
-  results: string,
+  const tag5 = "tag5";
 
   /**
-   * Any extra context for this test
+   * tag not added to dex
    */
-  extraContext?: any[],
+  const tag6 = "tag6";
 
   /**
-   * If this test returns a dex instead of an array of items.
+   * entry2, entry3
    */
-  instanceof?: Dex | {},
+  const tag7 = "tag7";
 
-  /**
-   * Make sure it throws a given error.
-   */
-  throws?: Error;
+  // dex
+  const dex = new Dex<{ key: number }>();
+  const hash = dex.add(entry, tag, tag2);
+  const hash2 = dex.add(entry2, tag2, tag3, tag7);
+  const hash3 = dex.add(entry3, tag3, tag7);
+  const hash4 = dex.add(entry4, tag3, tag4);
+  const hash5 = dex.add(entry5, []);
+  dex.set(tag5);
 
-  /**
-   * if true, the debugger will trip at the start of this test.
-   */
-  debug?: boolean 
+  return {
+    dex,
+    tags: [tag, tag2, tag3, tag4, tag5, tag6, tag7],
+    entries: [entry, entry2, entry3, entry4, entry5],
+    hashes: [hash, hash2, hash3, hash4, hash5]
+  }
 }
 
 export const expectDex_countsToEqual = (
-  dex: Dex<any>,
+  dex: IReadOnlyDex<any>,
   entries: number,
   tags: number
 ) => {
@@ -67,8 +83,21 @@ export const expectDex_countsToEqual = (
   expect(dex.tags.length).toStrictEqual(tags);
 }
 
+export const expectDex_toContainTheSameAsDex = (
+  original: IReadOnlyDex<any>,
+  newDex: IReadOnlyDex<any>
+) => {
+  expectDex_countsToEqual(
+    newDex,
+    original.numberOfEntries,
+    original.numberOfTags
+  );
+  original.entries.forEach(e => 
+    expectDex_entryToHaveTags(newDex, e, original.tags(e)))
+}
+
 export const expectDex_tagIsEmpty = (
-  dex: Dex<any>,
+  dex: IReadOnlyDex<any>,
   tag: Tag
 ) => {
   expect(dex.tags.has(tag)).toBeTruthy();
@@ -77,7 +106,7 @@ export const expectDex_tagIsEmpty = (
 }
 
 export const expectDex_entryHasNoTags = (
-  dex: Dex<any>,
+  dex: IReadOnlyDex<any>,
   entry: Entry
 ) => {
   const hash = dex.hash(entry)!;
@@ -88,29 +117,30 @@ export const expectDex_entryHasNoTags = (
 }
 
 export const expectDex_entryToHaveTags = (
-  dex: Dex<any>,
+  dex: IReadOnlyDex<any>,
   entry: any,
-  tags: Tag[]
+  tags: Tag[] | Set<Tag>
 ) => {
   const tagsForEntry = dex.tags.of(entry)!;
 
-  expect(tagsForEntry.size).toStrictEqual(tags.length);
+  expect(tagsForEntry.size).toStrictEqual([...tags].length);
   tags.forEach(tag =>
     expect(tagsForEntry).toContain(tag));
 }
 
 export const expectDex_tagsToHaveEntries = (
-  dex: Dex<any>,
+  dex: IReadOnlyDex<any>,
   tag: Tag,
-  entries: Entry[]
+  entries: Entry[] | Set<Tag>
 ) => {
   const hashesForTag = dex.keys(tag);
+  entries = [...entries];
   expect(hashesForTag.size).toStrictEqual(entries.length);
   entries.map(dex.hash.bind(dex)).forEach(hash =>
     expect(hashesForTag).toContain(hash));
 }
 
-export function failFromType(type: ObjectConstructor | any, result: any) {
+export function fail_fromType(type: ObjectConstructor | any, result: any) {
   fail(`Type of result: ${typeof (result?.constructor ?? result)} is not equal to expected: ${type}.`)
 }
 

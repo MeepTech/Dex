@@ -1,8 +1,9 @@
 {
   "files": [
-    "./src/lib.ts"
+    "./src/lib.ts",
   ],
   "compilerOptions": {
+    "experimentalDecorators": true,
       "paths": {
         "tslib" : ["./node_modules/tslib/tslib.d.ts"]
     },

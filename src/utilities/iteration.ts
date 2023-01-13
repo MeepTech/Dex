@@ -1,4 +1,4 @@
-import Dex from "../objects/dex";
+import Dex, {InternalDexSymbols} from "../objects/dexes/dex";
 import Check from "./validators";
 
 namespace Loop {
@@ -129,42 +129,17 @@ namespace Loop {
   /**
    * A method that can signal it's outer loop should be be broken
    */
-  export interface IBreakable<TArgs extends any[], TResult = void> {
-    (...args: TArgs): TResult | Break<TResult> | Break;
+  export interface IBreakable<TArgs extends any[], TResult = void, TBreakResultOverride = TResult> {
+    (...args: TArgs): TResult | Break<TBreakResultOverride> | Break;
   }
 
-  export function loop<TResult = void>(
-    toLoop: IBreakable<any[], TResult>,
+  export function loop<TResult = void, TRestOfArgs extends any[] = [], TBreakResultOverride = TResult>(
+    toLoop: IBreakable<[number, ...TRestOfArgs], TResult, TBreakResultOverride>,
     over: number,
     options?: {
-      /**
-       * The index to insert the numeric index at.
-       * If undefined it's added first
-       */
-      indexIndex?: number,
       args?: any[][],
-      onBreak?: (...args: any[]) => void,
-      onResult?: (result: TResult) => void
-    }
-  ): void;
-
-  export function loop<TArgs extends any[], TResult = void>(
-    toLoop: IBreakable<TArgs, TResult>,
-    over: TArgs[],
-    options?: {
-      /**
-       * The index to insert the numeric index at.
-       * If undefined it's added after all provided args.
-       */
-      indexIndex?: number,
-      /**
-       * The index to insert the current value index at.
-       * If undefined it's provided first.
-       */
-      overIndex?: number,
-      args?: TArgs[],
-      onBreak?: (...args: TArgs) => void
-      onResult?: (result: TResult) => void
+      onBreak?: (result: Break<TBreakResultOverride> | Break, ...args: [number, ...TRestOfArgs]) => void,
+      onResult?: (result: TResult, loopHasBroken: boolean) => void
     }
   ): void;
 
@@ -175,31 +150,57 @@ namespace Loop {
    * @param over The number of loops or entries to itterate over per loop
    * @param options Options.
    */
-  export function loop<TArgs extends any[] = any[], TResult = void, TEntry = undefined>(
-    toLoop: IBreakable<TArgs, TResult>,
-    over: number | Iterable<TEntry>,
+  
+  export function loop<TEntry, TResult = void, TBreakResultOverride = TResult>(
+    toLoop: IBreakable<[TEntry, ...any[]], TResult, TBreakResultOverride>,
+    over: Iterable<TEntry>,
     options?: {
-      /**
-       * The index to insert the numeric index at.
-       * If undefined it's added after all provided args.
-       */
-      indexIndex?: number,
-      /**
-       * The index to insert the current value index at.
-       * If undefined it's provided first.
-       */
-      overIndex?: number,
+      args?: any[],
+      onBreak?: (result: Break<TBreakResultOverride> | Break, ...args: [TEntry, ...any[]]) => void;
+      onResult?: (result: TResult, loopHasBroken: boolean) => void
+    }
+  ): void;
+
+  /**
+   * Used to help loop over breakables easily.
+   * 
+   * @param toLoop The breakable to loop
+   * @param over The number of loops or entries to itterate over per loop
+   * @param options Options.
+   */
+  
+  export function loop<TEntry, TResult = void, TArgs extends [TEntry, ...any] = [TEntry, ...any], TBreakResultOverride = TResult>(
+    toLoop: IBreakable<TArgs, TResult, TBreakResultOverride>,
+    over: Iterable<TEntry> | number,
+    options?: {
       args?: Partial<TArgs>[],
-      onBreak?: (args: TArgs) => void
-      onResult?: (result: TResult) => void
+      onBreak?: (result: Break<TBreakResultOverride> | Break, ...args: TArgs) => void
+      onResult?: (result: TResult, loopHasBroken: boolean) => void
+    }
+  ): void
+
+  /**
+   * Used to help loop over breakables easily.
+   * 
+   * @param toLoop The breakable to loop
+   * @param over The number of loops or entries to itterate over per loop
+   * @param options Options.
+   */
+  
+  export function loop<TEntry, TResult = void, TArgs extends any[] = [TEntry, number, ...any], TBreakResultOverride = TResult>(
+    toLoop: IBreakable<TArgs, TResult, TBreakResultOverride>,
+    over: Iterable<TEntry> | number,
+    options?: {
+      args?: Partial<TArgs>[],
+      onBreak?: (result: Break<TBreakResultOverride> | Break, ...args: TArgs) => void
+      onResult?: (result: TResult, loopHasBroken: boolean) => void
     }
   ): void {
     if (!options) {
       if (Check.isArray(over)) {
         let index = 0;
         for (const each of over) {
-          /** @ts-expect-error: spread issue*/
-          toLoop(each, index++);
+          toLoop(...[each, index++] as TArgs);
         }
       } // over an index.
       else {
@@ -217,30 +218,18 @@ namespace Loop {
 
       // entry
       if (overIsArray) {
-        if (options.overIndex) {
-          overIndex = options.overIndex;
-        }
-
         const iter = over[Symbol.iterator]();
         args[overIndex] = () => iter.next().value as TEntry;
-      }
-
-      if (options.indexIndex) {
-        indexIndex = options.indexIndex;
       }
 
       // index
       args[indexIndex] = (i) => i;
 
       // args
-      let indexOffset = 0;
+      let indexOffset = indexIndex;
       if (options.args) {
-        for (const [index, _] of options.args.entries()) {
-          if (index === overIndex || index === indexIndex) {
-            indexOffset++;
-          }
-
-          args[index + indexOffset] = (i) => options.args![i][index];
+        for (const e of options.args.entries()) {
+          args[++indexOffset] = () => e;
         }
       }
     
@@ -248,16 +237,15 @@ namespace Loop {
       const count = overIsArray ? over.length : over;
       for (let index = 0; index < count; index++) {
         const params = args.map(get => get(index));
-        /** @ts-expect-error: spread issue*/
-        const result = toLoop(...params);
+        const result = toLoop(...params as TArgs);
         if (result instanceof Break) {
           if (result.hasReturn) {
-            options.onResult?.(result.return as TResult);
+            options.onResult?.(result.return as TResult, true);
           } else {
-            options.onBreak?.(params as any);
+            options.onBreak?.(result, ...params as TArgs);
           }
         } else {
-          options.onResult?.(result as TResult);
+          options.onResult?.(result as TResult, false);
         }
       }
     }

@@ -1,7 +1,11 @@
 import Loop from "../../utilities/iteration";
 import Check from "../../utilities/validators";
-import Dex from "../dex";
-import { IReadonlyDex, SealedDex } from "../readonly";
+import Dex from "../dexes/dex";
+import {
+  ArchiDex,
+  InternalRDexSymbols,
+  IReadOnlyDex,
+  ReadOnlyDex} from "../dexes/readonly";
 import { Entry } from "../subsets/entries";
 import { HashKey } from "../subsets/hashes";
 import { Tag, Tags } from "../subsets/tags";
@@ -9,9 +13,7 @@ import { Tag, Tags } from "../subsets/tags";
 /**
  * Used to copy a dex.
  */
-export interface Copier<TEntry extends Entry> {
-  (): Dex<TEntry>;
-
+export interface Copier<TEntry extends Entry> extends ReadOnlyCopier<TEntry> {
   /**
    * Copy values from another dex into the current one.
    * 
@@ -21,7 +23,7 @@ export interface Copier<TEntry extends Entry> {
    *     - tags and entry hash keys can be seperated into an object with two lists as well.
    */
   from(
-    source: IReadonlyDex<TEntry>,
+    source: IReadOnlyDex<TEntry>,
     keys?: HashKey[] | Set<HashKey> | HashKey | {
       entry?: HashKey | TEntry,
       entries?: (TEntry | HashKey)[] | Set<HashKey | TEntry>,
@@ -29,17 +31,41 @@ export interface Copier<TEntry extends Entry> {
       tag?: Tag
     }
   ): void;
-
-  sealed(): SealedDex<TEntry>;
 }
 
+export type ReadOnlyCopier<TEntry extends Entry>
+  = (() => Dex<TEntry>)
+    & {
+      sealed(): ArchiDex<TEntry>;
+    };
+
 //#region Internal
+
+/** @internal */
+export function ReadOnlyCopierConstructor<TEntry extends Entry>(toCopy: IReadOnlyDex<TEntry>): ReadOnlyCopier<TEntry> {
+  const copier = (() => new Dex<TEntry>(toCopy)) as (() => Dex<TEntry>) & { sealed(): ArchiDex<TEntry> };
+  Object.defineProperty(copier, "sealed", {
+    value() { return new ArchiDex(toCopy) },
+    enumerable: false,
+    writable: false,
+    configurable: false
+  });
+
+  return copier as ReadOnlyCopier<TEntry>;
+}
 
 /** @internal */
 export function CopierConstructor<TEntry extends Entry>(base: Dex<TEntry>): Copier<TEntry> {
   const copyFunction = (): Dex<TEntry> => {
     return new Dex<TEntry>(base);
   }
+
+  Object.defineProperty(copyFunction, "sealed", {
+    value() { return new ArchiDex(base) },
+    enumerable: false,
+    writable: false,
+    configurable: false
+  });
 
   Object.defineProperty(copyFunction, "from", {
     value(
@@ -55,15 +81,15 @@ export function CopierConstructor<TEntry extends Entry>(base: Dex<TEntry>): Copi
         if (Check.isArray(keys) || keys instanceof Set) {
           keys.forEach((key: HashKey) => {
             base.add(
-              (source as any)._entriesByHash.get(key)!,
-              (source as any)._tagsByHash.get(key)!
+              (source as any)[InternalRDexSymbols._entriesByHash].get(key)!,
+              (source as any)[InternalRDexSymbols._tagsByHash].get(key)!
             );
           });
         } else {
           // []: Tags with no entries
           if (keys.entries && (keys.entries instanceof Set ? keys.entries.size : keys.entries.length) === 0) {
             for (const tag of source.tags) {
-              if ((source as any)._hashesByTag.get(tag).size === 0) {
+              if ((source as any)[InternalRDexSymbols._hashesByTag].get(tag).size === 0) {
                 base.set(tag);
               }
             }
@@ -72,8 +98,8 @@ export function CopierConstructor<TEntry extends Entry>(base: Dex<TEntry>): Copi
             keys.entries?.forEach((key: HashKey | TEntry) => {
               const hash = base.hash(key);
               base.add(
-                (source as any)._entriesByHash.get(hash)!,
-                (source as any)._tagsByHash.get(hash)!
+                (source as any)[InternalRDexSymbols._entriesByHash].get(hash)!,
+                (source as any)[InternalRDexSymbols._tagsByHash].get(hash)!
               );
             });
           }
@@ -83,7 +109,7 @@ export function CopierConstructor<TEntry extends Entry>(base: Dex<TEntry>): Copi
             for (const key of source.hashes) {
               if (source.tags.of(key)!.size === 0) {
                 base.add(
-                  (source as any)._entriesByHash.get(key)!,
+                  (source as any)[InternalRDexSymbols._entriesByHash].get(key)!,
                   []
                 );
               }
@@ -91,9 +117,9 @@ export function CopierConstructor<TEntry extends Entry>(base: Dex<TEntry>): Copi
           } else if (keys.tags) {
             // [...]
             Loop.forEach(keys.tags, (tag: Tag) => {
-              (source as any)._hashesByTag.get(tag)?.forEach((hash: HashKey) => {
+              (source as any)[InternalRDexSymbols._hashesByTag].get(tag)?.forEach((hash: HashKey) => {
                 base.add(
-                  (source as any)._entriesByHash.get(hash)!,
+                  (source as any)[InternalRDexSymbols._entriesByHash].get(hash)!,
                   tag
                 );
               });
@@ -101,33 +127,36 @@ export function CopierConstructor<TEntry extends Entry>(base: Dex<TEntry>): Copi
           }
         }
       } else {
-        ((source as any)._allTags as Set<Tag>).forEach(((base as any)._allTags as Set<Tag>).add);
-        ((source as any)._allHashes as Set<HashKey>).forEach(((base as any)._allHashes as Set<HashKey>).add);
-        ((source as any)._entriesByHash as Map<HashKey, TEntry>).forEach(
-          (entry, key) => ((base as any)._entriesByHash as Map<HashKey, TEntry>).set(key, entry)
+        ((source as any)[InternalRDexSymbols._allTags] as Set<Tag>).forEach(((base as any)[InternalRDexSymbols._allTags] as Set<Tag>).add);
+        ((source as any)[InternalRDexSymbols._allHashes] as Set<HashKey>).forEach(((base as any)[InternalRDexSymbols._allHashes] as Set<HashKey>).add);
+        ((source as any)[InternalRDexSymbols._entriesByHash] as Map<HashKey, TEntry>).forEach(
+          (entry, key) => ((base as any)[InternalRDexSymbols._entriesByHash] as Map<HashKey, TEntry>).set(key, entry)
         );
-        ((source as any)._hashesByTag as Map<Tag, Set<HashKey>>).forEach(
+        ((source as any)[InternalRDexSymbols._hashesByTag] as Map<Tag, Set<HashKey>>).forEach(
           (keys, tag) => {
-            if (((base as any)._hashesByTag as Map<Tag, Set<HashKey>>).has(tag)) {
-              ((base as any)._hashesByTag as Map<Tag, Set<HashKey>>).set(tag, keys);
+            if (((base as any)[InternalRDexSymbols._hashesByTag] as Map<Tag, Set<HashKey>>).has(tag)) {
+              ((base as any)[InternalRDexSymbols._hashesByTag] as Map<Tag, Set<HashKey>>).set(tag, keys);
             } else {
               keys.forEach(key => {
-                ((base as any)._hashesByTag as Map<Tag, Set<HashKey>>).get(tag)?.add(key);
+                ((base as any)[InternalRDexSymbols._hashesByTag] as Map<Tag, Set<HashKey>>).get(tag)?.add(key);
               });
             }
           });
-          ((source as any)._tagsByHash as Map<HashKey, Set<Tag>>).forEach(
+          ((source as any)[InternalRDexSymbols._tagsByHash] as Map<HashKey, Set<Tag>>).forEach(
             (tags, hash) => {
-              if (((base as any)._tagsByHash as Map<HashKey, Set<Tag>>).has(hash)) {
-                ((base as any)._tagsByHash as Map<HashKey, Set<Tag>>).set(hash, tags);
+              if (((base as any)[InternalRDexSymbols._tagsByHash] as Map<HashKey, Set<Tag>>).has(hash)) {
+                ((base as any)[InternalRDexSymbols._tagsByHash] as Map<HashKey, Set<Tag>>).set(hash, tags);
               } else {
                 tags.forEach(tag => {
-                  ((base as any)._tagsByHash as Map<HashKey, Set<Tag>>).get(hash)?.add(tag);
+                  ((base as any)[InternalRDexSymbols._tagsByHash] as Map<HashKey, Set<Tag>>).get(hash)?.add(tag);
                 });
               }
             });
       }
-    }
+    },
+    enumerable: false,
+    writable: false,
+    configurable: false
   });
 
   return copyFunction as Copier<TEntry>;

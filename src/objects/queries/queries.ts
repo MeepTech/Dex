@@ -1,7 +1,7 @@
 import Check from "../../utilities/validators";
 import { Entry } from "../subsets/entries";
 import { Tag, TagOrTags, Tags } from "../subsets/tags";
-import { IReadonlyDex } from "../readonly";
+import { InternalRDexSymbols, IReadOnlyDex } from "../dexes/readonly";
 import { HashKey } from "../subsets/hashes";
 import {
   NO_RESULT,
@@ -9,7 +9,7 @@ import {
   ResultType
 } from "./results";
 import Filters from "./filters";
-import Dex from "../dex";
+import Dex from "../dexes/dex";
 import { InvalidQueryParamError } from "../errors";
 import Loop from "../../utilities/iteration";
 
@@ -269,7 +269,7 @@ namespace Queries {
     TDefaultResult extends ResultType,
     TDexEntry extends Entry
   >(
-    dex: IReadonlyDex<TDexEntry>,
+    dex: IReadOnlyDex<TDexEntry>,
     defaultResult: TDefaultResult,
     options?: {
       transform?: ((hash: HashKey) => TValue) | false,
@@ -285,7 +285,7 @@ namespace Queries {
       TResultType extends TDefaultResult = TDefaultResult,
       TQDexEntry extends Entry = TDexEntry
     >(
-      this: IReadonlyDex<TQDexEntry>,
+      this: IReadOnlyDex<TQDexEntry>,
       ...args: any
     ): Result<TQValue, TResultType, TQDexEntry> {
       // sort params to filters
@@ -397,7 +397,7 @@ namespace Queries {
     TResult extends ResultType,
     TDexEntry extends Entry = TValue extends Entry ? TValue : Entry
   >(
-    dex: IReadonlyDex<TDexEntry>,
+    dex: IReadOnlyDex<TDexEntry>,
     resultType: TResult,
     options?: {
       transform?: ((hash: HashKey) => TValue) | false,
@@ -418,7 +418,7 @@ namespace Queries {
       // array
       case ResultType.Array: {
         query = function <TQValue extends TValue, TQDexEntry extends TDexEntry>(
-          this: IReadonlyDex<TQDexEntry>,
+          this: IReadOnlyDex<TQDexEntry>,
           ...args: any
         ): TQValue[] {
           const {
@@ -446,7 +446,7 @@ namespace Queries {
       // first
       case ResultType.First: {
         query = function <TQValue extends TValue, TQDexEntry extends TDexEntry>(
-          this: IReadonlyDex<TQDexEntry>,
+          this: IReadOnlyDex<TQDexEntry>,
           ...args: any
         ): TQValue | undefined {
           const {
@@ -466,7 +466,7 @@ namespace Queries {
       // set
       case ResultType.Set: {
         query = function <TQValue extends TValue, TQDexEntry extends TDexEntry>(
-          this: IReadonlyDex<TQDexEntry>,
+          this: IReadOnlyDex<TQDexEntry>,
           ...args: any
         ): Set<TQValue> {
           const {
@@ -494,7 +494,7 @@ namespace Queries {
       // dex
       case ResultType.Dex: {
         query = function <TQValue extends TValue, TQDexEntry extends TDexEntry>(
-          this: IReadonlyDex<TQDexEntry>,
+          this: IReadOnlyDex<TQDexEntry>,
           ...args: any
         ): Dex<TQDexEntry> {
           const {
@@ -507,7 +507,7 @@ namespace Queries {
             : _logicMultiQuery(this, filters);
 
           const results = new Dex<TQDexEntry>();
-          results.copy.from(dex as IReadonlyDex<TDexEntry> as any as IReadonlyDex<TQDexEntry>, hashes);
+          results.copy.from(dex as IReadOnlyDex<TDexEntry> as any as IReadOnlyDex<TQDexEntry>, hashes);
 
           return results;
         }.bind(dex) as Specific<TValue, ResultType.Dex, TDexEntry> as Specific<TValue, TResult, TDexEntry>;
@@ -545,7 +545,7 @@ namespace Queries {
     TResult extends Exclude<ResultType, ResultType.First>,
     TDexEntry extends Entry = TValue extends Entry ? TValue : Entry
   >(
-    dex: IReadonlyDex<TDexEntry>,
+    dex: IReadOnlyDex<TDexEntry>,
     resultType: TResult,
     options?: {
       transform?: ((hash: HashKey) => TValue) | false,
@@ -564,7 +564,7 @@ namespace Queries {
 
   /** @internal */
   export function _logicMultiQuery<TDexEntry extends Entry>(
-    dex: IReadonlyDex<TDexEntry>,
+    dex: IReadOnlyDex<TDexEntry>,
     filters: Filters.Filter<TDexEntry>[]
   ): Set<HashKey> {
     let matches: Set<HashKey> | undefined = undefined;
@@ -590,7 +590,7 @@ namespace Queries {
 
   /** @internal */
   export function _logicFirstQuery<TDexEntry extends Entry>(
-    dex: IReadonlyDex<TDexEntry>,
+    dex: IReadOnlyDex<TDexEntry>,
     filters: Filters.Filter<TDexEntry>[]
   ): HashKey | undefined {
     if (!filters.length) {
@@ -619,7 +619,7 @@ namespace Queries {
 
   /** @internal */
   function _queryAllForOr<TDexEntry extends Entry>(
-    dex: IReadonlyDex<TDexEntry>,
+    dex: IReadOnlyDex<TDexEntry>,
     filter: Filters.Or<TDexEntry>,
     subset?: Set<HashKey>
   ): Set<HashKey> {
@@ -692,7 +692,7 @@ namespace Queries {
 
   /** @internal */
   function _queryAllForAnd<TDexEntry extends Entry>(
-    dex: IReadonlyDex<TDexEntry>,
+    dex: IReadOnlyDex<TDexEntry>,
     filter: Filters.And<TDexEntry>,
     subset?: Set<HashKey>
   ): Set<HashKey> {
@@ -784,7 +784,7 @@ namespace Queries {
 
   /** @internal */
   function _queryFirstForOr<TDexEntry extends Entry>(
-    dex: IReadonlyDex<TDexEntry>,
+    dex: IReadOnlyDex<TDexEntry>,
     filter: Filters.Or<TDexEntry>,
     subset?: Set<HashKey>
   ): HashKey | undefined {
@@ -849,7 +849,7 @@ namespace Queries {
 
   /** @internal */
   function _queryFirstForAnd<TDexEntry extends Entry>(
-    dex: IReadonlyDex<TDexEntry>,
+    dex: IReadOnlyDex<TDexEntry>,
     filter: Filters.And<TDexEntry>,
     subset?: Set<HashKey>
   ): HashKey | undefined {
@@ -928,7 +928,7 @@ namespace Queries {
   }
 
   /** @internal */
-  function _orWithNotOr<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadonlyDex<TDexEntry>, args: Filters.Filter<TDexEntry>, isValidIfTrue: Filters.Matcher<TDexEntry>[], isValidIfFalse: Filters.Matcher<TDexEntry>[]): boolean | Loop.Break<boolean> | Loop.Break {
+  function _orWithNotOr<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadOnlyDex<TDexEntry>, args: Filters.Filter<TDexEntry>, isValidIfTrue: Filters.Matcher<TDexEntry>[], isValidIfFalse: Filters.Matcher<TDexEntry>[]): boolean | Loop.Break<boolean> | Loop.Break {
     let hasBroken: boolean = false;
     const result = _or(e, t, i, d, args, isValidIfTrue);
     if (result === true) {
@@ -961,7 +961,7 @@ namespace Queries {
 
   // (x | y | z)
   /** @internal */
-  function _or<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadonlyDex<TDexEntry>, args: Filters.Filter<TDexEntry>, isValidIfTrue: Filters.Matcher<TDexEntry>[]): boolean | Loop.Break<boolean> | Loop.Break {
+  function _or<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadOnlyDex<TDexEntry>, args: Filters.Filter<TDexEntry>, isValidIfTrue: Filters.Matcher<TDexEntry>[]): boolean | Loop.Break<boolean> | Loop.Break {
     let hasBroken: boolean = false;
     for (const test of isValidIfTrue) {
       const result = test(e, t, i, d, args);
@@ -986,7 +986,7 @@ namespace Queries {
 
   // !(x | y | z)
   /** @internal */
-  function _notOr<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadonlyDex<TDexEntry>, args: Filters.Filter<TDexEntry>, isValidIfFalse: Filters.Matcher<TDexEntry>[]): boolean | Loop.Break<boolean> | Loop.Break {
+  function _notOr<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadOnlyDex<TDexEntry>, args: Filters.Filter<TDexEntry>, isValidIfFalse: Filters.Matcher<TDexEntry>[]): boolean | Loop.Break<boolean> | Loop.Break {
     let hasBroken: boolean = false;
     for (const test of isValidIfFalse ?? []) {
       const result = test(e, t, i, d, args);
@@ -1011,7 +1011,7 @@ namespace Queries {
   }
 
   /** @internal */
-  function _andWithNotAnd<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadonlyDex<TDexEntry>, args: Filters.Filter<TDexEntry>, isValidIfTrue: Filters.Matcher<TDexEntry>[], isValidIfFalse: Filters.Matcher<TDexEntry>[]): boolean | Loop.Break<boolean> | Loop.Break {
+  function _andWithNotAnd<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadOnlyDex<TDexEntry>, args: Filters.Filter<TDexEntry>, isValidIfTrue: Filters.Matcher<TDexEntry>[], isValidIfFalse: Filters.Matcher<TDexEntry>[]): boolean | Loop.Break<boolean> | Loop.Break {
     let hasBroken: boolean = false;
     // (x & y & z)
     const result = _and(e, t, i, d, args, isValidIfTrue);
@@ -1046,7 +1046,7 @@ namespace Queries {
 
   // (x & y & z)
   /** @internal */
-  function _and<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadonlyDex<TDexEntry>, args: Filters.Filter<TDexEntry>, isValidIfTrue: Filters.Matcher<TDexEntry>[]): boolean | Loop.Break<boolean> | Loop.Break {
+  function _and<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadOnlyDex<TDexEntry>, args: Filters.Filter<TDexEntry>, isValidIfTrue: Filters.Matcher<TDexEntry>[]): boolean | Loop.Break<boolean> | Loop.Break {
     let hasBroken: boolean = false;
     for (const test of isValidIfTrue ?? []) {
       const result = test(e, t, i, d, args);
@@ -1071,7 +1071,7 @@ namespace Queries {
 
   // !(x & y & z)
   /** @internal */
-  function _notAnd<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadonlyDex<TDexEntry>, args: Filters.Filter<TDexEntry>, isValidIfFalse: Filters.Matcher<TDexEntry>[]): boolean | Loop.Break<boolean> | Loop.Break {
+  function _notAnd<TDexEntry extends Entry>(e: TDexEntry, t: Set<Tag>, i: number, d: IReadOnlyDex<TDexEntry>, args: Filters.Filter<TDexEntry>, isValidIfFalse: Filters.Matcher<TDexEntry>[]): boolean | Loop.Break<boolean> | Loop.Break {
     let hasBroken: boolean = false;
     let successes: number = 0;
     for (const test of isValidIfFalse ?? []) {
@@ -1107,7 +1107,7 @@ namespace Queries {
       hash: HashKey,
       tags: Set<Tag>,
       index: number,
-      dex: IReadonlyDex<TDexEntry>,
+      dex: IReadOnlyDex<TDexEntry>,
       args: Filters.Filter<TDexEntry>
     ], boolean> | true;
     if (isValid === true) {
@@ -1153,7 +1153,7 @@ namespace Queries {
       hash: HashKey,
       tags: Set<Tag>,
       index: number,
-      dex: IReadonlyDex<TDexEntry>,
+      dex: IReadOnlyDex<TDexEntry>,
       args: Filters.Filter<TDexEntry>
     ], boolean> | true;
 
@@ -1254,8 +1254,8 @@ namespace Queries {
     toIgnore: Set<HashKey> | undefined,
     subset: Set<HashKey> | undefined,
     results: Set<HashKey>,
-    matcher: true | Loop.IBreakable<[hash: HashKey, tags: Set<Tag>, index: number, dex: IReadonlyDex<TDexEntry>, args: Filters.Filter<TDexEntry>], boolean>,
-    dex: IReadonlyDex<TDexEntry>,
+    matcher: true | Loop.IBreakable<[hash: HashKey, tags: Set<Tag>, index: number, dex: IReadOnlyDex<TDexEntry>, args: Filters.Filter<TDexEntry>], boolean>,
+    dex: IReadOnlyDex<TDexEntry>,
     filter: Filters.Filter<TDexEntry>,
     tagsToSearch: () => Iterable<Tag>
   ) {
@@ -1277,7 +1277,7 @@ namespace Queries {
         let index = 0;
         for (const hash of subset) {
           if (!shouldIgnore(hash)) {
-            const allTags = (dex as any)._tagsByHash.get(hash) as Set<Tag>;
+            const allTags = (dex as any)[InternalRDexSymbols._tagsByHash].get(hash) as Set<Tag>;
             const result = matcher(hash, allTags, index++, dex, filter);
             if (result instanceof Loop.Break) {
               if (result.return) {
@@ -1297,7 +1297,7 @@ namespace Queries {
     } else {
       if (matcher === true) {
         for (const tag of tagsToSearch()) {
-          const hashesForTag = (dex as any)._hashesByTag.get(tag) as Set<HashKey>;
+          const hashesForTag = (dex as any)[InternalRDexSymbols._hashesByTag].get(tag) as Set<HashKey>;
           if (!hashesForTag) {
             continue;
           }
@@ -1312,14 +1312,13 @@ namespace Queries {
       } else {
         let index = 0;
         for (const tag of tagsToSearch()) {
-          const hashesForTag = (dex as any)._hashesByTag.get(tag) as Set<HashKey>;
+          const hashesForTag = (dex as any)[InternalRDexSymbols._hashesByTag].get(tag) as Set<HashKey>;
           if (!hashesForTag) {
             continue;
           }
           for (const hash of hashesForTag) {
-          
             if (!shouldIgnore(hash)) {
-              const allTags = (dex as any)._tagsByHash.get(hash) as Set<Tag>;
+              const allTags = (dex as any)[InternalRDexSymbols._tagsByHash].get(hash) as Set<Tag>;
               const result = matcher(hash, allTags, index++, dex, filter);
               if (result instanceof Loop.Break) {
                 if (result.return) {
@@ -1344,8 +1343,8 @@ namespace Queries {
   function _matchFirst<TDexEntry extends Entry>(
     toIgnore: Set<HashKey> | undefined,
     subset: Set<HashKey> | undefined,
-    matcher: true | Loop.IBreakable<[hash: HashKey, tags: Set<Tag>, index: number, dex: IReadonlyDex<TDexEntry>, args: Filters.Filter<TDexEntry>], boolean>,
-    dex: IReadonlyDex<TDexEntry>,
+    matcher: true | Loop.IBreakable<[hash: HashKey, tags: Set<Tag>, index: number, dex: IReadOnlyDex<TDexEntry>, args: Filters.Filter<TDexEntry>], boolean>,
+    dex: IReadOnlyDex<TDexEntry>,
     filter: Filters.Filter<TDexEntry>,
     tagsToSearch: () => Iterable<Tag>
   ): HashKey | undefined {
@@ -1363,7 +1362,7 @@ namespace Queries {
         let index = 0;
         for (const hash of subset) {
           if (!shouldIgnore(hash)) {
-            const allTags = (dex as any)._tagsByHash.get(hash) as Set<Tag>;
+            const allTags = (dex as any)[InternalRDexSymbols._tagsByHash].get(hash) as Set<Tag>;
             const result = matcher(hash, allTags, index++, dex, filter);
             if (result instanceof Loop.Break) {
               if (result.return) {
@@ -1384,7 +1383,7 @@ namespace Queries {
     } else {
       if (matcher === true) {
         for (const tag of tagsToSearch()) {
-          const hashesForTag = (dex as any)._hashesByTag.get(tag) as Set<HashKey>;
+          const hashesForTag = (dex as any)[InternalRDexSymbols._hashesByTag].get(tag) as Set<HashKey>;
           if (!hashesForTag) {
             continue;
           }
@@ -1398,7 +1397,7 @@ namespace Queries {
       } else {
         let index = 0;
         for (const tag of tagsToSearch()) {
-          const hashesForTag = (dex as any)._hashesByTag.get(tag) as Set<HashKey>;
+          const hashesForTag = (dex as any)[InternalRDexSymbols._hashesByTag].get(tag) as Set<HashKey>;
           if (!hashesForTag) {
             continue;
           }
@@ -1406,7 +1405,7 @@ namespace Queries {
           for (const hash of hashesForTag) {
 
             if (!shouldIgnore(hash)) {
-              const allTags = (dex as any)._tagsByHash.get(hash) as Set<Tag>;
+              const allTags = (dex as any)[InternalRDexSymbols._tagsByHash].get(hash) as Set<Tag>;
               const result = matcher(hash, allTags, index++, dex, filter);
               if (result instanceof Loop.Break) {
                 if (result.return) {

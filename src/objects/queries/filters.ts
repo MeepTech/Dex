@@ -1,7 +1,7 @@
 import Loop from "../../utilities/iteration";
 import Check from "../../utilities/validators";
 import { InvalidQueryParamError } from "../errors";
-import { IReadonlyDex } from "../readonly";
+import { IReadOnlyDex } from "../dexes/readonly";
 import { Entry } from '../subsets/entries'
 import { HashKey, HashKeyOrKeys } from "../subsets/hashes";
 import { Tag, TagOrTags } from "../subsets/tags";
@@ -30,7 +30,7 @@ namespace Filters {
       entry: TDexEntry,
       tags: Set<Tag>,
       index: number,
-      dex: IReadonlyDex<TDexEntry>,
+      dex: IReadOnlyDex<TDexEntry>,
       args: Filter<TDexEntry>,
       ...rest: any
     ], boolean> { };

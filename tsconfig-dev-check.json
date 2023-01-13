@@ -4,6 +4,7 @@
     "./tests/jest/**/*.ts"
   ],
   "compilerOptions": {
+    "experimentalDecorators": true,
     "incremental": true,
     "target": "es2021",
     "module": "commonjs",

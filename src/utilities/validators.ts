@@ -1,4 +1,4 @@
-import Dex, { Config } from '../objects/dex';
+import Dex, { Config } from '../objects/dexes/dex';
 import Filters from '../objects/queries/filters';
 import { RESULT_TYPES } from '../objects/queries/results';
 import {Entry} from '../objects/subsets/entries';

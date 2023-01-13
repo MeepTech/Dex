@@ -1,7 +1,7 @@
 import Loop from "../../utilities/iteration";
 import Check from "../../utilities/validators";
 import { Result, NoEntryFound, ResultType } from "../queries/results";
-import { IReadonlyDex } from "../readonly";
+import { InternalRDexSymbols, IReadOnlyDex } from "../dexes/readonly";
 import { Entry } from "./entries";
 import { HashKey } from "./hashes";
 import { IDexSubSet, SubSet } from "./subset";
@@ -82,7 +82,7 @@ export function toSet(tags: TagOrTags, ...otherTags: Tag[]): Set<Tag> {
 //#region Internal
 
 /** @internal */
-export function TagSetConstructor<TEntry extends Entry>(dex: IReadonlyDex<TEntry>, base: Set<Tag>): TagSet<TEntry> {
+export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry>, base: Set<Tag>): TagSet<TEntry> {
   const tagSet = function tagSetBase<TShouldSplit extends true | undefined = undefined>(
     forEntries: TEntry | Iterable<TEntry>,
     options?: {
@@ -115,7 +115,7 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadonlyDex<TEntry
       const results = new Map<HashKey, Set<Tag>>();
       for (const target of targets) {
         const hash = dex.hash(target)!;
-        const tagsForHash = (dex as any)._tagsByHash.get(hash)! as Set<Tag>;
+        const tagsForHash = (dex as any)[InternalRDexSymbols._tagsByHash].get(hash)! as Set<Tag>;
         results.set(hash, new Set(tagsForHash));
       }
 
@@ -128,8 +128,8 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadonlyDex<TEntry
       if (config?.and || config?.or === false) {
         for (const target of targets) {
           const hash = dex.hash(target)!;
-          const tagsForHash = (dex as any)._tagsByHash.get(hash)! as Set<Tag>;
-          if (results.size === 0) {
+          const tagsForHash = (dex as any)[InternalRDexSymbols._tagsByHash].get(hash)! as Set<Tag>;
+          if ((results?.size ?? 0) === 0) {
             results = new Set(tagsForHash);
           } else {
             for (const oldTag of results) {
@@ -143,8 +143,8 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadonlyDex<TEntry
       else {
         for (const target of targets) {
           const hash = dex.hash(target)!;
-          const tagsForHash = (dex as any)._tagsByHash.get(hash)! as Set<Tag>;
-          if (results.size === 0) {
+          const tagsForHash = (dex as any)[InternalRDexSymbols._tagsByHash].get(hash)! as Set<Tag>;
+          if ((results?.size ?? 0) === 0) {
             results = new Set(tagsForHash);
           } else {
             for (const newTag of tagsForHash) {
@@ -274,7 +274,7 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadonlyDex<TEntry
 
   Object.defineProperty(tagSet, 'of', {
     value: function get(target: TEntry | HashKey): Set<Tag> {
-      return (dex as any)._tagsByHash.get(dex.hash(target))!;
+      return (dex as any)[InternalRDexSymbols._tagsByHash].get(dex.hash(target))!;
     },
     enumerable: false,
     writable: false,

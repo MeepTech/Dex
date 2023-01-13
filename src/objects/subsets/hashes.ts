@@ -3,7 +3,7 @@ import { Entry } from "./entries";
 import Queries from "../queries/queries";
 import { IDexSubSet, SubSet } from "./subset";
 import { Tag } from "./tags";
-import { IReadonlyDex } from "../readonly";
+import { IReadOnlyDex } from "../dexes/readonly";
 import {
   Result,
   NoEntryFound,
@@ -49,7 +49,7 @@ export {
 
 /** @internal */
 export function HashSetConstructor<TEntry extends Entry>(
-  dex: IReadonlyDex<TEntry>,
+  dex: IReadOnlyDex<TEntry>,
   base: Set<HashKey>
 ): HashSet<TEntry> {
 

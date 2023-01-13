@@ -1,5 +1,5 @@
 import { describe, test } from '@jest/globals';
-import Dex, { hash } from '../../../src/objects/dex';
+import Dex, { hash } from '../../../src/objects/dexes/dex';
 import { IHasher } from '../../../src/objects/subsets/entries';
 import { Tag } from '../../../src/objects/subsets/tags';
 import {

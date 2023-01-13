@@ -1,5 +1,5 @@
-import Check from "../utilities/validators";
-import IUnique from "./unique";
+import Check from "../../utilities/validators";
+import IUnique from "../unique";
 import { v4 as uuidv4 } from 'uuid';
 import {
   Complex,
@@ -14,22 +14,62 @@ import {
   NONE_FOR_TAG,
   IObjectGuard,
   IHasher
-} from "./subsets/entries";
+} from "../subsets/entries";
 import {
   Tag,
   TagOrTags,
   toSet,
   Tags
-} from "./subsets/tags";
+} from "../subsets/tags";
 import {
-  HashKey, HashKeys
-} from "./subsets/hashes";
-import { CopierConstructor, Copier } from './helpers/copy';
-import Queries from "./queries/queries";
-import { NO_RESULT, ResultType } from "./queries/results";
-import { ReadableDex } from "./readonly";
-import { DexError, NotImplementedError } from "./errors";
-import Loop from "../utilities/iteration";
+  HashKey
+} from "../subsets/hashes";
+import {
+  CopierConstructor,
+  Copier,
+} from '../helpers/copy';
+import Queries from "../queries/queries";
+import { NO_RESULT, ResultType } from "../queries/results";
+import { ReadOnlyDex } from "./readonly";
+import { DexError, NotImplementedError } from "../errors";
+import Loop from "../../utilities/iteration";
+import {InternalRDexSymbols} from "./readonly"
+
+//#region Symbols
+
+// TODO: when TS implements stage 3: replace with use of @hideInProxy
+/** @internal */
+export namespace InternalDexSymbols {
+  export const _putOneObject: unique symbol = Symbol("_putOneObject");
+  export const _putOneArray: unique symbol = Symbol("_putOneArray");
+  export const _initOptions: unique symbol = Symbol("_initOptions");
+  export const _setEntriesForExistingTag: unique symbol = Symbol("_setEntriesForExistingTag");
+  export const _addNewTag: unique symbol = Symbol("_addNewTag");
+  export const _addNewEntry: unique symbol = Symbol("_addNewEntry");
+  export const _addTagToEntry: unique symbol = Symbol("_addTagToEntry");
+  export const _removeEntry: unique symbol = Symbol("_removeEntry");
+  export const _untagEntry: unique symbol = Symbol("_untagEntry");
+  export const _removeTagFromEntry: unique symbol = Symbol("_removeTagFromEntry");
+  export const _removeTag: unique symbol = Symbol("_removeTag");
+}
+
+  // TODO: when TS implements stage 3: replace with use of @hideInProxy
+/** @internal */
+export const DexMethodKeysToHideInProxy = Object.freeze([
+  "set",
+  "put",
+  "add",
+  "update",
+  "take",
+  "remove",
+  "untag",
+  "drop",
+  "reset",
+  "clean",
+  "clear"
+]);
+
+//#endregion
 
 /**
  * Extra config options for a dex.
@@ -46,7 +86,7 @@ export interface Config<TEntry extends Entry = Entry> {
  * 
  * This represents a many to many replationship of Tags to Entries.
  */
-export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntry> {
+export default class Dex<TEntry extends Entry = Entry> extends ReadOnlyDex<TEntry> {
   // lazy
   // - queries
   #take?: Queries.Full<TEntry, ResultType.Array, TEntry>;
@@ -223,14 +263,14 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   ) {
     super(
       values as any,
-      (values as any)?.hasher || (optionsOrMoreValues as any)?.hasher
+      (optionsOrMoreValues as any)?.hasher
     );
 
     // copy existing:
-    if (values instanceof ReadableDex) {
+    if (values instanceof ReadOnlyDex) {
       this.#guards = values.#guards;
       if (Check.isConfig<TEntry>(optionsOrMoreValues)) {
-        this._initOptions(optionsOrMoreValues);
+        this[InternalDexSymbols._initOptions](optionsOrMoreValues);
       }
 
       return;
@@ -240,13 +280,13 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
 
       if (Check.isConfig<TEntry>(optionsOrMoreValues)) {
         config = optionsOrMoreValues;
-        this._initOptions(optionsOrMoreValues);
+        this[InternalDexSymbols._initOptions](optionsOrMoreValues);
       } else if (Check.isConfig<TEntry>(values)) {
-        this._initOptions(values);
+        this[InternalDexSymbols._initOptions](values);
         config = values;
         values = optionsOrMoreValues as any;
       } else {
-        this._initOptions();
+        this[InternalDexSymbols._initOptions]();
       }
 
       if (!values) {
@@ -326,7 +366,8 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   //#region Internal
 
   /** @internal */
-  private _initOptions(config?: Config<TEntry>) {
+  // TODO: when TS implements stage 3: @hideInProxy
+  protected [InternalDexSymbols._initOptions](config?: Config<TEntry>) {
     const guards: {
       entry: IGuard<TEntry>,
       array: IArrayGuard<TEntry>,
@@ -379,8 +420,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     };
   }
 
-  //#region Loop Helpers
-
+  // TODO: when TS implements stage 3: @replaceInProxy({ $key: "_getSimpleCopier" })
   get copy(): Copier<TEntry> {
     return this.#copier
       ??= CopierConstructor(this);
@@ -450,6 +490,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    */
   set(tags: TagOrTags, entries?: Iterable<TEntry>): HashKey[];
 
+  // TODO: when TS implements stage 3: @hideInProxy
   set(
     tags: TagOrTags,
     entries?: Iterable<TEntry> | [] | None
@@ -461,7 +502,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     if (entries === undefined) {
       (tags as Set<Tag>).forEach(tag => {
         if (!this.has(tag)) {
-          this._addNewTag(tag);
+          this[InternalDexSymbols._addNewTag](tag);
         }
       });
       return [];
@@ -470,9 +511,9 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       if (!entries || (entries instanceof Set ? !entries.size : !Loop.count(entries))) {
         for (const tag of tags) {
           if (this.has(tag)) {
-            effectedHashes = this._setEntriesForExistingTag(tag, []).effected;
+            effectedHashes = this[InternalDexSymbols._setEntriesForExistingTag](tag, []).effected;
           } else {
-            this._addNewTag(tag);
+            this[InternalDexSymbols._addNewTag](tag);
           }
         }
 
@@ -486,9 +527,9 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
 
         for (const tag of tags) {
           if (this.has(tag)) {
-            effectedHashes = this._setEntriesForExistingTag(tag, hashesToSet).effected;
+            effectedHashes = this[InternalDexSymbols._setEntriesForExistingTag](tag, hashesToSet).effected;
           } else {
-            this._addNewTag(tag, hashesToSet);
+            this[InternalDexSymbols._addNewTag](tag, hashesToSet);
           }
         }
 
@@ -500,8 +541,9 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   //#region Internal
 
   /** @internal */
-  protected _setEntriesForExistingTag(tag: Tag, hashesToSet: Set<HashKey> | [], beforeSetCallback?: (effected: { added?: HashKey[], removed?: HashKey[], effected: HashKey[] }) => void): { added?: HashKey[], removed?: HashKey[], effected: HashKey[] } {
-    const currentSet = this._hashesByTag.get(tag)!;
+  // TODO: when TS implements stage 3: @hideInProxy
+  protected [InternalDexSymbols._setEntriesForExistingTag](tag: Tag, hashesToSet: Set<HashKey> | [], beforeSetCallback?: (effected: { added?: HashKey[], removed?: HashKey[], effected: HashKey[] }) => void): { added?: HashKey[], removed?: HashKey[], effected: HashKey[] } {
+    const currentSet = this[InternalRDexSymbols._hashesByTag].get(tag)!;
     let hashesToRemove: HashKey[] = [];
 
     if (Check.isArray(hashesToSet)) {
@@ -516,8 +558,8 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       beforeSetCallback?.(effected);
 
       hashesToRemove.forEach(hash =>
-        this._tagsByHash.get(hash)?.delete(tag));
-      this._hashesByTag.get(tag)?.clear();
+        this[InternalRDexSymbols._tagsByHash].get(hash)?.delete(tag));
+      this[InternalRDexSymbols._hashesByTag].get(tag)?.clear();
 
       return effected;
     } else {
@@ -525,11 +567,12 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       currentSet.forEach(hash => {
         if (!hashesToSet.has(hash)) {
           hashesToRemove.push(hash);
-          this._tagsByHash.get(hash)?.delete(tag)
+          this[InternalRDexSymbols._tagsByHash].get(hash)?.delete(tag)
         }
       });
 
-      const addedHashes = [...hashesToSet].filter(h => !currentSet.has(h));
+      const addedHashes = [...hashesToSet]
+        .filter(h => !currentSet.has(h));
 
       const effected = {
         removed: hashesToRemove,
@@ -539,16 +582,17 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
 
       beforeSetCallback?.(effected);
 
-      this._hashesByTag.set(tag, hashesToSet);
+      this[InternalRDexSymbols._hashesByTag].set(tag, hashesToSet);
 
       return effected;
     }
   }
 
   /** @internal */
-  protected _addNewTag(tag: Tag, hashesToSet = new Set<HashKey>()): void {
-    this._allTags.add(tag);
-    this._hashesByTag.set(tag, hashesToSet);
+  // TODO: when TS implements stage 3: @hideInProxy
+  protected [InternalDexSymbols._addNewTag](tag: Tag, hashesToSet = new Set<HashKey>()): void {
+    this[InternalRDexSymbols._allTags].add(tag);
+    this[InternalRDexSymbols._hashesByTag].set(tag, hashesToSet);
   }
 
   //#endregion
@@ -629,6 +673,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    * @returns The uniqueid/hash of the item added to the dex
    * , or if just an empty tag was added: just the name of the tag is returned.
    */
+  // TODO: when TS implements stage 3: @hideInProxy
   add(
     entry: TEntry | HashKey | XWithTags<TEntry>[] | XWithTagsObject<TEntry>,
     tags?: TagOrTags | XWithTagsObject<TEntry>,
@@ -641,19 +686,19 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
         // InputEntryWithTagsArray<TEntry>[]
         if (!this.canContain(entry[0])) { // [0: [0: entry, ...tags], 1: [entry, ...tags]]
           return (entry as XWithTagsTuple<TEntry>[])
-            .map(this._putOneArray.bind(this)) as any;
+            .map(this[InternalDexSymbols._putOneArray].bind(this)) as any;
         }
       } // InputEntryWithTagsObject<TEntry>[]
       else if (Check.isObject(entry[0]) && !this.canContain(entry[0])) {
         return (entry as XWithTagsObject<TEntry>[])
-          .map(this._putOneObject.bind(this)) as any;
+          .map(this[InternalDexSymbols._putOneObject].bind(this)) as any;
       }
     } // InputEntryWithTagsObject<TEntry>
     else if (Check.isObject(entry) && !this.canContain(entry)) {
       if (tags) {
         this.put([entry, tags] as XWithTagsObject<TEntry>[])
       }
-      return this._putOneObject(entry as XWithTagsObject<TEntry>);
+      return this[InternalDexSymbols._putOneObject](entry as XWithTagsObject<TEntry>);
     }
 
     // TEntry and Tags
@@ -667,7 +712,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     if (!tags || !(tags as Set<Tag>).size) {
       // add the new empty entry:
       if (!this.contains(hash)) {
-        this._addNewEntry(<TEntry>entry, hash);
+        this[InternalDexSymbols._addNewEntry](<TEntry>entry, hash);
       }
 
       return hash;
@@ -677,15 +722,15 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       (tags as Set<Tag>).forEach(tag => {
         // set the tag
         if (!this.has(tag)) {
-          this._addNewTag(tag);
+          this[InternalDexSymbols._addNewTag](tag);
         }
 
         // set the hash key
         if (!this.contains(hash)) {
-          this._addNewEntry(<TEntry>entry, hash);
+          this[InternalDexSymbols._addNewEntry](<TEntry>entry, hash);
         }
 
-        this._addTagToEntry(tag, hash);
+        this[InternalDexSymbols._addTagToEntry](tag, hash);
       });
 
       return hash;
@@ -695,18 +740,19 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   //#region Internal
 
   /** @internal */
-  protected _addNewEntry(entry: TEntry, key: HashKey) {
-    this._allHashes.add(key);
-    this._entriesByHash.set(key, entry);
-    this._tagsByHash.set(key, new Set<HashKey>());
+  // TODO: when TS implements stage 3: @hideInProxy
+  protected [InternalDexSymbols._addNewEntry](entry: TEntry, key: HashKey) {
+    this[InternalRDexSymbols._allHashes].add(key);
+    this[InternalRDexSymbols._entriesByHash].set(key, entry);
+    this[InternalRDexSymbols._tagsByHash].set(key, new Set<HashKey>());
   }
 
   /** @internal */
-  protected _addTagToEntry(tag: Tag, key: HashKey) {
-    this._tagsByHash.get(key)?.add(tag);
-    this._hashesByTag.get(tag)?.add(key);
+  // TODO: when TS implements stage 3: @hideInProxy
+  protected [InternalDexSymbols._addTagToEntry](tag: Tag, key: HashKey) {
+    this[InternalRDexSymbols._tagsByHash].get(key)?.add(tag);
+    this[InternalRDexSymbols._hashesByTag].get(tag)?.add(key);
   }
-
 
   //#endregion
 
@@ -768,6 +814,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     entry: (XWithTagsObject<TEntry> | XWithTagsTuple<TEntry>)
   ): HashKey | None;
 
+  // TODO: when TS implements stage 3: @hideInProxy
   put<TInput extends XWithTags<TEntry>[] | XWithTags<TEntry>>(
     entryOrEntriesWithTags: TInput
   ): TInput extends XWithTags<TEntry>[] ? (HashKey | None)[] : (HashKey | None) {
@@ -778,29 +825,30 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
         // InputEntryWithTagsArray<TEntry>[]
         if (!this.canContain(entryOrEntriesWithTags[0])) { // [0: [0: entry, ...tags], 1: [entry, ...tags]]
           return (entryOrEntriesWithTags as XWithTagsTuple<TEntry>[])
-            .map(this._putOneArray.bind(this)) as any;
+            .map(this[InternalDexSymbols._putOneArray].bind(this)) as any;
         } // InputEntryWithTagsArray<TEntry>
         else { // [0: array shaped entry, 1..: ...tags]
-          return this._putOneArray(entryOrEntriesWithTags as XWithTagsTuple<TEntry>) as any;
+          return this[InternalDexSymbols._putOneArray](entryOrEntriesWithTags as XWithTagsTuple<TEntry>) as any;
         }
       } // InputEntryWithTagsObject<TEntry>[]
       else if (Check.isObject(entryOrEntriesWithTags[0]) && !this.canContain(entryOrEntriesWithTags[0])) {
         return (entryOrEntriesWithTags as XWithTagsObject<TEntry>[])
-          .map(this._putOneObject.bind(this)) as any;
+          .map(this[InternalDexSymbols._putOneObject].bind(this)) as any;
       } // InputEntryWithTagsArray<TEntry>
       else {
-        return this._putOneArray(entryOrEntriesWithTags as XWithTagsTuple<TEntry>) as any;
+        return this[InternalDexSymbols._putOneArray](entryOrEntriesWithTags as XWithTagsTuple<TEntry>) as any;
       }
     } // InputEntryWithTagsObject<TEntry>
     else {
-      return this._putOneObject(entryOrEntriesWithTags as XWithTagsObject<TEntry>) as any;
+      return this[InternalDexSymbols._putOneObject](entryOrEntriesWithTags as XWithTagsObject<TEntry>) as any;
     }
   }
 
   //#region Internal
 
   /** @internal */
-  private _putOneObject(entryWithTags: XWithTagsObject<TEntry>): HashKey | None {
+  // TODO: when TS implements stage 3: @hideInProxy
+  private [InternalDexSymbols._putOneObject](entryWithTags: XWithTagsObject<TEntry>): HashKey | None {
     if (entryWithTags.entry === undefined || entryWithTags.entry === null) {
       this.set((entryWithTags.tags || (entryWithTags as any).tag)!);
       return null;
@@ -810,7 +858,8 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   }
 
   /** @internal */
-  private _putOneArray(entryWithTags: XWithTagsTuple<TEntry>): HashKey | None {
+  // TODO: when TS implements stage 3: @hideInProxy
+  private [InternalDexSymbols._putOneArray](entryWithTags: XWithTagsTuple<TEntry>): HashKey | None {
     if (entryWithTags[0] === undefined || entryWithTags[0] === null) {
       this.set(entryWithTags.slice(1) as Tag[]);
       return null;
@@ -841,6 +890,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    */
   update(entry: TEntry | HashKey, fn: (currentTags: Set<Tag>) => Set<Tag>): void;
 
+  // TODO: when TS implements stage 3: @hideInProxy
   update(entry: TEntry | HashKey, tags: TagOrTags | ((currentTags: Set<Tag>) => Set<Tag>)): void {
     throw new NotImplementedError("update");
   }
@@ -854,6 +904,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   /**
    * Remove entries matching a query from the current dex while returning the results as well.
    */
+  // TODO: when TS implements stage 3: @hideInProxy
   get take(): Queries.Full<TEntry, ResultType.Array, TEntry> {
     if (!this.#take) {
       const toRemove = Queries.FullQueryConstructor<TEntry, ResultType.Array, TEntry>(
@@ -1030,6 +1081,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   /**
    * Used to remove entries from the dex.
    */
+  // TODO: when TS implements stage 3: @hideInProxy
   remove(
     targets: Iterable<TEntry | HashKey> | HashKey | TEntry,
     optionsOrTags?: TagOrTags | {
@@ -1057,16 +1109,16 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       if (Check.isNonStringIterable(targets)) {
         for (const entryOrKey of targets) {
           const hash = this.hash(entryOrKey);
-          this._untagEntry(hash, tags);
-          if (!this._tagsByHash.get(hash)?.size) {
-            this._removeEntry(hash);
+          this[InternalDexSymbols._untagEntry](hash, tags);
+          if (!this[InternalRDexSymbols._tagsByHash].get(hash)?.size) {
+            this[InternalDexSymbols._removeEntry](hash);
           }
         }
       } else {
         const hash = this.hash(targets);
-        this._untagEntry(hash, tags);
-        if (!this._tagsByHash.get(hash)?.size) {
-          this._removeEntry(hash);
+        this[InternalDexSymbols._untagEntry](hash, tags);
+        if (!this[InternalRDexSymbols._tagsByHash].get(hash)?.size) {
+          this[InternalDexSymbols._removeEntry](hash);
         }
       }
     } else {
@@ -1075,17 +1127,17 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
           let tagsToCheck: Set<Tag> | undefined;
           const hash = this.hash(entryOrKey);
           if ((config as any)?.cleanEmptyTags) {
-            tagsToCheck = this._tagsByHash.get(hash);
+            tagsToCheck = this[InternalRDexSymbols._tagsByHash].get(hash);
           }
 
-          this._untagEntry(hash, tags);
-          if (!(config as any)?.leaveUntaggedEntries && !this._tagsByHash.get(hash)?.size) {
-            this._removeEntry(hash);
+          this[InternalDexSymbols._untagEntry](hash, tags);
+          if (!(config as any)?.leaveUntaggedEntries && !this[InternalRDexSymbols._tagsByHash].get(hash)?.size) {
+            this[InternalDexSymbols._removeEntry](hash);
           }
           if (tagsToCheck) {
             for (const tag of tagsToCheck) {
-              if (!this._hashesByTag.get(tag)?.size) {
-                this._removeTag(tag);
+              if (!this[InternalRDexSymbols._hashesByTag].get(tag)?.size) {
+                this[InternalDexSymbols._removeTag](tag);
               }
             }
           }
@@ -1094,17 +1146,17 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
         let tagsToCheck: Set<Tag> | undefined;
         const hash = this.hash(targets);
         if ((config as any)?.cleanEmptyTags) {
-          tagsToCheck = this._tagsByHash.get(hash);
+          tagsToCheck = this[InternalRDexSymbols._tagsByHash].get(hash);
         }
 
-        this._untagEntry(hash, tags);
-        if (!(config as any)?.leaveUntaggedEntries && !this._tagsByHash.get(hash)?.size) {
-          this._removeEntry(hash);
+        this[InternalDexSymbols._untagEntry](hash, tags);
+        if (!(config as any)?.leaveUntaggedEntries && !this[InternalRDexSymbols._tagsByHash].get(hash)?.size) {
+          this[InternalDexSymbols._removeEntry](hash);
         }
         if (tagsToCheck) {
           for (const tag of tagsToCheck) {
-            if (!this._hashesByTag.get(tag)?.size) {
-              this._removeTag(tag);
+            if (!this[InternalRDexSymbols._hashesByTag].get(tag)?.size) {
+              this[InternalDexSymbols._removeTag](tag);
             }
           }
         }
@@ -1115,9 +1167,10 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   //#region Internal
 
   /** @internal */
-  protected _removeEntry(key: HashKey) {
-    this._entriesByHash.delete(key);
-    this._allHashes.delete(key);
+  // TODO: when TS implements stage 3: @hideInProxy
+  protected [InternalDexSymbols._removeEntry](key: HashKey) {
+    this[InternalRDexSymbols._entriesByHash].delete(key);
+    this[InternalRDexSymbols._allHashes].delete(key);
   }
 
   //#endregion
@@ -1174,37 +1227,37 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   /**
    * Remove the given tags or all tags from the provided entry
    */
+  // TODO: when TS implements stage 3: @hideInProxy
   untag(
     entries: Iterable<TEntry | HashKey> | TEntry | HashKey,
     tags?: TagOrTags
   ): void {
     if (Check.isNonStringIterable(entries)) {
       for (const entry of entries) {
-        this._untagEntry(this.hash(entry), tags as Tags);
+        this[InternalDexSymbols._untagEntry](this.hash(entry), tags as Tags);
       }
     } else {
-      this._untagEntry(this.hash(entries), tags as Tag | undefined);
+      this[InternalDexSymbols._untagEntry](this.hash(entries), tags as Tag | undefined);
     }
   }
 
   //#region Internal
 
-  /**
-   * Remove all the provided tags from one entry
-   */
-  protected _untagEntry(entry: HashKey, tagsToRemove?: TagOrTags): void {
+  /** @internal */
+  // TODO: when TS implements stage 3: @hideInProxy
+  protected [InternalDexSymbols._untagEntry](entry: HashKey, tagsToRemove?: TagOrTags): void {
     const hash = this.hash(entry);
-    const currentTagsForEntry = this._tagsByHash.get(hash);
+    const currentTagsForEntry = this[InternalRDexSymbols._tagsByHash].get(hash);
     if (!tagsToRemove) {
       for (const tag of currentTagsForEntry ?? []) {
-        const currentEntriesForTag = this._hashesByTag.get(tag);
+        const currentEntriesForTag = this[InternalRDexSymbols._hashesByTag].get(tag);
         currentEntriesForTag?.delete(hash);
       }
 
       currentTagsForEntry?.clear();
     } else if (Check.isNonStringIterable(tagsToRemove)) {
       for (const tag of tagsToRemove) {
-        const currentEntriesForTag = this._hashesByTag.get(tag);
+        const currentEntriesForTag = this[InternalRDexSymbols._hashesByTag].get(tag);
         currentTagsForEntry?.delete(tag);
         currentEntriesForTag?.delete(hash);
       }
@@ -1212,15 +1265,16 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       if (currentTagsForEntry) {
         currentTagsForEntry.delete(tagsToRemove);
       }
-      const currentEntriesForTag = this._hashesByTag.get(tagsToRemove);
+      const currentEntriesForTag = this[InternalRDexSymbols._hashesByTag].get(tagsToRemove);
       currentEntriesForTag?.delete(hash);
     }
   }
 
   /** @internal */
-  protected _removeTagFromEntry(tag: Tag, key: HashKey) {
-    this._tagsByHash.get(key)?.delete(tag);
-    this._hashesByTag.get(tag)?.delete(key);
+  // TODO: when TS implements stage 3: @hideInProxy
+  protected [InternalDexSymbols._removeTagFromEntry](tag: Tag, key: HashKey) {
+    this[InternalRDexSymbols._tagsByHash].get(key)?.delete(tag);
+    this[InternalRDexSymbols._hashesByTag].get(tag)?.delete(key);
   }
 
   //#endregion
@@ -1238,6 +1292,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     }
   ): void;
 
+  // TODO: when TS implements stage 3: @hideInProxy
   drop(
     tags: TagOrTags,
     options?: {
@@ -1248,41 +1303,41 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     if (!options?.cleanUntaggedEntries) {
       if (Check.isNonStringIterable(tags)) {
         for (const tag of tags) {
-          this.resetTag(tag);
+          this.reset(tag);
           if (!options?.leaveEmptyTags) {
-            this._removeTag(tag);
+            this[InternalDexSymbols._removeTag](tag);
           }
         }
       } else {
-        this.resetTag(tags);
+        this.reset(tags);
         if (!options?.leaveEmptyTags) {
-          this._removeTag(tags);
+          this[InternalDexSymbols._removeTag](tags);
         }
       }
     } else {
       if (Check.isNonStringIterable(tags)) {
         for (const tag of tags) {
-          const hashesForTag = this._hashesByTag.get(tag);
-          this.resetTag(tag);
+          const hashesForTag = this[InternalRDexSymbols._hashesByTag].get(tag);
+          this.reset(tag);
           if (!options?.leaveEmptyTags) {
-            this._removeTag(tag);
+            this[InternalDexSymbols._removeTag](tag);
           }
 
           for (const hash of hashesForTag ?? []) {
-            if (!this._tagsByHash.get(hash)?.size) {
-              this._removeEntry(hash);
+            if (!this[InternalRDexSymbols._tagsByHash].get(hash)?.size) {
+              this[InternalDexSymbols._removeEntry](hash);
             }
           }
         }
       } else {
-        const hashesForTag = this._hashesByTag.get(tags);
-        this.resetTag(tags);
+        const hashesForTag = this[InternalRDexSymbols._hashesByTag].get(tags);
+        this.reset(tags);
         if (!options?.leaveEmptyTags) {
-          this._removeTag(tags);
+          this[InternalDexSymbols._removeTag](tags);
         }
         for (const hash of hashesForTag ?? []) {
-          if (!this._tagsByHash.get(hash)?.size) {
-            this._removeEntry(hash);
+          if (!this[InternalRDexSymbols._tagsByHash].get(hash)?.size) {
+            this[InternalDexSymbols._removeEntry](hash);
           }
         }
       }
@@ -1292,9 +1347,10 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   //#region Internal
 
   /** @internal */
-  protected _removeTag(tag: Tag) {
-    this._hashesByTag.delete(tag);
-    this._allTags.delete(tag);
+  // TODO: when TS implements stage 3: @hideInProxy
+  protected [InternalDexSymbols._removeTag](tag: Tag) {
+    this[InternalRDexSymbols._hashesByTag].delete(tag);
+    this[InternalRDexSymbols._allTags].delete(tag);
   }
 
   //#endregion
@@ -1306,7 +1362,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   /**
    * Clear all entries from a given tag without removing anything by default.
    */
-  resetTag(
+  reset(
     tag: Tag,
     options?: {
       cleanUntaggedEntries?: boolean,
@@ -1317,7 +1373,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   /**
    * Clear all entries from a given set of tags.
    */
-  resetTag(
+  reset(
     tags: TagOrTags,
     options?: {
       cleanUntaggedEntries?: boolean,
@@ -1325,7 +1381,8 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     }
   ): void;
 
-  resetTag(
+  // TODO: when TS implements stage 3: @hideInProxy
+  reset(
     tags: TagOrTags,
     options?: {
       cleanUntaggedEntries?: boolean,
@@ -1337,16 +1394,16 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       : [tags]) as Iterable<Tag>;
 
     for (const tag of tagsToReset) {
-      for (const hash of this._hashesByTag.get(tag) ?? []) {
-        const tagsForHash = this._tagsByHash.get(hash);
-        this._removeTagFromEntry(tag, hash);
+      for (const hash of this[InternalRDexSymbols._hashesByTag].get(tag) ?? []) {
+        const tagsForHash = this[InternalRDexSymbols._tagsByHash].get(hash);
+        this[InternalDexSymbols._removeTagFromEntry](tag, hash);
         if (!tagsForHash!.size && options?.cleanUntaggedEntries) {
-          this._removeEntry(hash);
+          this[InternalDexSymbols._removeEntry](hash);
         }
       }
 
       if (options?.cleanEmptyTags) {
-        this._removeTag(tag);
+        this[InternalDexSymbols._removeTag](tag);
       }
     }
   }
@@ -1365,6 +1422,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    */
   clean(options: { taglessEntries?: boolean, emptyTags?: boolean }): void;
 
+  // TODO: when TS implements stage 3: @hideInProxy
   clean(options: {
     taglessEntries?: boolean,
     emptyTags?: boolean
@@ -1373,17 +1431,17 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       emptyTags: true
     }): void {
     if (options.taglessEntries) {
-      for (const [k, t] of this._tagsByHash) {
+      for (const [k, t] of this[InternalRDexSymbols._tagsByHash]) {
         if (!t.size) {
-          this._removeEntry(k);
+          this[InternalDexSymbols._removeEntry](k);
         }
       }
     }
 
     if (options.emptyTags) {
-      for (const [t, k] of this._hashesByTag) {
+      for (const [t, k] of this[InternalRDexSymbols._hashesByTag]) {
         if (!k.size) {
-          this._removeTag(t);
+          this[InternalDexSymbols._removeTag](t);
         }
       }
     }
@@ -1394,12 +1452,13 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    */
   clear(): void;
 
+  // TODO: when TS implements stage 3: @hideInProxy
   clear(): void {
-    this._allTags.clear();
-    this._allHashes.clear();
-    this._entriesByHash.clear();
-    this._hashesByTag.clear();
-    this._tagsByHash.clear();
+    this[InternalRDexSymbols._allTags].clear();
+    this[InternalRDexSymbols._allHashes].clear();
+    this[InternalRDexSymbols._entriesByHash].clear();
+    this[InternalRDexSymbols._hashesByTag].clear();
+    this[InternalRDexSymbols._tagsByHash].clear();
   }
 
   //#endregion

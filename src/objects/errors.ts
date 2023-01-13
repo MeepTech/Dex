@@ -8,6 +8,15 @@ export class DexError extends Error implements Error {
 }
 
 /**
+ * Error related to an Access error in a Dex.
+ */
+export class AccessError extends DexError {
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+/**
  * This is something that needs to be implemented but has not been yet.
  */
 export class NotImplementedError extends DexError {

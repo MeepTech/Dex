@@ -1,20 +1,39 @@
-
-// dex classes
-import Dex from './objects/dex';
 /**
- * Type Prefixes:
+ * Specific Type Prefixes:
  * =========================
  * I...: (for Interface) Not an instantiateable Class, but provides parts of implementations and chunksof functionality. 'Or'(|) Union types are usually not interfaces
  * T...: (for Type) A Generic Type Argument
  * X...: (for eXtended) An extension of a Solid type or interface type, usually just for varying the shapes of allowed input.
  */
+
+// dex classes
+import Dex from './objects/dexes/dex';
 export default Dex;
 
 export {
-  IReadonlyDex,
-  ReadableDex,
-  SealedDex
-} from './objects/readonly';
+  IReadOnlyDex,
+  IReadOnlyDex as IRDex,
+  ReadOnlyDex,
+  ReadOnlyDex as RDex,
+  ArchiDex,
+  ArchiDex as Archidex,
+  ArchiDex as Adex,
+  ArchiDex as Archive
+} from './objects/dexes/readonly';
+
+export {
+  FaçaDex,
+  FaçaDex as FacaDex,
+  FaçaDex as Facadex,
+  FaçaDex as Facade,
+  FaçaDex as FDex
+} from './objects/dexes/facade';
+
+import NoisyDex from './objects/dexes/controled';
+export {
+  NoisyDex,
+  NoisyDex as NDex
+};
 
 // sub types and sets
 export {

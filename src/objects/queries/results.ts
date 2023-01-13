@@ -1,4 +1,4 @@
-import Dex from "../dex";
+import Dex from "../dexes/dex";
 import { Entry } from "../subsets/entries";
 
 /**
