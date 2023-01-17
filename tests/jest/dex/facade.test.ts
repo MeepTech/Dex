@@ -2,7 +2,7 @@ import { describe, test, expect } from '@jest/globals';
 import { AccessError } from '../../../src/objects/errors';
 import { buildSimpleMockDex, expectDex_toContainTheSameAsDex } from './shared';
 import { FaçaDex } from "../../../src/objects/dexes/facade";
-import { ArchiDex } from '../../../src/objects/dexes/readonly';
+import { ArchiDex } from '../../../src/objects/dexes/read';
 import Dex from '../../../src/objects/dexes/dex';
 
 // mocks
@@ -53,6 +53,12 @@ describe("[...]", () => {
 });
 
 describe("...(...)", () => {
+  test("set(any) throws Error(undefined)", () => {
+    const facade = new FaçaDex(dex);
+    expect(() => {
+      (facade as any).set("test");
+    }).toThrowError(new Error("facade.set is not a function"));
+  })
   test("set(any) throws Error(undefined)", () => {
     const facade = new FaçaDex(dex);
     expect(() => {

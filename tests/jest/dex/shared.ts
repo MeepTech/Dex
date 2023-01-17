@@ -1,6 +1,6 @@
 import { expect } from '@jest/globals';
 import Dex from '../../../src/objects/dexes/dex';
-import { IReadOnlyDex } from '../../../src/objects/dexes/readonly';
+import { IReadableDex } from '../../../src/objects/dexes/read';
 import Queries from '../../../src/objects/queries/queries';
 import { ResultType } from '../../../src/objects/queries/results';
 import { Entry } from '../../../src/objects/subsets/entries';
@@ -68,7 +68,7 @@ export function buildSimpleMockDex() {
 }
 
 export const expectDex_countsToEqual = (
-  dex: IReadOnlyDex<any>,
+  dex: IReadableDex<any>,
   entries: number,
   tags: number
 ) => {
@@ -84,8 +84,8 @@ export const expectDex_countsToEqual = (
 }
 
 export const expectDex_toContainTheSameAsDex = (
-  original: IReadOnlyDex<any>,
-  newDex: IReadOnlyDex<any>
+  original: IReadableDex<any>,
+  newDex: IReadableDex<any>
 ) => {
   expectDex_countsToEqual(
     newDex,
@@ -97,7 +97,7 @@ export const expectDex_toContainTheSameAsDex = (
 }
 
 export const expectDex_tagIsEmpty = (
-  dex: IReadOnlyDex<any>,
+  dex: IReadableDex<any>,
   tag: Tag
 ) => {
   expect(dex.tags.has(tag)).toBeTruthy();
@@ -106,7 +106,7 @@ export const expectDex_tagIsEmpty = (
 }
 
 export const expectDex_entryHasNoTags = (
-  dex: IReadOnlyDex<any>,
+  dex: IReadableDex<any>,
   entry: Entry
 ) => {
   const hash = dex.hash(entry)!;
@@ -117,7 +117,7 @@ export const expectDex_entryHasNoTags = (
 }
 
 export const expectDex_entryToHaveTags = (
-  dex: IReadOnlyDex<any>,
+  dex: IReadableDex<any>,
   entry: any,
   tags: Tag[] | Set<Tag>
 ) => {
@@ -129,7 +129,7 @@ export const expectDex_entryToHaveTags = (
 }
 
 export const expectDex_tagsToHaveEntries = (
-  dex: IReadOnlyDex<any>,
+  dex: IReadableDex<any>,
   tag: Tag,
   entries: Entry[] | Set<Tag>
 ) => {

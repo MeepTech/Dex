@@ -40,7 +40,7 @@ export namespace InternalRDexSymbols {
  * Interface for reading from and querying from a dex.
  */
 
-export interface IReadOnlyDex<TEntry extends Entry = Entry> extends Iterable<[HashKey, TEntry, Set<Tag>]> {
+export interface IReadableDex<TEntry extends Entry = Entry> extends Iterable<[HashKey, TEntry, Set<Tag>]> {
 
   //#region Properties
 
@@ -149,7 +149,7 @@ export interface IReadOnlyDex<TEntry extends Entry = Entry> extends Iterable<[Ha
   /**
    * Create a new dex that contains this dex's entries, merged with anothers.
    */
-  merge(other: Dex<TEntry>): IReadOnlyDex<TEntry>;
+  merge(other: Dex<TEntry>): IReadableDex<TEntry>;
 
   //#endregion
   //#region Queries
@@ -253,7 +253,7 @@ export interface IReadOnlyDex<TEntry extends Entry = Entry> extends Iterable<[Ha
  * A simple dex that can only be queried and read from.
  * This does not have any built in way to modify it, this mainly just holds the logic for more complex dexes like Dex and SealedDex.
  */
-export class ReadOnlyDex<TEntry extends Entry> implements IReadOnlyDex<TEntry> {
+export abstract class ReadableDex<TEntry extends Entry> implements IReadableDex<TEntry> {
   // data
   // TODO: when TS implements stage 3: @hideInProxy
   protected readonly [InternalRDexSymbols._allTags]
@@ -307,13 +307,13 @@ export class ReadOnlyDex<TEntry extends Entry> implements IReadOnlyDex<TEntry> {
   /**
    * Copy a new dex from an existing one
    */
-  constructor(original?: IReadOnlyDex<TEntry>, hasher?: IHasher)
+  constructor(original?: IReadableDex<TEntry>, hasher?: IHasher)
 
   /**
    * Make a new dex
    */
-  constructor(original?: IReadOnlyDex<TEntry>, hasher?: IHasher) {
-    if (original instanceof ReadOnlyDex) {
+  constructor(original?: IReadableDex<TEntry>, hasher?: IHasher) {
+    if (original instanceof ReadableDex) {
       const data = original.data;
 
       this[InternalRDexSymbols._allTags] = data.tags;
@@ -765,8 +765,8 @@ export class ReadOnlyDex<TEntry extends Entry> implements IReadOnlyDex<TEntry> {
  * Used to freeze a copy of an existing dex.
  */
 
-export class ArchiDex<TEntry extends Entry> extends ReadOnlyDex<TEntry> {
-  constructor(original: IReadOnlyDex<TEntry>) {
+export class ArchiDex<TEntry extends Entry> extends ReadableDex<TEntry> {
+  constructor(original: IReadableDex<TEntry>) {
     super(original);
     Object.freeze(this);
     Object.freeze(this[InternalRDexSymbols._allHashes]);

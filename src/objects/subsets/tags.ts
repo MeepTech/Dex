@@ -1,7 +1,7 @@
 import Loop from "../../utilities/iteration";
 import Check from "../../utilities/validators";
 import { Result, NoEntryFound, ResultType } from "../queries/results";
-import { InternalRDexSymbols, IReadOnlyDex } from "../dexes/readonly";
+import { InternalRDexSymbols, IReadableDex } from "../dexes/read";
 import { Entry } from "./entries";
 import { HashKey } from "./hashes";
 import { IDexSubSet, SubSet } from "./subset";
@@ -82,7 +82,7 @@ export function toSet(tags: TagOrTags, ...otherTags: Tag[]): Set<Tag> {
 //#region Internal
 
 /** @internal */
-export function TagSetConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry>, base: Set<Tag>): TagSet<TEntry> {
+export function TagSetConstructor<TEntry extends Entry>(dex: IReadableDex<TEntry>, base: Set<Tag>): TagSet<TEntry> {
   const tagSet = function tagSetBase<TShouldSplit extends true | undefined = undefined>(
     forEntries: TEntry | Iterable<TEntry>,
     options?: {

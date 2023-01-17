@@ -1,7 +1,7 @@
 import Loop from "../../utilities/iteration";
 import Dex from "../dexes/dex";
 import { Result, NO_RESULT, ResultType } from "../queries/results";
-import { IReadOnlyDex } from "../dexes/readonly";
+import { IReadableDex } from "../dexes/read";
 import { Entry } from "./entries";
 import { HashKey } from "./hashes";
 import { Tag } from "./tags";
@@ -135,7 +135,7 @@ export interface IDexSubSet<
 export namespace SubSet {
   /** @internal */
   export function map<TResult, TResults extends ResultType, TValue = HashKey, TDexEntry extends Entry = Entry>(
-    dex: IReadOnlyDex<TDexEntry>,
+    dex: IReadableDex<TDexEntry>,
     transform: Loop.IBreakable<[key: TValue, index: number], TResult>,
     resultType?: TResults,
     preTransform?: (key: HashKey) => TValue
@@ -201,7 +201,7 @@ export namespace SubSet {
   }
   /** @internal */
   export function filter<TResults extends ResultType, TValue, TDexEntry extends Entry = Entry>(
-    dex: IReadOnlyDex<TDexEntry>,
+    dex: IReadableDex<TDexEntry>,
     where: Loop.IBreakable<[entry: TValue, index: number], boolean>,
     resultType?: TResults,
     transform?: (key: HashKey) => TValue
@@ -268,7 +268,7 @@ export namespace SubSet {
   }
   /** @internal */
   export function first<TValue, TDexEntry extends Entry = Entry>(
-    dex: IReadOnlyDex<TDexEntry>,
+    dex: IReadableDex<TDexEntry>,
     where: Loop.IBreakable<[entry: TValue, index: number], boolean>,
     transform?: (key: HashKey) => TValue
   ): Result<TValue, ResultType.First, TDexEntry> {

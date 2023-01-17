@@ -4,8 +4,9 @@ import Dex from "../dexes/dex";
 import {
   ArchiDex,
   InternalRDexSymbols,
-  IReadOnlyDex,
-  ReadOnlyDex} from "../dexes/readonly";
+  IReadableDex,
+  ReadableDex
+} from "../dexes/read";
 import { Entry } from "../subsets/entries";
 import { HashKey } from "../subsets/hashes";
 import { Tag, Tags } from "../subsets/tags";
@@ -23,7 +24,7 @@ export interface Copier<TEntry extends Entry> extends ReadOnlyCopier<TEntry> {
    *     - tags and entry hash keys can be seperated into an object with two lists as well.
    */
   from(
-    source: IReadOnlyDex<TEntry>,
+    source: IReadableDex<TEntry>,
     keys?: HashKey[] | Set<HashKey> | HashKey | {
       entry?: HashKey | TEntry,
       entries?: (TEntry | HashKey)[] | Set<HashKey | TEntry>,
@@ -42,7 +43,7 @@ export type ReadOnlyCopier<TEntry extends Entry>
 //#region Internal
 
 /** @internal */
-export function ReadOnlyCopierConstructor<TEntry extends Entry>(toCopy: IReadOnlyDex<TEntry>): ReadOnlyCopier<TEntry> {
+export function ReadOnlyCopierConstructor<TEntry extends Entry>(toCopy: IReadableDex<TEntry>): ReadOnlyCopier<TEntry> {
   const copier = (() => new Dex<TEntry>(toCopy)) as (() => Dex<TEntry>) & { sealed(): ArchiDex<TEntry> };
   Object.defineProperty(copier, "sealed", {
     value() { return new ArchiDex(toCopy) },

@@ -9,31 +9,31 @@
 // dex classes
 import Dex from './objects/dexes/dex';
 export default Dex;
+export {Config, hash} from './objects/dexes/dex';
 
 export {
-  IReadOnlyDex,
-  IReadOnlyDex as IRDex,
-  ReadOnlyDex,
-  ReadOnlyDex as RDex,
+  IReadableDex as IReadOnlyDex,
+  ReadableDex as ReadOnlyDex,
   ArchiDex,
-  ArchiDex as Archidex,
-  ArchiDex as Adex,
   ArchiDex as Archive
-} from './objects/dexes/readonly';
+} from './objects/dexes/read';
 
 export {
   FaçaDex,
   FaçaDex as FacaDex,
   FaçaDex as Facadex,
-  FaçaDex as Facade,
-  FaçaDex as FDex
+  FaçaDex as Facade
 } from './objects/dexes/facade';
 
-import NoisyDex from './objects/dexes/controled';
+import NoisyDex from './objects/dexes/noisy';
 export {
   NoisyDex,
   NoisyDex as NDex
 };
+  
+export {
+  Config as NoisyConfig
+} from './objects/dexes/noisy';
 
 // sub types and sets
 export {
@@ -64,15 +64,12 @@ export {
 } from './objects/queries/filters';
 
 // child namespaces
-import Entries from './objects/subsets/entries';
-import Tags from './objects/subsets/tags';
-import Hashes from './objects/subsets/hashes';
+export * as Entries from './objects/subsets/entries';
+export * as Tags from './objects/subsets/tags';
+export * as Hashes from './objects/subsets/hashes';
 import Filters from './objects/queries/filters'
 import Queries from './objects/queries/queries'
 export {
-  Entries,
-  Tags,
-  Hashes,
   Filters,
   Queries
 }
@@ -84,8 +81,9 @@ export {
 export {
   Looper
 } from './objects/helpers/loops';
-export
-{ Mapper } from './objects/helpers/maps';
+export {
+  Mapper
+} from './objects/helpers/maps';
 
 // utility
 import IUnique from './objects/unique'

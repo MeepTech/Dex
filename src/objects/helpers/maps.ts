@@ -1,5 +1,5 @@
 import Loop from "../../utilities/iteration";
-import { IReadOnlyDex } from "../dexes/readonly";
+import { IReadableDex } from "../dexes/read";
 import { Entry } from "../subsets/entries";
 import { Tag } from "../subsets/tags";
 
@@ -39,7 +39,7 @@ export interface Mapper<TEntry> {
 //#region Internal
 
 /** @internal */
-export function MapperConstructor<TEntry extends Entry>(dex: IReadOnlyDex<TEntry>): Mapper<TEntry> {
+export function MapperConstructor<TEntry extends Entry>(dex: IReadableDex<TEntry>): Mapper<TEntry> {
   const func = dex.toMap as Mapper<TEntry>;
   func.tags = dex.splay;
   func.entries = dex.toArray;

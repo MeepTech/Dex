@@ -4,7 +4,7 @@ import { IDexSubMap, SubSet } from "./subset";
 import Queries from "../queries/queries";
 import Loop from "../../utilities/iteration";
 import { Tag, TagOrTags, TagSet } from "./tags";
-import { IReadOnlyDex } from "../dexes/readonly";
+import { IReadableDex } from "../dexes/read";
 import { Result, NoEntryFound, ResultType } from "../queries/results";
 
 /**
@@ -173,7 +173,7 @@ export {
 
 /** @internal */
 export function EntryMapConstructor<TEntry extends Entry>(
-  dex: IReadOnlyDex<TEntry>,
+  dex: IReadableDex<TEntry>,
   base: Map<HashKey, TEntry>
 ): EntrySet<TEntry> {
   const query: EntrySet<TEntry>

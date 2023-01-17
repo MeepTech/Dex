@@ -1,6 +1,6 @@
 import Dex from "../../../src/objects/dexes/dex";
 import { buildSimpleMockDex, expectDex_toContainTheSameAsDex } from "./shared";
-import { ArchiDex } from "../../../src/objects/dexes/readonly";
+import { ArchiDex } from "../../../src/objects/dexes/read";
 
 const {
   dex,
