@@ -22,8 +22,7 @@ export enum WardedKeys {
   "reset" = "reset",
   "clean" = "clean",
   "clear" = "clear",
-  "copy.from" = "copy.from",
-  "copy" = "copy",
+  "copy.from" = "copy.from"
 }
 
 /**
@@ -63,17 +62,17 @@ export type FaçadeSettings = {
 /**
  * Used to create a protected/proxied frontend or 'facade' of a dex with only read access provided.
  */
- export class FaçaDex<TEntry extends Entry = Entry, TDex extends ReadableDex<TEntry> = ReadableDex<TEntry>> extends ReadableDex<TEntry> {
+export class FaçaDex<TEntry extends Entry = Entry, TDex extends ReadableDex<TEntry> = ReadableDex<TEntry>> extends ReadableDex<TEntry> {
   #proxiedFields: Map<string | number | symbol, Ward>;
 
   constructor(original: ReadableDex<TEntry>, options?: FaçadeSettings);
-   constructor(original: TDex, options?: FaçadeSettings) {
-     super();
-     const façade = new Proxy(original, this.#buildFaçadeProxyHandler<TDex, TEntry>());
-     this.#proxiedFields = this.#getProxiedFields(original, options);
+  constructor(original: TDex, options?: FaçadeSettings) {
+    super();
+    const façade = new Proxy(original, this.#buildFaçadeProxyHandler<TDex, TEntry>());
+    this.#proxiedFields = this.#getProxiedFields(original, options);
 
-     return façade as any as FaçaDex<TEntry, TDex>;
-   }
+    return façade as any as FaçaDex<TEntry, TDex>;
+  }
 
   /** @internal */
   #buildFaçadeProxyHandler <
@@ -95,7 +94,7 @@ export type FaçadeSettings = {
             return proxyProp.getter!(base);
           }
         }
-  
+
         return base[propKey as keyof TDex];
       },
       set(): boolean {
@@ -116,10 +115,10 @@ export type FaçadeSettings = {
         throw new AccessError("Cannot call 'Set Prototype' on a Façade");
       }
     };
-   }
-   
+  }
+
   /** @internal */
-   #getProxiedFields<TEntry extends Entry>(baseDex: ReadableDex<TEntry>, options?: FaçadeSettings): Map<symbol | string | number, Ward> {
+  #getProxiedFields<TEntry extends Entry>(baseDex: ReadableDex<TEntry>, options?: FaçadeSettings): Map<symbol | string | number, Ward> {
     const dexFields = Object.getOwnPropertyNames(InternalDexSymbols).map(s =>
       [
         InternalDexSymbols[(s as keyof typeof InternalDexSymbols)],
@@ -138,7 +137,7 @@ export type FaçadeSettings = {
         { key: s, isHidden: true }
       ] as [symbol, Ward]
     );
-  
+
     const result = new Map<symbol | string | number, Ward>(
       (dexFields as [symbol | string, Ward][])
         .concat(rDexFields)
@@ -146,16 +145,14 @@ export type FaçadeSettings = {
         .concat(options?.extraWards.map(field => [field.key as string | symbol, field]) ?? [])
         .concat([...WARDED_KEYS]
           .map(name => [name, { key: name, isHidden: true }])));
-  
-     if (!result.has("copy")) {
-       result.set("copy", {
-         key: "copy",
-         getter(): any {
-           return (baseDex)[InternalRDexSymbols._getSimpleCopier];
-         }
-       });
-     }
-  
+
+    result.set("copy", {
+      key: "copy",
+      getter(): any {
+        return (baseDex)[InternalRDexSymbols._getSimpleCopier];
+      }
+    });
+
     if (options?.passthroughKeys && options.passthroughKeys.length) {
       for (const key in options.passthroughKeys) {
         if (key == WardedKeys["copy.from"]) {
@@ -165,7 +162,7 @@ export type FaçadeSettings = {
         }
       }
     }
-  
+
     return result;
   }
 }

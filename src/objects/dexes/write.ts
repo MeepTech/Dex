@@ -615,7 +615,7 @@ export function filterModifierArgs<TTarget extends [key: HashKey | Tag | Entry]>
     baseArgs[1] = args;
   } else if (Check.isNonStringIterable(args[0])) {
     baseArgs[1] = args.shift();
-  } else {
+  } else if (args[0] !== undefined) {
     baseArgs[1] = [args.shift()]
   }
 

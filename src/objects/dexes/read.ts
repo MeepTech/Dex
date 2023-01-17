@@ -32,7 +32,7 @@ export namespace InternalRDexSymbols {
   export const _allHashes: unique symbol = Symbol("_allHashes");
   export const _hashesByTag: unique symbol = Symbol("_hashesByTag");
   export const _tagsByHash: unique symbol = Symbol("_tagsByHash");
-  export const _entriesByHash: unique symbol = Symbol("_allHashes");
+  export const _entriesByHash: unique symbol = Symbol("_entriesByHash");
   export const _getSimpleCopier: unique symbol = Symbol("_getSimpleCopier");
 }
 

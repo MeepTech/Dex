@@ -509,7 +509,6 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
 
       hashesToRemove.forEach(hash =>
         this[InternalRDexSymbols._tagsByHash].get(hash)?.delete(tag));
-      this[InternalRDexSymbols._hashesByTag].get(tag)?.clear();
 
       return effected;
     } else {
@@ -561,35 +560,23 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       this,
       (
         entry: TEntry | HashKey,
-        tags?: Iterable<Tag> | Tag,
-        ...moreTags: Tag[]
+        tags?: Iterable<Tag>,
       ): { hashKey: HashKey | None, tagCount: number, isNew: boolean } => {
-        let tagArray: Tag[];
-        if (!Check.isNonStringIterable(tags)) {
-          if (moreTags.length) {
-            tagArray = [tags as Tag, ...moreTags];
-          } else {
-            tagArray = [tags as Tag];
-          }
-        } else {
-          if (moreTags.length) {
-            tagArray = [...tags as Iterable<Tag>, ...moreTags];
-          } else {
-            tagArray = [...tags as Iterable<Tag>]
-          }
-        }
-
         let isNew: boolean;
         const hash = this.hash(entry);
-        if (!this.has(hash) && this.canContain(entry)) {
+        if (!this.contains(hash) && this.canContain(entry)) {
           isNew = true;
           this[InternalDexSymbols._addNewEntry](entry, hash);
         } else {
           isNew = false;
         }
 
-        tagArray.forEach(tag =>
-          this[InternalDexSymbols._addTagToEntry](tag, hash));
+        for (const tag of tags ?? []) {
+          if (!this.has(tag)) {
+            this[InternalDexSymbols._addNewTag](tag);
+          }
+          this[InternalDexSymbols._addTagToEntry](tag, hash);
+        }
 
         return { isNew, hashKey: hash, tagCount: this.tags(hash).size };
       }
@@ -699,8 +686,13 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   ): HashKey | None;
 
   import<TInput extends XWithTags<TEntry>[] | XWithTags<TEntry>[] | [XWithTags<TEntry>[]] | [XWithTags<TEntry>[]]>(
-    ...entryOrEntriesWithTags: TInput
+    entryOrEntriesWithTags: TInput | TInput[0],
+    ...rest: TInput
   ): TInput extends XWithTags<TEntry>[] ? (HashKey | None)[] : (HashKey | None) {
+    if (rest.length) {
+      entryOrEntriesWithTags = [entryOrEntriesWithTags as TInput[0], ...rest] as any as TInput;
+    }
+
     // InputEntryWithTags<TEntry>[] | InputEntryWithTagsArray<TEntry>
     if (Check.isArray(entryOrEntriesWithTags)) {
       // InputEntryWithTagsArray<TEntry>[] | InputEntryWithTagsArray<TEntry>
@@ -708,7 +700,8 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
         // InputEntryWithTagsArray<TEntry>[]
         if (!this.canContain(entryOrEntriesWithTags[0])) { // [0: [0: entry, ...tags], 1: [entry, ...tags]]
           return (entryOrEntriesWithTags as XWithTagsTuple<TEntry>[])
-            .map(this[InternalDexSymbols._importOneArray].bind(this)) as any;
+            .map(importArray =>
+              this[InternalDexSymbols._importOneArray](importArray)) as any;
         } // InputEntryWithTagsArray<TEntry>
         else { // [0: array shaped entry, 1..: ...tags]
           return this[InternalDexSymbols._importOneArray](entryOrEntriesWithTags as XWithTagsTuple<TEntry>) as any;
