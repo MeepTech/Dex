@@ -2,7 +2,7 @@ import Loop from "../../utilities/iteration";
 import Dex from "../dexes/dex";
 import { Result, NO_RESULT, ResultType } from "../queries/results";
 import { IReadableDex } from "../dexes/read";
-import { Entry } from "./entries";
+import { Entry, None } from "./entries";
 import { HashKey } from "./hashes";
 import { Tag } from "./tags";
 
@@ -116,7 +116,7 @@ export interface IDexSubMap<
  */
 export interface IDexSubSet<
   TValue extends Entry | HashKey | Tag,
-  TEntry extends Entry,
+  TEntry extends Entry | None,
 > extends Readonly<Omit<Set<TValue>, 'add' | 'delete' | 'clear'>>,
   IDexSubCollection<TValue, TValue[], [item: TValue, index: number]>
 {

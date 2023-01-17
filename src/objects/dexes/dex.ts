@@ -835,7 +835,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       TEntry,
       [entry: TEntry],
       Tag,
-      {wasRemoved: boolean | NoEntryFound, tagCount?: number},
+      { wasRemoved: boolean | NoEntryFound, tagCount?: number },
       []
       | [unlinkFromTag: Tag]
       | [unlinkTags: Iterable<Tag>]
@@ -848,7 +848,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
         entry: TEntry | HashKey,
         tags?: Iterable<Tag>,
         options?: { keepTaglessEntries?: true, dropEmptyTags?: true }
-      ): {wasRemoved: boolean | NoEntryFound, tagCount: number} => {
+      ): { wasRemoved: boolean | NoEntryFound, tagCount: number } => {
         if (!options) {
           const hash = this.hash(entry);
           if (this.contains(hash)) {
@@ -856,12 +856,12 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
             const remainingTagCount = this[InternalRDexSymbols._tagsByHash].get(hash)?.size;
             if (!remainingTagCount) {
               this[InternalDexSymbols._removeEntry](hash);
-              return {wasRemoved: true, tagCount: 0};
+              return { wasRemoved: true, tagCount: 0 };
             } else {
-              return {wasRemoved: false, tagCount: remainingTagCount};
+              return { wasRemoved: false, tagCount: remainingTagCount };
             }
           } else {
-            return {wasRemoved: NO_RESULT, tagCount: 0};
+            return { wasRemoved: NO_RESULT, tagCount: 0 };
           }
         } else {
           const hash = this.hash(entry);
@@ -883,12 +883,12 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
             const remainingTagCount = this[InternalRDexSymbols._tagsByHash].get(hash)?.size;
             if (!remainingTagCount && !options.keepTaglessEntries) {
               this[InternalDexSymbols._removeEntry](hash);
-              return {wasRemoved: true, tagCount: 0};
+              return { wasRemoved: true, tagCount: 0 };
             } else {
-              return {wasRemoved: false, tagCount: remainingTagCount ?? 0};
+              return { wasRemoved: false, tagCount: remainingTagCount ?? 0 };
             }
           } else {
-            return {wasRemoved: NO_RESULT, tagCount: 0};
+            return { wasRemoved: NO_RESULT, tagCount: 0 };
           }
         }
       }) as EntryRemover<TEntry>;
@@ -916,21 +916,21 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       TEntry,
       [entry: TEntry],
       Tag,
-      {foundEntry: boolean | NoEntryFound, tagCount?: number},
+      { foundEntry: boolean | NoEntryFound, tagCount?: number },
       [...tags: Tag[]] | [tags: Iterable<Tag>] | [tag: Tag]
     >(
       this,
       (
         entry: TEntry | HashKey,
         tags?: Iterable<Tag>
-      ): {foundEntry: boolean | NoEntryFound, tagCount: number} => {
+      ): { foundEntry: boolean | NoEntryFound, tagCount: number } => {
         if (this.contains(entry)) {
           const hash = this.hash(entry);
           this[InternalDexSymbols._untagEntry](hash, tags as Tags);
-          return {foundEntry: true, tagCount: this[InternalRDexSymbols._tagsByHash].get(hash)!.size}
+          return { foundEntry: true, tagCount: this[InternalRDexSymbols._tagsByHash].get(hash)!.size }
         }
 
-        return {foundEntry: false, tagCount: 0};
+        return { foundEntry: false, tagCount: 0 };
       }).bind(this) as Untagger<TEntry>;
   }
 
@@ -1053,7 +1053,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   }
 
   /** @internal */
-  private [InternalDexSymbols._resetTag](tag: Tag, options?: { keepTaglessEntries?: true, onRemove?: (key: HashKey) => void}) {
+  private [InternalDexSymbols._resetTag](tag: Tag, options?: { keepTaglessEntries?: true, onRemove?: (key: HashKey) => void }) {
     if (this.has(tag)) {
       for (const hash of this[InternalRDexSymbols._hashesByTag].get(tag) ?? []) {
         const tagsForHash = this[InternalRDexSymbols._tagsByHash].get(hash);
@@ -1076,14 +1076,14 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
 
   //#region Remove Various Values
 
-  clean(): {entries: number, tags: number};
+  clean(): { entries: number, tags: number };
 
   clean(options: { tags?: boolean, entries?: boolean }): { entries: number, tags: number };
 
   clean(
     options?: { tags?: boolean, entries?: boolean }
   ): { entries: number, tags: number } {
-    const result = {entries: 0, tags: 0};
+    const result = { entries: 0, tags: 0 };
     if (options?.entries) {
       for (const [k, t] of this[InternalRDexSymbols._tagsByHash]) {
         if (!t.size) {
@@ -1105,8 +1105,6 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     return result;
   };
 
-  clear(): void;
-
   clear(): void {
     this[InternalRDexSymbols._allTags].clear();
     this[InternalRDexSymbols._allHashes].clear();
@@ -1114,6 +1112,8 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
     this[InternalRDexSymbols._hashesByTag].clear();
     this[InternalRDexSymbols._tagsByHash].clear();
   }
+
+  //#endregion
 
   //#endregion
 

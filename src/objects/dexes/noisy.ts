@@ -7,7 +7,7 @@ import HashKey from "../subsets/hashes";
 import Tags, { Tag, TagOrTags } from "../subsets/tags";
 import { InternalRDexSymbols } from "./read";
 import { DexModifierFunctionConstructor, EntryAdder, EntryRemover, filterModifierArgs, TagDropper, Tagger, TagResetter, TagSetter, Untagger } from "./write";
-import { Copier } from "../helpers/copy";
+import { Copier, CopierConstructor } from "../helpers/copy";
 import { NoEntryFound, NO_RESULT } from "../queries/results";
 
 //#region Symbols
@@ -364,7 +364,7 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
   #noisyClearer?: () => void;
   #noisyCleaner?: (options?: { tags?: boolean, entries?: boolean }) => { entries: number, tags: number };
   // - helpers
-  #copier?: Copier<TEntry>;
+  #noisyCopier?: Copier<TEntry>;
 
   //#region Initialization
 
@@ -468,112 +468,6 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
   /** @internal */
   protected override[InternalDexSymbols._initOptions](config?: Config<TEntry>) {
     this.#callbacks = {};
-
-    /*if ((config?.emitEvents as any)?.fromListeners) {
-      config = <Config<TEntry>>config;
-      this.#eventFunnel = config?.eventFunnel;
-      if (!Check.isObject(config.emitEvents)) {
-        for (const callbackKey of LISTENER_KEYS) {
-          let callbackArray: Listener[] | undefined = (config as any)[callbackKey];
-
-          if (!callbackArray) {
-            callbackArray = [];
-          }
-
-          callbackArray.push(
-            this.#buildEventConstructorListener(callbackKey)
-          );
-
-          this.#callbacks[callbackKey] = callbackArray as Listener<any>[];
-        }
-
-      } else {
-        for (const callbackKey of LISTENER_KEYS) {
-          let callbackArray: Listener[] | undefined = (config as any)[callbackKey];
-
-          switch (LISTENER_EVENT_TYPES.get(callbackKey)) {
-            case EventType.Add: {
-              if (config.emitEvents.onAdd) {
-                if (config.emitEvents.onAdd === true) {
-                  break;
-                } else {
-                  switch (LISTENER_EVENT_TARGETS.get(callbackKey)) {
-                    case EventTarget.Entry:
-                    case EventTarget.HashKey: {
-                      if (config.emitEvents.onAdd.entry) {
-                        break;
-                      }
-
-                      continue;
-                    }
-                    case EventTarget.Tag: {
-                      if (config.emitEvents.onAdd.tag) {
-                        break;
-                      }
-
-                      continue;
-                    }
-                  }
-                }
-              } else {
-                continue;
-              }
-
-              break;
-            }
-
-            case EventType.Remove: {
-              if (config.emitEvents.onRemove) {
-                if (config.emitEvents.onRemove === true) {
-                  break;
-                } else {
-                  switch (LISTENER_EVENT_TARGETS.get(callbackKey)) {
-                    case EventTarget.Entry:
-                    case EventTarget.HashKey: {
-                      if (config.emitEvents.onRemove.entry) {
-                        break;
-                      }
-
-                      continue;
-                    }
-                    case EventTarget.Tag: {
-                      if (config.emitEvents.onRemove.tag) {
-                        break;
-                      }
-
-                      continue;
-                    }
-                  }
-                }
-              } else {
-                continue;
-              }
-
-              break;
-            }
-
-            case EventType.Update: {
-              if (!config.emitEvents.onUpdate) {
-                continue;
-              }
-
-              break;
-            }
-          }
-
-          if (!callbackArray) {
-            callbackArray = [];
-          }
-
-          callbackArray.push(
-            this.#buildEventConstructorListener(callbackKey)
-          );
-
-          this.#callbacks[callbackKey] = callbackArray as Listener<any>[];
-        }
-      }
-    } else*/
-
     if (Check.isObject(config)) {
       for (const callbackKey of LISTENER_KEYS) {
         this.#callbacks[callbackKey] = (config as any)[callbackKey];
@@ -583,97 +477,16 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
         this.#NoisyTagSetterConstructor();
         this.#NoisyEntryAdderConstructor();
         this.#NoisyTaggerConstructor();
+        this.#NoisyUntaggerConstructor();
         this.#NoisyEntryRemoverConstructor();
         this.#NoisyTagDropperConstructor();
         this.#NoisyTagResetterConstructor();
+        this.#NoisyCleanerConstructor();
+        this.#NoisyClearerConstructor();
+        this.#NoisyCopierConstructor();
       }
     }
   }
-
-  /** @internal */
-  /*#buildEventConstructorListener(callbackKey: ListenerType): Listener<any> {
-    return function eventDistributor(
-      this: NoisyDex<TEntry>,
-      target: HashKey | TEntry | Tag,
-      effectedTag
-    ): void {
-      const timeStamp = new Date();
-      let effected: {
-        _tagSet?: Set<Tag>,
-        _hashSet?: Set<HashKey>,
-        _entryMap?: Map<HashKey, Entry>,
-        get tags(): undefined | (() => Set<Tag> | undefined),
-        get hashes(): undefined | (() => Set<HashKey> | undefined),
-        get entries(): undefined | (() => Map<HashKey, Entry> | undefined)
-      };
-
-      const targetType = LISTENER_EVENT_TARGETS.get(callbackKey);
-
-      if (targetType === EventTarget.Tag) {
-        effected = {
-          get tags() {
-            return (() => this._tagSet ??= new Set([target as Tag])).bind(this);
-          },
-          get hashes() {
-            return undefined
-          },
-          get entries() {
-            return undefined
-          },
-        };
-      } else {
-        const dex = this;
-        if (targetType === EventTarget.Entry) {
-          effected = {
-            get tags() {
-              return effectedTag
-                ? (() => this._tagSet
-                  ??= new Set([effectedTag])).bind(this)
-                : undefined;
-            },
-            get hashes() {
-              return (() => this._hashSet
-                ??= new Set([dex.hash(target)])).bind(this);
-            },
-            get entries() {
-              return (() => this._entryMap
-                ??= new Map([[dex.hash(target), target]])).bind(this);
-            },
-          };
-        } else {
-          effected = {
-            get tags() {
-              return effectedTag
-                ? (() => this._tagSet
-                  ??= new Set([effectedTag])).bind(this)
-                : undefined;
-            },
-            get hashes() {
-              return (() => this._hashSet
-                ??= new Set([target as HashKey])).bind(this);
-            },
-            get entries() {
-              return (() => this._entryMap
-                ??= new Map([[target as HashKey, dex.get(target as HashKey)!]])).bind(this);
-            },
-          };
-        }
-      }
-
-      const event = new Event(
-        timeStamp,
-        callbackKey,
-        LISTENER_EVENT_TIMES.get(callbackKey)!,
-        LISTENER_EVENT_TYPES.get(callbackKey) as any,
-        LISTENER_EVENT_TARGETS.get(callbackKey) as any,
-        target as any,
-        effected as DexValues,
-        UPDATE_LISTERNER_EVENT_TYPES.get(callbackKey) as any
-      );
-
-      this.#eventFunnel!(event);
-    };
-  }*/
 
   //#region Consolodated Events
 
@@ -695,7 +508,7 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
         ...rest: any[]
       ): number => {
         const events = rest[rest.length - 2] as UnconstructedEvents;
-        
+
         // undefined means nothing gets touched and we verify the tag exists.
         if (entries === undefined) {
           if (!this.has(tag)) {
@@ -928,7 +741,7 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
 
         return { foundEntry: false, tagCount: 0 };
       }
-    ).bind(this),
+      ).bind(this),
       filterModifierArgs as any,
       () => {
         return [{} as UnconstructedEvents, new Date()];
@@ -981,7 +794,7 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
 
         return 0;
       }
-    ).bind(this),
+      ).bind(this),
       filterModifierArgs as any,
       () => {
         return [{} as UnconstructedEvents, new Date()];
@@ -1080,12 +893,13 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
     }) as TagResetter
   }
 
+  /** @internal */
   #NoisyCleanerConstructor() {
     return this.#noisyCleaner ??= function (this: NoisyDex<TEntry>, options?: { tags?: boolean, entries?: boolean }): { entries: number, tags: number } {
       let time = new Date();
       let events = undefined! as UnconstructedEvents;
 
-      const result = {entries: 0, tags: 0};
+      const result = { entries: 0, tags: 0 };
       if (options?.entries) {
         for (const [k, t] of this[InternalRDexSymbols._tagsByHash]) {
           if (!t.size) {
@@ -1095,7 +909,7 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
           }
         }
       }
-  
+
       if (options?.tags) {
         for (const [t, k] of this[InternalRDexSymbols._hashesByTag]) {
           if (!k.size) {
@@ -1107,9 +921,153 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
       }
 
       this.#broadcast("reset", time, events);
-  
+
       return result;
     }.bind(this)
+  }
+
+  /** @internal */
+  #NoisyClearerConstructor() {
+    return this.#noisyClearer ??= (() => {
+      let time = new Date();
+      let events = undefined! as UnconstructedEvents;
+
+      for (const tag of this.tags) {
+        const currentEntries = this.hashes(tag);
+        if (currentEntries.size) {
+          this.#queueNewUnlinkedFromTagEvent(events, tag, currentEntries);
+        }
+        this.#queueNewTagRemovedEvent(events, tag);
+      }
+      for (const [hash, entry] of this.entries) {
+        this.#queueNewEntryRemovedEvent(events, hash, entry);
+      }
+
+      const results = super.clear();
+      this.#broadcast("clear", time, events);
+      return results;
+    }).bind(this)
+  }
+
+  /** @internal */
+  #NoisyCopierConstructor() {
+    return this.#noisyCopier ??= CopierConstructor<TEntry>(
+      this,
+      (source, into, base) => {
+        let time = new Date();
+        let events = undefined! as UnconstructedEvents;
+
+        for (const [key, _, tags] of source) {
+          if (key === undefined) {
+            for (const tag in tags) {
+              if (!this.has(tag)) {
+                this.#queueNewTagAddedEvent(events, tag);
+              }
+            }
+          } else {
+            if (!this.contains(key)) {
+              this.#queueNewEntryAddedEvent(events, key);
+            }
+            for (const tag in tags) {
+              if (!this.has(tag)) {
+                this.#queueNewTagAddedEvent(events, tag);
+              }
+              if (!this.tags(key).has(tag)) {
+                this.#queueNewLinkedToTagEvent(events, tag, [key]);
+              }
+            }
+          }
+        }
+
+        base(source, into);
+        this.#broadcast("copy.from", time, events);
+      },
+      ((
+        keys: Set<HashKey> | HashKey[] | { entry?: HashKey | TEntry | undefined; entries?: (HashKey | TEntry)[] | Set<HashKey | TEntry> | undefined; tags?: Tags | undefined; tag?: Tag | undefined; },
+        into: Dex<TEntry>,
+        source: Dex<TEntry>,
+        base: (keys: Set<HashKey>
+          | HashKey[]
+          | {
+            entry?: HashKey | TEntry | undefined;
+            entries?: (HashKey | TEntry)[] | Set<HashKey | TEntry> | undefined;
+            tags?: Tags | undefined;
+            tag?: Tag | undefined;
+          },
+          into: Dex<TEntry>,
+          source: Dex<TEntry>) => void
+      ): void => {
+        let time = new Date();
+        let events = undefined! as UnconstructedEvents;
+
+        if (Check.isNonStringIterable(keys)) {
+          keys.forEach((key: HashKey) => {
+            if (!this.contains(key)) {
+              this.#queueNewEntryAddedEvent(events, key);
+            }
+            for (const tag in this.tags(key)) {
+              if (!this.has(tag)) {
+                this.#queueNewTagAddedEvent(events, tag);
+              }
+              if (!this.tags(key).has(tag)) {
+                this.#queueNewLinkedToTagEvent(events, tag, [key]);
+              }
+            }
+          });
+        } else {
+          // []: Tags with no entries
+          if (keys.entries && (keys.entries instanceof Set ? keys.entries.size : keys.entries.length) === 0) {
+            for (const tag of source.tags.empty) {
+              if (!this.has(tag)) {
+                this.#queueNewTagAddedEvent(events, tag);
+              }
+            }
+          } else if (keys.entries) {
+            // [...]
+            [...keys.entries].forEach((key: TEntry | HashKey) => {
+              const hash = this.hash(key);
+              if (!this.contains(hash)) {
+                this.#queueNewEntryAddedEvent(events, hash);
+              }
+              for (const tag in this.tags(hash)) {
+                if (!this.has(tag)) {
+                  this.#queueNewTagAddedEvent(events, tag);
+                }
+                if (!this.tags(hash).has(tag)) {
+                  this.#queueNewLinkedToTagEvent(events, tag, [hash]);
+                }
+              }
+            });
+          }
+      
+          // []: Entries with no tags
+          if (keys.tags && (keys.tags instanceof Set ? keys.tags.size : Loop.count(keys.tags)) === 0) {
+            for (const key of source.hashes) {
+              if (source.tags.of(key)!.size === 0) {
+                if (!this.contains(key)) {
+                  this.#queueNewEntryAddedEvent(events, key);
+                }
+              }
+            }
+          } else if (keys.tags) {
+            // [...]
+            Loop.forEach(keys.tags, (tag: Tag) => {
+              (source as any)[InternalRDexSymbols._hashesByTag].get(tag)?.forEach((hash: HashKey) => {
+                if (!this.has(tag)) {
+                  this.#queueNewTagAddedEvent(events, tag);
+                }
+                if (!this.tags(hash).has(tag)) {
+                  this.#queueNewLinkedToTagEvent(events, tag, [hash]);
+                }
+              });
+            });
+          }
+        }
+        
+        base(keys, source, into);
+        this.#broadcast("copy.from", time, events);
+      }).bind(this)
+    )
   }
 
   //#endregion
@@ -1120,14 +1078,36 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
 
   //#region Methods
 
-  //#region Events
-
+  override get copy(): Copier<TEntry> {
+    return this.#noisyCopier ?? super.copy;
+  }
   override get set(): TagSetter<TEntry> {
     return this.#noisyTagSetter ?? super.set;
   }
+  override get add(): EntryAdder<TEntry> {
+    return this.#noisyEntryAdder ?? super.add;
+  }
+  override get tag(): Tagger<TEntry> {
+    return this.#noisyTagger ?? super.tag;
+  }
+  override get remove(): EntryRemover<TEntry> {
+    return this.#noisyEntryRemover ?? super.remove;
+  }
+  override get untag(): Untagger<TEntry> {
+    return this.#noisyUntagger ?? super.untag;
+  }
+  override get drop(): TagDropper {
+    return this.#noisyTagDropper ?? super.drop;
+  }
+  override clean(options?: { tags?: boolean, entries?: boolean }): { entries: number, tags: number } {
+    return this.#noisyCleaner?.(options) ?? super.clean();
+  }
+  override clear(): void {
+    this.#noisyClearer?.() ?? super.clear();
+  }
 
   //#region Event Queue
-  
+
   /** @internal */
   #broadcast(label: string, time: Date, events: UnconstructedEvents) {
     throw new NotImplementedError("#broadcast");
@@ -1323,7 +1303,7 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
 
   //#endregion
 
-  //#endregion
+  //#region Callbacks
 
   /** @internal */
   protected override[InternalDexSymbols._addNewTag](tag: Tag, hashesToSet = new Set<HashKey>()): void {
@@ -1495,6 +1475,8 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
         tag));
 
   }
+
+  //#endregion
 
   //#region Internal
 

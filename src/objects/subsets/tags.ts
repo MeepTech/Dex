@@ -2,7 +2,7 @@ import Loop from "../../utilities/iteration";
 import Check from "../../utilities/validators";
 import { Result, NoEntryFound, ResultType } from "../queries/results";
 import { InternalRDexSymbols, IReadableDex } from "../dexes/read";
-import { Entry } from "./entries";
+import { Entry, None, NONE_FOR_TAG } from "./entries";
 import { HashKey } from "./hashes";
 import { IDexSubSet, SubSet } from "./subset";
 
@@ -26,18 +26,18 @@ export type TagOrTags = Tag | Tags;
  * A collection used to access hashes
  */
 export interface TagSet<TEntry extends Entry = Entry>
-  extends IDexSubSet<Tag, TEntry> {
+  extends IDexSubSet<Tag, TEntry | None> {
 
   /**
    * Get all tags for a single entry.
    */
-  (forEntry: TEntry | HashKey): Set<Tag>;
+  (forEntry: TEntry | HashKey | None): Set<Tag>;
 
   /**
    * Get all tags for multiple entries
    */
   <TShouldSplit extends true | undefined = undefined>(
-    forEntries: Iterable<TEntry | HashKey>,
+    forEntries: Iterable<TEntry | HashKey | None>,
     options?: {
       // TODO: implement not
       //not?: true,
@@ -59,8 +59,13 @@ export interface TagSet<TEntry extends Entry = Entry>
    * Fetch all the items that match a given entry into a set.
    */
   of(
-    target: TEntry | HashKey
+    target: TEntry | HashKey | None
   ): Set<Tag> | undefined;
+
+  /**
+   * Get all the empty tags. Tags without entries.
+   */
+  get empty(): Set<Tag>
 }
 
 export { TagSet as Set };
@@ -84,7 +89,7 @@ export function toSet(tags: TagOrTags, ...otherTags: Tag[]): Set<Tag> {
 /** @internal */
 export function TagSetConstructor<TEntry extends Entry>(dex: IReadableDex<TEntry>, base: Set<Tag>): TagSet<TEntry> {
   const tagSet = function tagSetBase<TShouldSplit extends true | undefined = undefined>(
-    forEntries: TEntry | Iterable<TEntry>,
+    forEntries: TEntry | None | Iterable<TEntry>,
     options?: {
       // TODO: implement not
       //not?: true,
@@ -97,11 +102,17 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadableDex<TEntry
     }
   ): TShouldSplit extends undefined
     ? Set<Tag>
-    : Map<HashKey, Set<Tag>> {
+    : Map<HashKey | undefined, Set<Tag>> {
     const targets = Check.isNonStringIterable(forEntries)
       ? forEntries
       : [forEntries];
-    
+
+    const targetCount: number = Loop.count(targets);
+    if (!targetCount || (targetCount === 1 && targets[Symbol.iterator]().next().value === NONE_FOR_TAG)) {
+      // TODO: get all empty tags
+      return dex.tags.empty as any;
+    }
+
     const config: {
       // TODO: implement not
       //not?: true,
@@ -109,14 +120,18 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadableDex<TEntry
       or?: false,
       and?: true,
     } | undefined = options;
-    
+
     if (config?.split) {
       // Can only split with OR
-      const results = new Map<HashKey, Set<Tag>>();
+      const results = new Map<HashKey | undefined, Set<Tag>>();
       for (const target of targets) {
-        const hash = dex.hash(target)!;
-        const tagsForHash = (dex as any)[InternalRDexSymbols._tagsByHash].get(hash)! as Set<Tag>;
-        results.set(hash, new Set(tagsForHash));
+        if (target === NONE_FOR_TAG) {
+          results.set(undefined, new Set(dex.tags.empty));
+        } else {
+          const hash = dex.hash(target)!;
+          const tagsForHash = (dex as any)[InternalRDexSymbols._tagsByHash].get(hash)! as Set<Tag>;
+          results.set(hash, new Set(tagsForHash));
+        }
       }
 
       return results as TShouldSplit extends undefined
@@ -127,8 +142,13 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadableDex<TEntry
       // AND
       if (config?.and || config?.or === false) {
         for (const target of targets) {
-          const hash = dex.hash(target)!;
-          const tagsForHash = (dex as any)[InternalRDexSymbols._tagsByHash].get(hash)! as Set<Tag>;
+          let tagsForHash: Set<Tag>;
+          if (target === NONE_FOR_TAG) {
+            tagsForHash = dex.tags.empty;
+          } else {
+            const hash = dex.hash(target)!;
+            tagsForHash = (dex as any)[InternalRDexSymbols._tagsByHash].get(hash)! as Set<Tag>;
+          }
           if ((results?.size ?? 0) === 0) {
             results = new Set(tagsForHash);
           } else {
@@ -142,8 +162,13 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadableDex<TEntry
       } // OR
       else {
         for (const target of targets) {
-          const hash = dex.hash(target)!;
-          const tagsForHash = (dex as any)[InternalRDexSymbols._tagsByHash].get(hash)! as Set<Tag>;
+          let tagsForHash: Set<Tag>;
+          if (target === NONE_FOR_TAG) {
+            tagsForHash = dex.tags.empty;
+          } else {
+            const hash = dex.hash(target)!;
+            tagsForHash = (dex as any)[InternalRDexSymbols._tagsByHash].get(hash)! as Set<Tag>;
+          }
           if ((results?.size ?? 0) === 0) {
             results = new Set(tagsForHash);
           } else {
@@ -155,12 +180,28 @@ export function TagSetConstructor<TEntry extends Entry>(dex: IReadableDex<TEntry
       }
 
       return results as TShouldSplit extends undefined
-      ? Set<Tag>
-      : Map<HashKey, Set<Tag>>;
+        ? Set<Tag>
+        : Map<HashKey, Set<Tag>>;
     }
   } as TagSet<TEntry>;
 
-  
+
+  Object.defineProperty(tagSet, 'empty', {
+    get(): Set<Tag> {
+      return SubSet.filter(
+        dex,
+        (tag: Tag): boolean => dex.count(tag) === 0,
+        ResultType.Set
+      );
+    },
+    enumerable: false,
+    configurable: false
+  } as {
+    get(): TagSet<TEntry>["empty"],
+    enumerable: false,
+    configurable: false
+  });
+
   Object.defineProperty(tagSet, 'map', {
     value<TResult, TResults extends ResultType>(
       transform: Loop.IBreakable<[tag: Tag, index: number], TResult>,

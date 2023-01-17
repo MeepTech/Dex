@@ -2,7 +2,9 @@ import {
   Entry,
   EntryMapConstructor,
   EntrySet,
-  IHasher
+  IHasher,
+  None,
+  NONE_FOR_TAG
 } from "../subsets/entries";
 import { Looper, LooperConstructor } from "../helpers/loops";
 import { Mapper, MapperConstructor } from "../helpers/maps";
@@ -40,7 +42,7 @@ export namespace InternalRDexSymbols {
  * Interface for reading from and querying from a dex.
  */
 
-export interface IReadableDex<TEntry extends Entry = Entry> extends Iterable<[HashKey, TEntry, Set<Tag>]> {
+export interface IReadableDex<TEntry extends Entry = Entry> extends Iterable<[HashKey | undefined, TEntry | None, Set<Tag>]> {
 
   //#region Properties
 
@@ -553,9 +555,14 @@ export abstract class ReadableDex<TEntry extends Entry> implements IReadableDex<
 
   //#region Iteration
 
-  *[Symbol.iterator](): Iterator<[HashKey, TEntry, Set<Tag>]> {
+  *[Symbol.iterator](): Iterator<[HashKey | undefined, TEntry | None, Set<Tag>]> {
     for (const hash in this[InternalRDexSymbols._allHashes]) {
       yield [hash, this.get(hash)!, this[InternalRDexSymbols._tagsByHash].get(hash)!];
+    }
+
+    const tagsForNone = this.tags.empty;
+    if (tagsForNone.size) {
+      yield [undefined, NONE_FOR_TAG, tagsForNone];
     }
   }
 
