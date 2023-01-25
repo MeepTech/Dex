@@ -20,7 +20,7 @@ import {
 } from "../subsets/hashes";
 import Queries from "../queries/queries";
 import Loop from "../../utilities/iteration";
-import Dex, { Config } from "./dex";
+import Dex, { Config, isDex } from "./dex";
 import { NoEntryFound, ResultType } from "../queries/results";
 import { ReadOnlyCopier, ReadOnlyCopierConstructor } from "../helpers/copy";
 
@@ -763,6 +763,12 @@ export abstract class ReadableDex<TEntry extends Entry> implements IReadableDex<
     return this.#count;
   };
 
+  /**
+   * Check is something is a basic readable dex
+   */
+  static is
+    = (symbol: any) => isDex(symbol, {andIsWriteable: false});
+  
   //#endregion
 
   //#endregion

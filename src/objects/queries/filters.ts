@@ -6,6 +6,7 @@ import { Entry } from '../subsets/entries'
 import { HashKey, HashKeyOrKeys } from "../subsets/hashes";
 import { Tag, TagOrTags } from "../subsets/tags";
 import { ResultType, RESULT_TYPES } from "./results";
+import Dex from "../dexes/dex";
 
 /**
  * Filters for a query.
@@ -275,7 +276,8 @@ namespace Filters {
    */
   export function processFromArgs<TDexEntry extends Entry>(
     options: {
-      defaultFilterType: 'or' | 'and'
+      defaultFilterType: 'or' | 'and',
+      allOnNoParams: boolean
     },
     ...args: any[]
   ): { filters: Filter<TDexEntry>[], result: ResultType | undefined } {
@@ -338,11 +340,11 @@ namespace Filters {
       } as any)
     }
 
-    if (!filters) {
+    if (!filters && !options.allOnNoParams) {
       throw new InvalidQueryParamError([...arguments].slice(1).join(", "), "...args", "Could not process provided query function arguments into valid filters.");
     }
 
-    return { filters: normalize(filters), result };
+    return { filters: normalize(filters ?? []), result };
   }
 
   //#region Internal
@@ -465,15 +467,15 @@ namespace Filters {
 
   function _checkNextArgsForLooseTags(args: any[], index: [number]): Iterable<Tag> | undefined {
     if (Check.isNonStringIterable(args[0])) {
-      if (Check.isTag(Loop.first(args[0]))) {
+      if (Dex.isTag(Loop.first(args[0]))) {
         index[0]++;
         return args.shift();
       }
     }
   
-    if (Check.isTag(args[0])) {
+    if (Dex.isTag(args[0])) {
       const tags: Tag[] = [];
-      while (Check.isTag(args[0])) {
+      while (Dex.isTag(args[0])) {
         index[0]++;
         tags.push(args.shift());
       }
@@ -493,9 +495,9 @@ namespace Filters {
       }
     }
   
-    if (Check.isFilter(args[0])) {
+    if (Dex.isFilter(args[0])) {
       const filters: XFilter<TDexEntry>[] = [args.shift()];
-      while (Check.isFilter(args[0])) {
+      while (Dex.isFilter(args[0])) {
         index[0]++;
         filters.push(args.shift());
       }

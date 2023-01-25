@@ -5,6 +5,7 @@ import { InternalRDexSymbols, IReadableDex } from "../dexes/read";
 import { Entry, None, NONE_FOR_TAG } from "./entries";
 import { HashKey } from "./hashes";
 import { IDexSubSet, SubSet } from "./subset";
+import Dex from "../dexes/dex";
 
 /**
  * A Tag for a dex.
@@ -76,7 +77,7 @@ export { TagSet as Set };
  * Turn a tag or tags into an easy to use Set<ITag>
  */
 export function toSet(tags: TagOrTags, ...otherTags: Tag[]): Set<Tag> {
-  tags = tags instanceof Set ? tags : Check.isTag(tags) ? new Set<Tag>([tags]) : new Set<Tag>(tags);
+  tags = tags instanceof Set ? tags : Dex.isTag(tags) ? new Set<Tag>([tags]) : new Set<Tag>(tags);
   otherTags.forEach(o => (tags as Set<Tag>).add(o));
 
   return tags as Set<Tag>;

@@ -1,7 +1,7 @@
 import { describe, test, expect } from '@jest/globals';
 import { AccessError } from '../../../src/objects/errors';
 import { buildSimpleMockDex, expectDex_toContainTheSameAsDex } from './shared';
-import { FaçaDex } from "../../../src/objects/dexes/facade";
+import {FaçaDex} from "../../../src/objects/dexes/facade";
 import { ArchiDex } from '../../../src/objects/dexes/read';
 import Dex from '../../../src/objects/dexes/dex';
 
@@ -72,7 +72,7 @@ describe("...(...)", () => {
     expect(copy).toBeInstanceOf(Dex);
     expectDex_toContainTheSameAsDex(facade, copy);
   })
-  test("copy.sealed() => copyOf(facade) & instanceOf(ArchiDex)", () => {
+  test("copy.sealed() => copyOf(facade) & instanceof(ArchiDex)", () => {
     const facade = new FaçaDex(dex);
     const copy = facade.copy.sealed();
 

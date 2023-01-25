@@ -15,7 +15,7 @@ test("copy() => copyOf(facade)", () => {
   expect(copy).toBeInstanceOf(Dex);
   expectDex_toContainTheSameAsDex(dex, copy);
 })
-test("copy.sealed() => copyOf(facade) & instanceOf(ArchiDex)", () => {
+test("copy.sealed() => copyOf(facade) & instanceof(ArchiDex)", () => {
   const copy = dex.copy.sealed();
 
   expect(copy).toBeInstanceOf(ArchiDex);

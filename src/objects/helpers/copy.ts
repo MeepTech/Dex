@@ -15,6 +15,7 @@ import { Tag, Tags } from "../subsets/tags";
  * Used to copy a dex.
  */
 export interface Copier<TEntry extends Entry> extends ReadOnlyCopier<TEntry> {
+  
   /**
    * Copy values from another dex into the current one.
    * 

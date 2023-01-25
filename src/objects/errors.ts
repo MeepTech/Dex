@@ -1,9 +1,25 @@
+import Entry from "./subsets/entries";
+
 /**
  * Error related to a Dex.
  */
 export class DexError extends Error implements Error {
   constructor(message: string) {
     super(message);
+  }
+}
+
+export class InvalidEntryError extends DexError {
+  constructor(entry: Entry, message?: string, dexType?: any) {
+    let err = "Invalid Entry: " + entry.toString();
+    if (dexType) {
+      err += ", in Dex of type: " + dexType.toString()
+    }
+    if (message) {
+      err += ". " + message;
+    }
+
+    super(err);
   }
 }
 

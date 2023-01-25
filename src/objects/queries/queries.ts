@@ -292,7 +292,10 @@ namespace Queries {
       const {
         filters,
         result: resultType = defaultResult
-      } = Filters.processFromArgs<TQDexEntry>({ defaultFilterType: options?.defaultFilterType ?? 'or' }, ...args);
+      } = Filters.processFromArgs<TQDexEntry>({
+        defaultFilterType: options?.defaultFilterType ?? 'or',
+        allOnNoParams: options?.allOnNoParams ?? false
+      }, ...args);
       options?.modifyFilters?.(filters as Filters.Filter<TDexEntry>[]);
 
       // switch based on requested return type.
@@ -423,7 +426,10 @@ namespace Queries {
         ): TQValue[] {
           const {
             filters
-          } = Filters.processFromArgs<TQDexEntry>({ defaultFilterType: options?.defaultFilterType ?? 'or' }, ...args);
+          } = Filters.processFromArgs<TQDexEntry>({
+            defaultFilterType: options?.defaultFilterType ?? 'or',
+            allOnNoParams: options?.allOnNoParams ?? false
+          }, ...args);
           options?.modifyFilters?.(filters as Filters.Filter<TDexEntry>[]);
 
           const hashes = (options?.allOnNoParams && !args?.length)
@@ -451,7 +457,10 @@ namespace Queries {
         ): TQValue | undefined {
           const {
             filters
-          } = Filters.processFromArgs<TQDexEntry>({ defaultFilterType: options?.defaultFilterType ?? 'or' }, ...args);
+          } = Filters.processFromArgs<TQDexEntry>({
+            defaultFilterType: options?.defaultFilterType ?? 'or',
+            allOnNoParams: options?.allOnNoParams ?? false
+          }, ...args);
           options?.modifyFilters?.(filters as Filters.Filter<TDexEntry>[]);
 
           const result = _logicFirstQuery<TQDexEntry>(this, filters);
@@ -471,7 +480,10 @@ namespace Queries {
         ): Set<TQValue> {
           const {
             filters
-          } = Filters.processFromArgs<TQDexEntry>({ defaultFilterType: options?.defaultFilterType ?? 'or' }, ...args);
+          } = Filters.processFromArgs<TQDexEntry>({
+            defaultFilterType: options?.defaultFilterType ?? 'or',
+            allOnNoParams: options?.allOnNoParams ?? false
+          }, ...args);
           options?.modifyFilters?.(filters as Filters.Filter<TDexEntry>[]);
 
           const hashes = (options?.allOnNoParams && !args?.length)
@@ -499,7 +511,10 @@ namespace Queries {
         ): Dex<TQDexEntry> {
           const {
             filters
-          } = Filters.processFromArgs<TQDexEntry>({ defaultFilterType: options?.defaultFilterType ?? 'or' }, ...args);
+          } = Filters.processFromArgs<TQDexEntry>({
+            defaultFilterType: options?.defaultFilterType ?? 'or',
+            allOnNoParams: options?.allOnNoParams ?? false
+          }, ...args);
           options?.modifyFilters?.(filters as Filters.Filter<TDexEntry>[]);
 
           const hashes = (options?.allOnNoParams && !args?.length)

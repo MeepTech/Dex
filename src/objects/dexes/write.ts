@@ -1,4 +1,5 @@
 import Check from "../../utilities/validators";
+import { Copier } from "../helpers/copy";
 import Queries from "../queries/queries";
 import { NoEntryFound, NO_RESULT, ResultType } from "../queries/results";
 import Entry, { None } from "../subsets/entries";
@@ -7,25 +8,16 @@ import Tags, { Tag, TagOrTags } from "../subsets/tags";
 import { IReadableDex } from "./read";
 
 export default interface IWriteableDex<TEntry extends Entry> {
-  get copy(): {
-    /**
-     * Copy values from another dex into the current one.
-     * 
-     * @param keys Keys to query for.
-     *     - No keys gets the whole dex,
-     *     - An array is interpreted as entity hash keys
-     *     - tags and entry hash keys can be seperated into an object with two lists as well.
-     */
-    from(
-      source: IReadableDex<TEntry>,
-      keys?: HashKey[] | Set<HashKey> | HashKey | {
-        entry?: HashKey | TEntry,
-        entries?: (TEntry | HashKey)[] | Set<HashKey | TEntry>,
-        tags?: Tags,
-        tag?: Tag
-      }
-    ): void;
-  }
+
+  /**
+   * Check if an item is a valid entry for this dex.
+   */
+  canContain(value: Entry): value is TEntry;
+
+  /**
+   * Used to copy this dex, or other items into this dex `.from` another one.
+   */
+  get copy(): Copier<TEntry>;
 
   /**
    * Used to take items from a dex using a query (the items will be removed from this dex)
@@ -147,6 +139,8 @@ export default interface IWriteableDex<TEntry extends Entry> {
   //#endregion
 }
 
+//#region Modifiers
+
 export interface DexModifierFunction<
   TTarget extends [HashKey | Tag | Entry],
   TLinkable extends HashKey | Tag | Entry,
@@ -262,21 +256,21 @@ export interface EntryAdder<TEntry extends Entry> extends DexModifierFunction<
   /**
    * Add the given entries to the dex if it doesn't yet exist.
    * 
-   * @returns A Map keyed by the hash key of added entries, with a bool indicating if the entry is new and the updated count of tags in the item.
+   * @returns A Map keyed by the hash key of added entries, with a boolean indicating if the entry is new and the updated count of tags in the item.
    */
   each(entries: Iterable<TEntry | HashKey>): Map<HashKey, { hashKey: HashKey | None, tagCount: number , isNew: boolean }>;
 
   /**
    * Add the given entries to the dex if it doesn't yet exist, and link them with the provided tags.
    * 
-   * @returns A Map keyed by the hash key of added entries, with a bool indicating if the entry is new and the updated count of tags in the item.
+   * @returns A Map keyed by the hash key of added entries, with a boolean indicating if the entry is new and the updated count of tags in the item.
    */
   each(entries: Iterable<TEntry | HashKey>, tag: Tag, ...tags: Tag[]): Map<HashKey, { hashKey: HashKey | None, tagCount: number , isNew: boolean }>;
 
   /**
    * Add the given entries to the dex if it doesn't yet exist, and link them with the provided tags.
    * 
-   * @returns A Map keyed by the hash key of added entries, with a bool indicating if the entry is new and the updated count of tags in the item.
+   * @returns A Map keyed by the hash key of added entries, with a boolean indicating if the entry is new and the updated count of tags in the item.
    */
   each(entries: Iterable<TEntry | HashKey>, tags: TagOrTags): Map<HashKey, { hashKey: HashKey | None, tagCount: number , isNew: boolean }>;
 };
@@ -622,6 +616,8 @@ export function filterModifierArgs<TTarget extends [key: HashKey | Tag | Entry]>
   return baseArgs;
 }
 
+//#region Internal
+
 /** @internal */
 export function DexModifierFunctionConstructor<
   TEntry extends Entry,
@@ -673,11 +669,6 @@ export function DexModifierFunctionConstructor<
   return modifier;
 }
 
-/** @internal */
-function test() {
-  const testFunc = {} as TagSetter<Entry>
-  testFunc("test");
-  testFunc("test", []);
-  testFunc("test", ["hai"]);
-  testFunc.each(["test", "test"], ["entry"]);
-}
+//#endregion
+
+//#endregion

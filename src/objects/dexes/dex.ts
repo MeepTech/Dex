@@ -1,7 +1,7 @@
 import Check from "../../utilities/validators";
 import IUnique from "../unique";
 import { v4 as uuidv4 } from 'uuid';
-import {
+import Entries, {
   Complex,
   Entry,
   OrNone,
@@ -13,12 +13,12 @@ import {
   IArrayGuard,
   NONE_FOR_TAG,
   IObjectGuard,
-  IHasher
+  IHasher,
+  Simple
 } from "../subsets/entries";
 import {
   Tag,
   TagOrTags,
-  toSet,
   Tags
 } from "../subsets/tags";
 import {
@@ -29,12 +29,27 @@ import {
   Copier,
 } from '../helpers/copy';
 import Queries from "../queries/queries";
-import { NoEntryFound, NO_RESULT, ResultType } from "../queries/results";
-import { ReadableDex } from "./read";
-import { DexError, NotImplementedError } from "../errors";
+import {
+  NoEntryFound,
+  NO_RESULT,
+  ResultType,
+  RESULT_TYPES
+} from "../queries/results";
+import { IReadableDex, ReadableDex } from "./read";
+import { DexError, InvalidEntryError, NotImplementedError } from "../errors";
 import Loop from "../../utilities/iteration";
 import { InternalRDexSymbols } from "./read"
-import IWriteableDex, { DexModifierFunctionConstructor, EntryAdder, EntryRemover, TagDropper, Tagger, TagResetter, TagSetter, Untagger } from "./write";
+import IWriteableDex, {
+  DexModifierFunctionConstructor,
+  EntryAdder,
+  EntryRemover,
+  TagDropper,
+  Tagger,
+  TagResetter,
+  TagSetter,
+  Untagger
+} from "./write";
+import Filters from "../queries/filters";
 
 //#region Symbols
 
@@ -58,6 +73,101 @@ export namespace InternalDexSymbols {
 
 //#endregion
 
+//#region Validators
+
+/**
+ * Check if it's a Dex.
+ */
+export function isDex(symbol: any, options?: { andIsWriteable?: false }): symbol is Dex<Entry> {
+  if (!symbol?.hasOwnProperty("numberOfTags")) {
+    return false;
+  }
+
+  if (options?.andIsWriteable ?? true) {
+    if (!symbol.hasOwnProperty("canContain") || !symbol.hasOwnProperty("untag")) {
+      return false;
+    }
+  } else {
+    return symbol instanceof ReadableDex;
+  }
+
+  return symbol instanceof Dex;
+}
+
+/**
+ * Check if it's a Tag
+ */
+export const isTag = (symbol: any)
+  : symbol is Tag =>
+  (Check.isString(symbol) && !RESULT_TYPES.has(symbol as any))
+  || Check.isNumber(symbol)
+  || Check.isSymbol(symbol);
+
+/**
+ * Check if it's a query flter
+ */
+export const isFilter = <TDexEntry extends Entry>(symbol: any)
+  : symbol is Filters.XFilter<TDexEntry> =>
+  Check.isObject(symbol)
+  && (
+    (symbol.hasOwnProperty("and") && !symbol.hasOwnProperty("or"))
+    || (symbol.hasOwnProperty("or") && !symbol.hasOwnProperty("and"))
+    || symbol.hasOwnProperty("not")
+  );
+
+/**
+ * Type guard for initial input arrays for the Dex constructor.
+ */
+export function isInputEntryWithTagsArray<TEntry extends Entry = Entry>(
+  value: Entry
+): value is XWithTagsTuple<TEntry> {
+  return (Check.isArray(value))
+    // if the first item in the array is a potential complex entry or an empty tag value...
+    && (isComplexEntry(value[0]) || value[0] === NONE_FOR_TAG)
+    // if the second item of that array is a potental tag
+    && (isTag(value[1])
+      // or if it's an array of tags or empty array
+      || (Check.isArray(value[1])
+        && (!value[1].length
+          || !value[1].some(e => !isTag(e)))));
+}
+
+/**
+ * Check if something is a simple entry instead of a complex one
+ */
+export function isSimpleEntry(
+  value: Entry
+): value is Simple {
+  return Check.isString(value)
+    || Check.isSymbol(value)
+    || Check.isNumber(value)
+}
+
+/**
+ * Check if something is a simple entry instead of a complex one
+ */
+export function isComplexEntry(
+  value: Entry
+): value is Complex {
+  return Check.isObject(value)
+    || Check.isFunction(value)
+    || Check.isArray(value)
+}
+
+/**
+ * Validate a dex config
+ */
+export function isConfig<TEntry extends Entry = Entry>(
+  value: any
+): value is Config<TEntry> {
+  return Check.isObject(value)
+    && (typeof value.entryGuard === 'function'
+      || typeof value.arrayGuard === 'function'
+      || typeof value.objectGuard === 'function'
+      || typeof value.hasher === 'function'
+      || Check.isEmptyObject(value));
+};
+
 /**
  * Extra config options for a dex.
  */
@@ -68,12 +178,35 @@ export interface Config<TEntry extends Entry = Entry> {
   hasher?: IHasher
 }
 
+
+export type CtorProps<TEntry extends Entry, TConfig extends Config<TEntry> = Config<TEntry>> = [
+  values?:
+  ReadableDex<TEntry>
+  | Map<OrNone<TEntry>, TagOrTags>
+  | Config<TEntry>
+  | TagOrTags
+  | XWithTagsObject<TEntry>
+  | XWithTags<TEntry>[],
+  optionsOrMoreValues?:
+  Config<TEntry>
+  | TagOrTags
+  | XWithTagsObject<TEntry>
+  | XWithTags<TEntry>[],
+];
+
+/**
+ * Interface for a dex with read and write atributes.
+ */
+export interface IDex<TEntry extends Entry> extends IReadableDex<TEntry>, IWriteableDex<TEntry> {
+  copy: IWriteableDex<TEntry>["copy"];
+}
+
 /**
  * A collection of unque entries, keyed by various custom tags.
  * 
  * This represents a many to many replationship of Tags to Entries.
  */
-export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntry> implements IWriteableDex<TEntry> {
+export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntry> implements IDex<TEntry>, IReadableDex<TEntry>, IWriteableDex<TEntry> {
   // lazy
   // - queries
   #take?: Queries.Full<TEntry, ResultType.Array, TEntry>;
@@ -105,9 +238,9 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       return function (entry: Entry): HashKey {
         return Check.isUnique(entry)
           ? entry.getHashKey()
-          : Check.isSimpleEntry(entry)
+          : isSimpleEntry(entry)
             ? entry
-            : Check.isComplexEntry(entry)
+            : isComplexEntry(entry)
               ? Dex.getUuidFor(entry)
               : undefined!;
       }
@@ -115,7 +248,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
 
     getArrayEntryGuardFunction<TEntry extends Entry>() {
       return function (entry: Entry): entry is TEntry & Complex & any[] {
-        return !Check.isInputEntryWithTagsArray<TEntry>(entry);
+        return !isInputEntryWithTagsArray<TEntry>(entry);
       }
     },
 
@@ -135,12 +268,12 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       return function (
         entry: Entry
       ): entry is TEntry {
-        return Check.isSimpleEntry(entry)
+        return isSimpleEntry(entry)
           || (Check.isArray(entry)
             ? arrayGuard(entry)
             : Check.isObject(entry)
               ? objectGuard(entry)
-              : Check.isComplexEntry(entry));
+              : isComplexEntry(entry));
       }
     }
   }
@@ -155,19 +288,19 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   constructor()
 
   /**
+   * Make a new dex of just empty tags
+   */
+  constructor(options: Config<TEntry>)
+
+  /**
    * Copy a new dex from an existing one
    */
-  constructor(original: Dex<TEntry>, options?: Config<TEntry>)
+  constructor(original: ReadableDex<TEntry>, options?: Config<TEntry>)
 
   /**
    * Make a new dex from a map
    */
   constructor(map: Map<OrNone<TEntry>, TagOrTags>, options?: Config<TEntry>)
-
-  /**
-   * Make a new dex of just empty tags
-   */
-  constructor(options: Config<TEntry>)
 
   /**
    * Make a new dex with just one empty tag
@@ -241,32 +374,21 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
 
   /**
    * Make a new dex
+   * // TODO test adding 5+ items at once using the spread operator rest params
    */
-  constructor(
-    values?:
-      Dex<TEntry>
-      | Map<OrNone<TEntry>, TagOrTags>
-      | Config<TEntry>
-      | TagOrTags
-      | XWithTagsObject<TEntry>
-      | XWithTags<TEntry>[],
-    optionsOrMoreValues?:
-      Config<TEntry>
-      | TagOrTags
-      | XWithTagsObject<TEntry>
-      | XWithTags<TEntry>[],
-  ) {
-    let valuesIsConfig = Check.isConfig(values)
+  constructor(...args: CtorProps<TEntry>) {
+    let [values, ...optionsOrMoreValues] = args;
+    let valuesIsConfig = isConfig(values)
     super(
       values as any,
-      valuesIsConfig ? (values as any).hasher : (optionsOrMoreValues as any)?.hasher
+      valuesIsConfig ? (values as any).hasher : (optionsOrMoreValues[0] as any)?.hasher
     );
 
     // copy existing:
-    if (values instanceof ReadableDex) {
+    if (values instanceof Dex) {
       this.#guards = values.#guards;
-      if (Check.isConfig<TEntry>(optionsOrMoreValues)) {
-        this[InternalDexSymbols._initOptions](optionsOrMoreValues);
+      if (isConfig<TEntry>(optionsOrMoreValues[0])) {
+        this[InternalDexSymbols._initOptions](optionsOrMoreValues[0]);
       }
 
       return;
@@ -278,9 +400,10 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
         this[InternalDexSymbols._initOptions]((values as any));
         config = (values as any);
         values = optionsOrMoreValues as any;
-      } else if (Check.isConfig<TEntry>(optionsOrMoreValues)) {
-        config = optionsOrMoreValues;
-        this[InternalDexSymbols._initOptions](optionsOrMoreValues);
+        optionsOrMoreValues = [];
+      } else if (isConfig<TEntry>(optionsOrMoreValues[0])) {
+        config = optionsOrMoreValues.shift() as Config<TEntry>;
+        this[InternalDexSymbols._initOptions](config);
       } else {
         this[InternalDexSymbols._initOptions]();
       }
@@ -306,7 +429,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
           // empty array is taken as tags.
           if (!values.length) {
             // empty array of tags shouldn't have any other non confi options.
-            if (!config && optionsOrMoreValues) {
+            if (optionsOrMoreValues.length) {
               throw new DexError("invalid constructor argument as position [1] (second argument): " + optionsOrMoreValues.toString());
             }
 
@@ -314,13 +437,9 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
             return;
           } else {
             // tags, set them:
-            if (Check.isTag(values[0])) {
-              if (!config && optionsOrMoreValues) {
-                if (Check.isArray(optionsOrMoreValues)) {
-                  values = [...values, ...optionsOrMoreValues] as Iterable<Tag> as Tag[];
-                } else {
-                  (values as Iterable<Tag> as Tag[]).push(optionsOrMoreValues as Tag);
-                }
+            if (isTag(values[0])) {
+              if (optionsOrMoreValues.length) {
+                values = [...values, ...optionsOrMoreValues] as Iterable<Tag> as Tag[];
               }
 
               (values as Tag[]).forEach((tag: Tag) => this.set(tag));
@@ -328,12 +447,8 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
               return;
             } // entries, put them:
             else {
-              if (!config && optionsOrMoreValues) {
-                if (Check.isArray(optionsOrMoreValues)) {
-                  values = [...values, ...optionsOrMoreValues] as XWithTags<TEntry>[];
-                } else {
-                  (values as XWithTags<TEntry>[]).push(optionsOrMoreValues as XWithTags<TEntry>);
-                }
+              if (optionsOrMoreValues.length) {
+                values = [...values, ...optionsOrMoreValues] as XWithTags<TEntry>[];
               }
 
               this.import(values as XWithTags<TEntry>[])
@@ -343,8 +458,8 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
           }
         } // single object
         else if (Check.isObject(values)) {
-          if (!config && optionsOrMoreValues) {
-            this.import([values, optionsOrMoreValues] as XWithTagsObject<TEntry>[]);
+          if (optionsOrMoreValues.length) {
+            this.import([values, ...optionsOrMoreValues] as XWithTagsObject<TEntry>[]);
             return;
           } else {
             this.import(values as XWithTagsObject<TEntry>);
@@ -423,8 +538,6 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
 
   //#endregion
 
-  //#endregion
-
   //#region Methods
 
   //#region Modify
@@ -465,6 +578,10 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
             const hashesToSet: Set<HashKey> = new Set<HashKey>();
             const newEntries = new Map<HashKey, TEntry>();
             for (const entry of entries) {
+              if (!this.canContain(entry)) {
+                throw new InvalidEntryError(entry);
+              }
+
               const hash = this.hash(entry);
               if (!this.has(hash) && this.canContain(entry)) {
                 newEntries.set(hash, entry);
@@ -563,8 +680,12 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
         tags?: Iterable<Tag>,
       ): { hashKey: HashKey | None, tagCount: number, isNew: boolean } => {
         let isNew: boolean;
+        if (!this.canContain(entry)) {
+          throw new InvalidEntryError(entry);
+        }
+
         const hash = this.hash(entry);
-        if (!this.contains(hash) && this.canContain(entry)) {
+        if (!this.contains(hash)) {
           isNew = true;
           this[InternalDexSymbols._addNewEntry](entry, hash);
         } else {
@@ -946,7 +1067,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
         currentTagsForEntry?.delete(tag);
         currentEntriesForTag?.delete(hash);
       }
-    } else if (Check.isTag(tagsToRemove)) {
+    } else if (isTag(tagsToRemove)) {
       if (currentTagsForEntry) {
         currentTagsForEntry.delete(tagsToRemove);
       }
@@ -972,7 +1093,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       let options: { keepTaglessEntries?: true } | undefined = undefined;
       let tags: Tag[] = [];
       for (const arg in args) {
-        if (Check.isTag(arg)) {
+        if (isTag(arg)) {
           tags.push(arg);
         } else if (Check.isArray(arg)) {
           tags.concat(arg);
@@ -1017,7 +1138,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
       let options: { keepTaglessEntries?: true } | undefined = undefined;
       let tags: Tag[] = [];
       for (const arg in args) {
-        if (Check.isTag(arg)) {
+        if (isTag(arg)) {
           tags.push(arg);
         } else if (Check.isArray(arg)) {
           tags.concat(arg);
@@ -1114,11 +1235,54 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
 
   //#endregion
 
-  //#region Utility
+  //#region validation
 
   /**
-   * Check if an item is a valid entry for this dex.
+   * Check is something is a basic read/write dex. (IDex or Dex)
    */
+  static is
+    = (symbol: any) => isDex(symbol);
+
+  /**
+   * @alias {@link isConfig}
+   */
+  static isConfig
+    = isConfig;
+
+  /**
+   * @alias {@link isFilter}
+   */
+  static isFilter
+    = isFilter;
+
+  /**
+   * @alias {@link isTag}
+   */
+  static isTag
+    = isTag;
+
+  /**
+   * @alias {@link isComplexEntry}
+   */
+  static isComplexEntry
+    = isComplexEntry;
+
+  /**
+   * @alias {@link isSimpleEntry}
+   */
+  static isSimpleEntry
+    = isSimpleEntry;
+
+  /**
+   * @alias {@link isInputEntryWithTagsArray}
+   */
+  static isInputEntryWithTagsArray
+    = isInputEntryWithTagsArray;
+
+  //#endregion
+
+  //#region Utilities
+
   canContain(value: Entry): value is TEntry {
     return this.#guards.entry(value);
   }
@@ -1129,7 +1293,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
    * @param entry 
    * @returns 
    */
-  public static getUuidFor(entry: { [key: string]: any } | IUnique) {
+  static getUuidFor(entry: { [key: string]: any } | IUnique) {
     let id: string;
     if (id = (entry as any).__dex_id__) {
       return id;

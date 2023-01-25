@@ -1,7 +1,7 @@
 import Loop from "../../utilities/iteration";
 import Check from "../../utilities/validators";
 import Dex, { Config as BaseConfig, InternalDexSymbols } from "./dex";
-import { DexError, NotImplementedError } from "../errors";
+import { DexError, InvalidEntryError, NotImplementedError } from "../errors";
 import Entry, { None, OrNone, XWithTags, XWithTagsObject, XWithTagsTuple } from "../subsets/entries";
 import HashKey from "../subsets/hashes";
 import Tags, { Tag, TagOrTags } from "../subsets/tags";
@@ -532,8 +532,12 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
             const hashesToSet: Set<HashKey> = new Set<HashKey>();
             const newEntries = new Map<HashKey, TEntry>();
             for (const entry of entries) {
+              if (!this.canContain(entry)) {
+                throw new InvalidEntryError(entry);
+              }
+              
               const hash = this.hash(entry);
-              if (!this.has(hash) && this.canContain(entry)) {
+              if (!this.has(hash)) {
                 newEntries.set(hash, entry);
                 this[InternalDexSymbols._addNewEntry](entry, hash);
                 this.#queueNewEntryAddedEvent(events, hash);
@@ -587,11 +591,15 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
         tags?: Iterable<Tag>,
         ...rest: any[]
       ): { hashKey: HashKey | None, tagCount: number, isNew: boolean } => {
+        if (!this.canContain(entry)) {
+          throw new InvalidEntryError(entry);
+        }
+
         const events = rest[rest.length - 2] as UnconstructedEvents;
 
         let isNew: boolean;
         const hash = this.hash(entry);
-        if (!this.has(hash) && this.canContain(entry)) {
+        if (!this.has(hash)) {
           isNew = true;
           this[InternalDexSymbols._addNewEntry](entry, hash);
           this.#queueNewEntryAddedEvent(events, hash);
@@ -819,7 +827,7 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
       let options: { keepTaglessEntries?: true } | undefined = undefined;
       let tags: Tag[] = [];
       for (const arg in args) {
-        if (Check.isTag(arg)) {
+        if (Dex.isTag(arg)) {
           tags.push(arg);
         } else if (Check.isArray(arg)) {
           tags.concat(arg);
@@ -861,7 +869,7 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
       let options: { keepTaglessEntries?: true } | undefined = undefined;
       let tags: Tag[] = [];
       for (const arg in args) {
-        if (Check.isTag(arg)) {
+        if (Dex.isTag(arg)) {
           tags.push(arg);
         } else if (Check.isArray(arg)) {
           tags.concat(arg);
@@ -1461,7 +1469,7 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
           }
         }
       }
-    } else if (Check.isTag(tagsToRemove)) {
+    } else if (Dex.isTag(tagsToRemove)) {
       if (this.#tryCallbacks(this.#callbacks.onUnlinkTagFromEntry, entry, tagsToRemove)) {
         super[InternalDexSymbols._removeTagFromEntry](tagsToRemove, entry);
         removedTags.push(tagsToRemove);

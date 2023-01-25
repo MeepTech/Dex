@@ -7,8 +7,9 @@
  */
 
 // dex classes
-import Dex from './objects/dexes/dex';
+import Dex, {IDex} from './objects/dexes/dex';
 export default Dex;
+export { IDex };
 export {Config, hash} from './objects/dexes/dex';
 
 export {
@@ -22,18 +23,32 @@ export {
   FaçaDex,
   FaçaDex as FacaDex,
   FaçaDex as Facadex,
-  FaçaDex as Facade
+  FaçaDex as Facade,
+  FaçadeConfig,
+  FaçadeConfig as FacadeConfig,
 } from './objects/dexes/facade';
 
 import NoisyDex from './objects/dexes/noisy';
 export {
   NoisyDex,
-  NoisyDex as NDex
+  NoisyDex as NDex,
 };
-  
 export {
-  Config as NoisyConfig
+  Config as NoisyConfig,
+  Event,
+  Listener,
+  Listeners
 } from './objects/dexes/noisy';
+  
+import InDex from './objects/dexes/indexed';
+export {
+  InDex,
+  InDex as IndexedDex
+}
+export {
+  Config as IndexedConfig
+}from './objects/dexes/indexed'
+  
 
 // sub types and sets
 export {
@@ -95,9 +110,3 @@ export {
   Check,
   Loop,
 }
-
-// loose validators
-export const isDex = Check.isDex;
-export const isTag = Check.isTag;
-export const isFilter = Check.isFilter;
-export const isConfig = Check.isDex;
