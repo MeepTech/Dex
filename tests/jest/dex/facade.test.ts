@@ -1,7 +1,7 @@
 import { describe, test, expect } from '@jest/globals';
 import { AccessError } from '../../../src/objects/errors';
 import { buildSimpleMockDex, expectDex_toContainTheSameAsDex } from './shared';
-import {FaçaDex} from "../../../src/objects/dexes/facade";
+import {FaçaDex, WardedKey} from "../../../src/objects/dexes/facade";
 import { ArchiDex } from '../../../src/objects/dexes/read';
 import Dex from '../../../src/objects/dexes/dex';
 
@@ -99,3 +99,17 @@ describe("Object...(this, ...)", () => {
       .toThrowError(new AccessError("Cannot call 'Set Prototype' on a Façade"))
   });
 });
+
+
+describe("constructor(...)", () => {
+  test("(Dex, {passthroughKeys: [tag, untag]})", () => {
+    const facade = new FaçaDex(
+      dex,
+      {
+        passthroughKeys: [WardedKey.tag, WardedKey.untag]
+      }
+    );
+
+    facade.tag("");
+  })
+})

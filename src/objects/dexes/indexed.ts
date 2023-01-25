@@ -1,4 +1,4 @@
-import Dex, { Config as BaseConfig, CtorProps, IDex, InternalDexSymbols } from './dex'
+import Dex, { Config as BaseConfig, CtorProps, EntryOf, IDex, InternalDexSymbols } from './dex'
 import { IReadableDex, ReadableDex } from './read'
 import Entry from '../subsets/entries'
 import HashKey from '../subsets/hashes'
@@ -9,54 +9,38 @@ export type Config<TEntry extends Entry, TKey extends HashKey, TBase extends Bas
   indexGuard?: (key: TKey) => boolean
 }
 
-/*export type InDexConstructors<
-  TcEntry extends Entry,
-  TcDex extends IReadableDex<TcEntry>,
-  TKey extends HashKey = HashKey,
-  TcBaseConfig extends BaseConfig<TcEntry> = BaseConfig<TcEntry>,
-  TcConfig extends Config<TcEntry, TKey, TcBaseConfig> = Config<TcEntry, TKey, TcBaseConfig>
-> = {
-  new <
-    TDex extends TcDex,
-  >(original: TDex): InDex<TcEntry, TDex, TKey, TcBaseConfig, TcConfig>;
-  new <
-    TEntry extends TcEntry,
-    TDex extends TcDex,
-    TConfig extends TcConfig,
-  >(original: TDex, config: TConfig): InDex<TEntry, TDex, TKey, TcBaseConfig, TConfig>;
-  new(...args: CtorProps<TcEntry, TcConfig>): InDex<TcEntry, TcDex, TKey, TcBaseConfig, TcConfig>;
-}*/
-
-type EntryOf<Type> = Type extends IReadableDex<infer X> ? X : never
-
-export type InDex<
-  TdDex extends IReadableDex<TdEntry>,
-  TdEntry extends Entry,
+type InDex<
+  TdEntry extends Entry = Entry,
   TdKey extends HashKey = HashKey,
+  TdDex extends IReadableDex<TdEntry> = ReadableDex<TdEntry>,
 > = TdDex
   & { [index in TdKey]: TdEntry };
-
 
 const InDex: {
   new <
     TDex extends IReadableDex<TEntry>,
     TEntry extends Entry = EntryOf<TDex>,
     TKey extends HashKey = HashKey,
-  >(original: TDex): InDex<TDex, TEntry, TKey>;
+  >(): InDex<TEntry, TKey, TDex>;
+  new <
+    TDex extends IReadableDex<TEntry>,
+    TEntry extends Entry = EntryOf<TDex>,
+    TKey extends HashKey = HashKey,
+  >(original: TDex): InDex<TEntry, TKey, TDex>;
   new <
     TDex extends IReadableDex<TEntry>,
     TConfig extends Config<TEntry, TKey, TBaseConfig>,
     TBaseConfig extends BaseConfig<TEntry>,
     TEntry extends Entry = EntryOf<TDex>,
     TKey extends HashKey = HashKey,
-  >(original: TDex, config: TConfig): InDex<TDex, TEntry, TKey>;
+  >(original: TDex, config: TConfig): InDex<TEntry, TKey, TDex>;
   new <
     TDex extends IReadableDex<TEntry>,
     TEntry extends Entry,
     TConfig extends Config<TEntry, TKey, TBaseConfig>,
     TBaseConfig extends BaseConfig<TEntry>,
     TKey extends HashKey,
-  >(...args: [Exclude<CtorProps<TEntry, TConfig>[0], ReadableDex<TEntry>>, CtorProps<TEntry, TConfig>[1]]): InDex<TDex, TEntry, TKey>;
+  >(...args: [Exclude<CtorProps<TEntry, TConfig>[0], ReadableDex<TEntry>>, CtorProps<TEntry, TConfig>[1]]): InDex<TEntry, TKey, TDex>;
   isConfig(value: any): value is Config<any, any, any>;
   is(value: any): value is InDex<any, any, any>;
 } = (
@@ -67,9 +51,9 @@ const InDex: {
       TBaseConfig extends BaseConfig<TEntry>,
       TKey extends HashKey,
     >(
-      this: InDex<TDex, TEntry, TKey>,
+      this: InDex<TEntry, TKey, TDex>,
       ...args: [original: TDex] | [original: TDex, config: TConfig] | CtorProps<TEntry, TConfig>
-    ): InDex<TDex, TEntry, TKey> {
+    ): InDex<TEntry, TKey, TDex> {
       let inDex: TDex;
       if (args[0] instanceof ReadableDex) {
         inDex = new ((args[0] as IReadableDex<TEntry> as TDex).constructor as any)(...args);
@@ -90,7 +74,7 @@ const InDex: {
       const indexesByHash = new Map<HashKey, TKey>();
       const hashesByIndex = new Map<TKey, HashKey>();
 
-      const proxy = new Proxy(inDex, _buildIndexedProxyHandler()) as InDex<TDex, TEntry, TKey>;
+      const proxy = new Proxy(inDex, _buildIndexedProxyHandler()) as InDex<TEntry, TKey, TDex>;
 
       if (!readonly && indexGenerator) {
         for (const entry of proxy.entries()) {
@@ -133,7 +117,8 @@ const InDex: {
             }
 
             if (indexGuard?.(key as TKey) ?? true) {
-              const hash = hashesByIndex.get(key as TKey);
+              const numKey = Number(key);
+              const hash = hashesByIndex.get(isNaN(numKey) ? key as TKey : numKey as TKey);
               if (hash !== undefined) {
                 return target.get(hash);
               }
@@ -175,12 +160,15 @@ const InDex: {
         TKey extends HashKey = HashKey,
       >(
         target: IDex<TEntry>,
-        key: TKey,
+        index: TKey,
         newValue: TEntry,
         indexGuard: ((key: TKey) => boolean) | undefined,
         indexesByHash: Map<HashKey, TKey>,
         hashesByIndex: Map<TKey, HashKey>
       ) {
+        const numKey = Number(index);
+        const key = isNaN(numKey) ? index as TKey : numKey as TKey;
+
         if (indexGuard?.(key as TKey) ?? true) {
           const newHash = target.hash(newValue)!;
           if (hashesByIndex.has(key as TKey)) {

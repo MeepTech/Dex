@@ -51,7 +51,9 @@ describe("constructor(...)", () => {
 
     expect(index[0]).toBeUndefined();
     expect(index[1]).toStrictEqual(entry);
+    expect(index["3"]).toStrictEqual(entry3);
     expect(index[3]).toStrictEqual(entry3);
+    expect(index["4"]).toStrictEqual(entry4);
     expect(index[5]).toStrictEqual(entry5);
   })
 });

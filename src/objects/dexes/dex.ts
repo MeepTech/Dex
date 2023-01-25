@@ -168,6 +168,9 @@ export function isConfig<TEntry extends Entry = Entry>(
       || Check.isEmptyObject(value));
 };
 
+
+export type EntryOf<Type> = Type extends IReadableDex<infer X> ? X : never
+
 /**
  * Extra config options for a dex.
  */
