@@ -1,6 +1,6 @@
 {
   "name": "@meep-tech/dex",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "A JS/TS data structure for a collection of tagged entries.",
   "main": "lib.js",
   "homepage": "https://github.com/MeepTech/Dex",
@@ -18,7 +18,7 @@
     "url": "http://meep.tech"
   },
   "scripts": {
-    "dev": "tsc -skipLibCheck -noEmit -p \"tsconfig-dev-check.json\" && node esbuild.config.mjs dev && tsc -skipLibCheck -p \"tsconfig-dev.json\"",
+    "dev-watch": "tsc -skipLibCheck -noEmit -p \"tsconfig-dev-check.json\" && node esbuild.config.mjs dev && tsc -skipLibCheck -p \"tsconfig-dev.json\"",
     "dev-build": "tsc -skipLibCheck -noEmit -p \"tsconfig-dev-check.json\" && node esbuild.config.mjs dev-nowatch && tsc -skipLibCheck -p \"tsconfig-dev.json\"",
     "build": "tsc -skipLibCheck -noEmit -p \"tsconfig-check.json\" && node esbuild.config.mjs lib && tsc -skipLibCheck -p \"tsconfig.json\" ",
     "test": "tsc -skipLibCheck -noEmit -p \"tsconfig-tests-check.json\" && jest",

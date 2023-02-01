@@ -9,6 +9,7 @@ import { InternalRDexSymbols } from "./read";
 import { DexModifierFunctionConstructor, EntryAdder, EntryRemover, filterModifierArgs, TagDropper, Tagger, TagResetter, TagSetter, Untagger } from "./write";
 import { Copier, CopierConstructor } from "../helpers/copy";
 import { NoEntryFound, NO_RESULT } from "../queries/results";
+import { isConfig } from './dex';
 
 //#region Symbols
 
@@ -461,12 +462,18 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
 
   constructor(...args: any[]) {
     super(...args);
+    const config = isConfig<TEntry>(args[0])
+      ? args[0]
+      : isConfig<TEntry>(args[1])
+        ? args[1]
+        : undefined;
+    this.#initOptions(config);
   }
 
   //#endregion
 
   /** @internal */
-  protected override[InternalDexSymbols._initOptions](config?: Config<TEntry>) {
+  #initOptions(config?: Config<TEntry>) {
     this.#callbacks = {};
     if (Check.isObject(config)) {
       for (const callbackKey of LISTENER_KEYS) {

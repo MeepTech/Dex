@@ -15,7 +15,6 @@
     "declaration": true,
 	  "emitDeclarationOnly": true,
     "esModuleInterop": true,
-    "inlineSourceMap": true,
     "resolveJsonModule": true,
     "importHelpers": true,
     "strictNullChecks": true,

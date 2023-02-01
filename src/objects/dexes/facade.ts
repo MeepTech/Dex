@@ -10,50 +10,29 @@ import { InternalNDexSymbols } from "./noisy";
  * // TODO: when TS implements stage 3: replace with use of decorators
  */
 export enum WardedKey {
-  "set" = "set",
-  "put" = "put",
-  "add" = "add",
-  "update" = "update",
-  "take" = "take",
-  "remove" = "remove",
-  "tag" = "tag",
-  "untag" = "untag",
-  "drop" = "drop",
-  "reset" = "reset",
-  "clean" = "clean",
-  "clear" = "clear",
-  "copy.from" = "copy.from"
-}
-
-export const WARDED_KEYS = {
-  SET: WardedKey.set,
-  PUT: WardedKey.put,
-  ADD: WardedKey.add,
-  UPDATE: WardedKey.update,
-  TAKE: WardedKey.take,
-  REMOVE: WardedKey.remove,
-  TAG: WardedKey.tag,
-  UNTAG: WardedKey.untag,
-  DROP: WardedKey.drop,
-  RESET: WardedKey.reset,
-  CLEAN: WardedKey.clean,
-  CLEAR: WardedKey.clear,
-  COPY_FROM: WardedKey["copy.from"],
-} as const;
+  Set = "set",
+  Put = "put",
+  Add = "add",
+  Update = "update",
+  Take = "take",
+  Remove = "remove",
+  Tag = "tag",
+  Untag = "untag",
+  Drop = "drop",
+  Reset = "reset",
+  Clean = "clean",
+  Clear = "clear",
+  CopyFrom = "copy.from"
+};
 
 export type WardedKeys = `${WardedKey}`;
 
 /**
  * The default warded dex property keys.
- * 
-* // TODO: when TS implements stage 3: replace with use of decorators
  */
 export const WARDED_KEYS_SET = Object.freeze(
   new Set(Object.values(WardedKey))
 )
-
-type ValuesOf<T extends any[] | readonly any[]> 
-  = T[number];
 
 /**
  * A way to proxy a field in a facade.
@@ -83,7 +62,7 @@ export type FaçadeConfig<TPassthroughKeys extends WardedKey[] = WardedKey[]> = 
 
 export type FaçaDex<
   TDex extends ReadableDex<any>,
-  TPassthroughKeys extends WardedKey[]
+  TPassthroughKeys extends WardedKey[] = []
 > = Omit<TDex, Exclude<WardedKeys, `${TPassthroughKeys[number]}`>>
   & ReadableDex<EntryOf<TDex>>
   & {
@@ -193,7 +172,7 @@ function FaçaDexConstructor<
 
     if (options?.passthroughKeys && options.passthroughKeys.length) {
       for (const key of options.passthroughKeys) {
-        if (key === WardedKey["copy.from"]) {
+        if (key === WardedKey.CopyFrom) {
           result.delete("copy");
         } else {
           result.delete(key);

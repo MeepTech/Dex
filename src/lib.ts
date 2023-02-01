@@ -26,6 +26,9 @@ export {
   FaçaDex as Facade,
   FaçadeConfig,
   FaçadeConfig as FacadeConfig,
+  WardedKey,
+  WardedKeys,
+  Ward
 } from './objects/dexes/facade';
 
 import NoisyDex from './objects/dexes/noisy';
