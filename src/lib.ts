@@ -10,7 +10,7 @@
 import Dex, {IDex} from './objects/dexes/dex';
 export default Dex;
 export { IDex };
-export {Config, hash} from './objects/dexes/dex';
+export { Config, hash } from './objects/dexes/dex';
 
 export {
   IReadableDex as IReadOnlyDex,
@@ -26,6 +26,9 @@ export {
   FaçaDex as Facade,
   FaçadeConfig,
   FaçadeConfig as FacadeConfig,
+  WardedKey,
+  WardedKeys,
+  Ward
 } from './objects/dexes/facade';
 
 import NoisyDex from './objects/dexes/noisy';
@@ -49,7 +52,6 @@ export {
   Config as IndexedConfig
 }from './objects/dexes/indexed'
   
-
 // sub types and sets
 export {
   Entry,

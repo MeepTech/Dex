@@ -9,6 +9,7 @@ import { InternalRDexSymbols } from "./read";
 import { DexModifierFunctionConstructor, EntryAdder, EntryRemover, filterModifierArgs, TagDropper, Tagger, TagResetter, TagSetter, Untagger } from "./write";
 import { Copier, CopierConstructor } from "../helpers/copy";
 import { NoEntryFound, NO_RESULT } from "../queries/results";
+import { isConfig } from './dex';
 
 //#region Symbols
 
@@ -461,12 +462,18 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
 
   constructor(...args: any[]) {
     super(...args);
+    const config = isConfig<TEntry>(args[0])
+      ? args[0]
+      : isConfig<TEntry>(args[1])
+        ? args[1]
+        : undefined;
+    this.#initOptions(config);
   }
 
   //#endregion
 
   /** @internal */
-  protected override[InternalDexSymbols._initOptions](config?: Config<TEntry>) {
+  #initOptions(config?: Config<TEntry>) {
     this.#callbacks = {};
     if (Check.isObject(config)) {
       for (const callbackKey of LISTENER_KEYS) {
@@ -882,7 +889,8 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
       for (const tag of tags) {
         if (this.has(tag)) {
           const result = this[InternalDexSymbols._resetTag](tag, {
-            ...options, onRemove: key => {
+            ...options,
+            onRemove: key => {
               this.#queueNewEntryRemovedEvent(events, key, this.get(key)!);
             }
           });
@@ -951,7 +959,7 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
         this.#queueNewEntryRemovedEvent(events, hash, entry);
       }
 
-      const results = super.clear();
+      const results = this.constructor.prototype.clear().call(this);
       this.#broadcast("clear", time, events);
       return results;
     }).bind(this)

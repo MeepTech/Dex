@@ -1,6 +1,10 @@
-import { Config, InDex, IndexedConfig } from "../../../src/lib"
+import { Config, InDex, IndexedConfig, NoisyDex } from "../../../src/lib"
 import { describe, test, expect } from '@jest/globals';
 import { buildSimpleMockDex } from "./shared";
+
+type TestEntry = {
+  key: number;
+};
 
 // mocks
 const {
@@ -46,7 +50,7 @@ describe("[...]", () => {
 
 describe("constructor(...)", () => {
   test("(Dex, {indexGenerator})", () => {
-    const indexGenerator = (entry: { key: number }) => entry.key;
+    const indexGenerator = (entry: TestEntry) => entry.key;
     const index = new InDex(dex, { indexGenerator });
 
     expect(index[0]).toBeUndefined();
@@ -55,7 +59,15 @@ describe("constructor(...)", () => {
     expect(index[3]).toStrictEqual(entry3);
     expect(index["4"]).toStrictEqual(entry4);
     expect(index[5]).toStrictEqual(entry5);
-  })
+  });
+  test("(NoisyDex, {indexGenerator})", () => {
+    const indexGenerator = (entry: TestEntry) => entry.key;
+
+    const base = new NoisyDex<TestEntry>();
+    const index = new InDex(base, { indexGenerator });
+
+    expect(index[0]).toBeUndefined();
+  });
 });
 describe(".#indexGuard", () => {
 

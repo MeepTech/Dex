@@ -100,16 +100,28 @@ describe("Object...(this, ...)", () => {
   });
 });
 
-
 describe("constructor(...)", () => {
   test("(Dex, {passthroughKeys: [tag, untag]})", () => {
     const facade = new FaçaDex(
       dex,
       {
-        passthroughKeys: [WardedKey.tag, WardedKey.untag]
+        passthroughKeys: [WardedKey.Tag, WardedKey.Untag]
       }
     );
 
-    facade.tag("");
+    facade.tag(entry, "tag8");
+    expect(facade.tags(entry)).toContain("tag8");
+    expect((facade as any).set).toBeUndefined()
+  })
+  test("(Dex, {passthroughKeys: [add, remove]})", () => {
+    const facade = new FaçaDex(
+      dex,
+      {
+        passthroughKeys: [WardedKey.Add, WardedKey.Remove],
+      }
+    );
+
+    expect(facade.add).toBeTruthy();
+    expect((facade as any).tag).toBeUndefined()
   })
 })

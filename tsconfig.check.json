@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "./src/lib.ts",
+    "./tests/jest/**/*.ts"
+  ],
+  "compilerOptions": {
+    "emitDeclarationOnly": false,
+    "declaration": false,
+    "noEmit": true
+  }
+}

@@ -2,28 +2,38 @@
   "files": [
     "./src/lib.ts",
   ],
+  "exclude": [
+    "./node_modules",
+    "./dist",
+    "./build",
+    "./tests",
+  ],
   "compilerOptions": {
-    "experimentalDecorators": true,
-      "paths": {
-        "tslib" : ["./node_modules/tslib/tslib.d.ts"]
+    "paths": {
+      "tslib": [
+        "./node_modules/tslib/tslib.d.ts"
+      ]
     },
     "incremental": true,
+    "strict": true,
     "target": "es2021",
     "module": "commonjs",
-    "lib": ["dom", "es2021"],
-    "jsx": "react-jsx",
-    "strict": true,
+    "lib": [
+      "dom",
+      "es2021"
+    ],
+    "skipLibCheck": true,
+    "emitDeclarationOnly": true,
     "sourceMap": true,
+    "experimentalDecorators": true,
     "noImplicitAny": true,
     "moduleResolution": "node",
     "declaration": true,
-	  "emitDeclarationOnly": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "importHelpers": true,
     "strictNullChecks": true,
     "stripInternal": true,
-    "allowJs": true,
-    "outDir": "./build/prod/"
+    "allowJs": false
   }
 }

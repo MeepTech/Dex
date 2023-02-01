@@ -25,7 +25,7 @@ esbuild.build({
   format: 'cjs',
   watch: dev && !nowatch,
   target: 'es2018',
-  logLevel: "info",
+  logLevel: dev ? "verbose" : "info",
   sourcemap: dev 
     ? 'inline'
     : false,
@@ -37,7 +37,11 @@ esbuild.build({
   + '/lib.js',
   plugins: [
     clean({
-      patterns: [dev ? './build/dev/*' : './build/prod/*'],
+      patterns: [
+        dev ? './build/dev/*.d.ts' : './build/prod/*.d.ts',
+        dev ? './build/dev/**/' : './build/prod/**/',
+        dev ? './build/dev/*.tsbuildinfo' : './build/prod/*.tsbuildinfo',
+      ],
     })
   ],
 }).catch(() => process.exit(1));
