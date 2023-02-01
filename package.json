@@ -1,6 +1,6 @@
 {
   "name": "@meep-tech/dex",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "A JS/TS data structure for a collection of tagged entries.",
   "main": "lib.js",
   "homepage": "https://github.com/MeepTech/Dex",
@@ -18,12 +18,13 @@
     "url": "http://meep.tech"
   },
   "scripts": {
-    "watch": "tsc -skipLibCheck -noEmit -p \"tsconfig.test.json\" && node esbuild.config.mjs dev",
-    "test": "tsc -skipLibCheck -noEmit -p \"tsconfig.test.json\" && jest",
-    "pack": "cd \"dist\\npm\\prod\" && npm pack \"../../../build/prod\"",
-    "dev-pack": "cd \"dist\\npm\\dev\" && npm pack \"../../../build/dev\"",
-    "dev-wp": "webpack --env dev --progress",
-    "wp": "webpack"
+    "check-types": "tsc -noEmit -p \"tsconfig.check.json\"",
+    "watch": "tsc -noEmit -p \"tsconfig.check.json\" && node esbuild.config.mjs dev",
+    "test": "tsc -noEmit -p \"tsconfig.check.json\" && jest",
+    "dev-build": "npm run check-types && webpack --env dev --progress && tsc -p \"tsconfig.dev.json\"",
+    "build": "npm run check-types && webpack && tsc -p \"tsconfig.prod.json\"",
+    "dev-pack": "npm run dev-build && cd \"dist\\npm\\dev\" && npm pack \"../../../build/dev\"",
+    "pack": "npm run build && cd \"dist\\npm\\prod\" && npm pack \"../../../build/prod\""
   },
   "private": true,
   "dependencies": {
@@ -38,6 +39,8 @@
     "@types/jest": "^28.1.7",
     "@types/node": "18.7.6",
     "@types/uuid": "^9.0.0",
+    "awesome-typescript-loader": "^5.2.1",
+    "babel-core": "^7.0.0-bridge.0",
     "babel-jest": "^29.3.1",
     "babel-loader": "^9.1.2",
     "cp": "^0.2.0",
@@ -69,5 +72,26 @@
     "set",
     "collection",
     "tagged"
-  ]
+  ],
+  "babel": {
+    "presets": [
+      [
+        "@babel/preset-env",
+        {
+          "targets": {
+            "node": "current"
+          }
+        }
+      ],
+      "@babel/preset-typescript"
+    ],
+    "plugins": [
+      [
+        "@babel/plugin-proposal-decorators",
+        {
+          "version": "2022-03"
+        }
+      ]
+    ]
+  }
 }

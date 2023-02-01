@@ -10,36 +10,26 @@ module.exports = (env = {}) => ({
     globalObject: 'this'
   },
   resolve: {
-    extensions: ['.ts', 'js'],
-    modules: [
-        path.resolve(__dirname, 'node_modules'),
-        path.resolve(__dirname, 'src'),
-    ]
+    extensions: ['.ts']
   },
   module: {
     rules: [
       {
         test: /\.ts$/,
-        include: path.resolve(__dirname, 'src', 'lib.ts'),
-        use: [
-          // lib.ts => lib.js
-          { loader: 'babel-loader' }
-        ]
-      },
-      {
-        test: /\.ts$/,
         include: path.resolve(__dirname, 'src'),
         use: [
-          // *.ts => *.d.ts
+          /*// *.ts => *.d.ts
           {
-            loader: 'ts-loader', options: {
-            transpileOnly: true,
-            configFile: path.resolve(
-              __dirname,
-              !env.dev
-                ? 'tsconfig.prod.json'
-                : 'tsconfig.dev.json')
-          }},
+            loader: 'awesome-typescript-loader', options: {
+              useBabel: true,
+              transpileOnly: true,
+              configFileName: path.resolve(
+                __dirname,
+                !env.dev
+                  ? 'tsconfig.prod.json'
+                  : 'tsconfig.dev.json')
+            }
+          },*/
           // lib.ts => lib.js
           { loader: 'babel-loader' }
         ]

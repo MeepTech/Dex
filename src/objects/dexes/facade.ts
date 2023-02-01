@@ -61,7 +61,7 @@ export type FaçadeConfig<TPassthroughKeys extends WardedKey[] = WardedKey[]> = 
 };
 
 export type FaçaDex<
-  TDex extends ReadableDex<any>,
+  TDex extends IReadableDex<any>,
   TPassthroughKeys extends WardedKey[] = []
 > = Omit<TDex, Exclude<WardedKeys, `${TPassthroughKeys[number]}`>>
   & ReadableDex<EntryOf<TDex>>
@@ -81,7 +81,7 @@ export type FaçaDex<
   }
 
 function FaçaDexConstructor<
-  TDex extends ReadableDex<any>,
+  TDex extends IReadableDex<any>,
   TPassthroughKeys extends WardedKey[]
 >(
   original: TDex,
@@ -94,7 +94,7 @@ function FaçaDexConstructor<
 
   /** @internal */
   function _buildFaçadeProxyHandler<
-    TDex extends ReadableDex<any>
+    TDex extends IReadableDex<any>
   >(): ProxyHandler<TDex> {
     return {
       get(base: TDex, propKey: string, proxy: FaçaDex<TDex, TPassthroughKeys>) {
@@ -187,12 +187,12 @@ function FaçaDexConstructor<
 export const FaçaDex
   = FaçaDexConstructor as any as {
     new <
-      TDex extends ReadableDex<any>
+      TDex extends IReadableDex<any>
     >(
       original: TDex,
     ): FaçaDex<TDex, []>
     new <
-      TcDex extends ReadableDex<any>,
+      TcDex extends IReadableDex<any>,
       TPassthroughKeys extends WardedKey[]
     >(
       original: TcDex,
