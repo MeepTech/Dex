@@ -33,6 +33,7 @@ module.exports = (env = {}) => ({
           // *.ts => *.d.ts
           {
             loader: 'ts-loader', options: {
+            transpileOnly: true,
             configFile: path.resolve(
               __dirname,
               !env.dev
@@ -46,18 +47,3 @@ module.exports = (env = {}) => ({
     ]
   }
 });
-
-/**
- * ts-loader emits an error when no output is generated. This occurs when using Typescript's emitDeclarationOnluy
- * flag. This plugin suppresses that error so that webpack will consider it a clean build.
- * 
- * source: https://stackoverflow.com/a/70994678
- */
-class EmitDeclarationOnly {
-  apply(compiler) {
-      compiler.hooks.shouldEmit.tap('EmitDeclarationOnly', (compilation) => this.handleHook(compiler, compilation));
-  }
-  handleHook(compiler, compilation){
-      compilation.errors = compilation.errors.filter((error) => {!error.toString().includes("TypeScript emitted no output for")});
-  }
-}
