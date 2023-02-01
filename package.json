@@ -18,19 +18,19 @@
     "url": "http://meep.tech"
   },
   "scripts": {
-    "dev-watch": "tsc -skipLibCheck -noEmit -p \"tsconfig-dev-check.json\" && node esbuild.config.mjs dev && tsc -skipLibCheck -p \"tsconfig-dev.json\"",
-    "dev-build": "tsc -skipLibCheck -noEmit -p \"tsconfig-dev-check.json\" && node esbuild.config.mjs dev-nowatch && tsc -skipLibCheck -p \"tsconfig-dev.json\"",
-    "build": "tsc -skipLibCheck -noEmit -p \"tsconfig-check.json\" && node esbuild.config.mjs lib && tsc -skipLibCheck -p \"tsconfig.json\" ",
-    "test": "tsc -skipLibCheck -noEmit -p \"tsconfig-tests-check.json\" && jest",
+    "watch": "tsc -skipLibCheck -noEmit -p \"tsconfig.test.json\" && node esbuild.config.mjs dev",
+    "test": "tsc -skipLibCheck -noEmit -p \"tsconfig.test.json\" && jest",
     "pack": "cd \"dist\\npm\\prod\" && npm pack \"../../../build/prod\"",
-    "dev-pack": "cd \"dist\\npm\\dev\" && npm pack \"../../../build/dev\""
+    "dev-pack": "cd \"dist\\npm\\dev\" && npm pack \"../../../build/dev\"",
+    "dev-wp": "webpack --env dev --progress",
+    "wp": "webpack"
   },
   "private": true,
   "dependencies": {
     "uuid": "^9.0.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.20.5",
+    "@babel/core": "^7.20.12",
     "@babel/plugin-proposal-decorators": "^7.20.7",
     "@babel/preset-env": "^7.20.2",
     "@babel/preset-typescript": "^7.18.6",
@@ -39,6 +39,7 @@
     "@types/node": "18.7.6",
     "@types/uuid": "^9.0.0",
     "babel-jest": "^29.3.1",
+    "babel-loader": "^9.1.2",
     "cp": "^0.2.0",
     "esbuild": "0.14.47",
     "esbuild-plugin-clean": "^1.0.1",
@@ -46,9 +47,13 @@
     "install": "^0.13.0",
     "jest": "^28.1.3",
     "jest-environment-jsdom": "^28.1.3",
+    "ts-loader": "^9.4.2",
     "ts-node": "^10.9.1",
     "tslib": "^2.4.1",
-    "typescript": "^4.7.4"
+    "typescript": "^4.7.4",
+    "webpack": "^5.75.0",
+    "webpack-cli": "^5.0.1",
+    "webpack-merge": "^5.8.0"
   },
   "keywords": [
     "data",

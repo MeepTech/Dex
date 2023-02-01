@@ -889,7 +889,8 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
       for (const tag of tags) {
         if (this.has(tag)) {
           const result = this[InternalDexSymbols._resetTag](tag, {
-            ...options, onRemove: key => {
+            ...options,
+            onRemove: key => {
               this.#queueNewEntryRemovedEvent(events, key, this.get(key)!);
             }
           });
@@ -958,7 +959,7 @@ export default class NoisyDex<TEntry extends Entry> extends Dex<TEntry> {
         this.#queueNewEntryRemovedEvent(events, hash, entry);
       }
 
-      const results = super.clear();
+      const results = this.constructor.prototype.clear().call(this);
       this.#broadcast("clear", time, events);
       return results;
     }).bind(this)
