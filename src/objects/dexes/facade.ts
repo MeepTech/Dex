@@ -1,8 +1,9 @@
 import { Entry } from "../subsets/entries";
-import { IReadableDex, InternalRDexSymbols, ReadableDex } from "./read";
+import { IReadableDex, InternalRDexSymbols, ReadOnlyDex } from "./read";
 import { AccessError } from "../errors";
 import { EntryOf, InternalDexSymbols } from "./dex";
 import { InternalNDexSymbols } from "./noisy";
+import Check from "../../utilities/validators";
 
 /**
  * The default warded dex property keys.
@@ -30,8 +31,15 @@ export type WardedKeys = `${WardedKey}`;
 /**
  * The default warded dex property keys.
  */
+export const WARDED_KEYS_ARRAY = Object.freeze(
+  Object.values(WardedKey)
+)
+
+/**
+ * The default warded dex property keys.
+ */
 export const WARDED_KEYS_SET = Object.freeze(
-  new Set(Object.values(WardedKey))
+  new Set(WARDED_KEYS_ARRAY)
 )
 
 /**
@@ -60,11 +68,17 @@ export type FaçadeConfig<TPassthroughKeys extends WardedKey[] = WardedKey[]> = 
   extraWards?: Ward[];
 };
 
+/** @internal */
+const _defaultHiddenKeysForTypes: Map<any, (string | symbol)[]> = new Map();
+
+/**
+ * A way to access a Dex while warding and hiding some of it's functionality.
+ */
 export type FaçaDex<
   TDex extends IReadableDex<any>,
   TPassthroughKeys extends WardedKey[] = []
 > = Omit<TDex, Exclude<WardedKeys, `${TPassthroughKeys[number]}`>>
-  & ReadableDex<EntryOf<TDex>>
+  & ReadOnlyDex<EntryOf<TDex>>
   & {
     new <
       TcDex extends TDex
@@ -78,6 +92,13 @@ export type FaçaDex<
       original: TcDex,
       options: FaçadeConfig<TcPassthroughKeys>
     ): FaçaDex<TcDex, TcPassthroughKeys>
+    new <
+      TcDex extends TDex,
+      TcPassthroughKeys extends TPassthroughKeys
+    >(
+      original: TcDex,
+      ...passthoughKeys: TcPassthroughKeys | [TcPassthroughKeys]
+    ): FaçaDex<TcDex, TcPassthroughKeys>
   }
 
 function FaçaDexConstructor<
@@ -85,8 +106,13 @@ function FaçaDexConstructor<
   TPassthroughKeys extends WardedKey[]
 >(
   original: TDex,
-  options?: FaçadeConfig<TPassthroughKeys>
+  ...args: [FaçadeConfig<TPassthroughKeys>] | TPassthroughKeys | [TPassthroughKeys]
 ): FaçaDex<TDex, TPassthroughKeys> {
+  const options = Array.isArray(args[0])
+    ? { passthroughKeys: args[0] } as FaçadeConfig<TPassthroughKeys>
+    : Check.isObject(args[0])
+      ? args[0] as FaçadeConfig<TPassthroughKeys>
+      : { passthroughKeys: args } as FaçadeConfig<TPassthroughKeys>;
   const façade = new Proxy(original, _buildFaçadeProxyHandler<TDex>());
   const proxiedFields = _getProxiedFields(original, options);
 
@@ -166,7 +192,7 @@ function FaçaDexConstructor<
     result.set("copy", {
       key: "copy",
       getter(): any {
-        return (baseDex as ReadableDex<TEntry>)[InternalRDexSymbols._getSimpleCopier];
+        return (baseDex as ReadOnlyDex<TEntry>)[InternalRDexSymbols._getSimpleCopier];
       }
     });
 
@@ -198,4 +224,25 @@ export const FaçaDex
       original: TcDex,
       options: FaçadeConfig<TPassthroughKeys>
     ): FaçaDex<TcDex, TPassthroughKeys>
+    new <
+      TcDex extends IReadableDex<any>,
+      TcPassthroughKeys extends WardedKey[]
+    >(
+      original: TcDex,
+      ...passthoughKeys: TcPassthroughKeys | [TcPassthroughKeys]
+    ): FaçaDex<TcDex, TcPassthroughKeys>
   };
+
+/**
+ * A decorator used to indicate members of a dex to hide in a facade by default.
+ */
+export function hideInFacade<TKey extends string[]>(...keysToHideInFacadesByDefault: TKey | [TKey]): ClassDecorator {
+  return function setHiddenKeysForType<T>(thisClass: T): T {
+    keysToHideInFacadesByDefault = Check.isNonStringIterable(keysToHideInFacadesByDefault[0])
+      ? keysToHideInFacadesByDefault[0] as TKey
+      : keysToHideInFacadesByDefault as TKey;
+
+    _defaultHiddenKeysForTypes.set(thisClass, keysToHideInFacadesByDefault);
+    return thisClass;
+  }
+}

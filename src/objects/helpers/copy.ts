@@ -4,8 +4,7 @@ import Dex from "../dexes/dex";
 import {
   ArchiDex,
   InternalRDexSymbols,
-  IReadableDex,
-  ReadableDex
+  IReadableDex
 } from "../dexes/read";
 import { Entry } from "../subsets/entries";
 import { HashKey } from "../subsets/hashes";

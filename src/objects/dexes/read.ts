@@ -255,7 +255,7 @@ export interface IReadableDex<TEntry extends Entry = Entry> extends Iterable<[Ha
  * A simple dex that can only be queried and read from.
  * This does not have any built in way to modify it, this mainly just holds the logic for more complex dexes like Dex and SealedDex.
  */
-export abstract class ReadableDex<TEntry extends Entry> implements IReadableDex<TEntry> {
+export abstract class ReadOnlyDex<TEntry extends Entry> implements IReadableDex<TEntry> {
   // data
   // TODO: when TS implements stage 3: @hideInProxy
   protected readonly [InternalRDexSymbols._allTags]
@@ -315,7 +315,7 @@ export abstract class ReadableDex<TEntry extends Entry> implements IReadableDex<
    * Make a new dex
    */
   constructor(original?: IReadableDex<TEntry>, hasher?: IHasher) {
-    if (original instanceof ReadableDex) {
+    if (original instanceof ReadOnlyDex) {
       const data = original.data;
 
       this[InternalRDexSymbols._allTags] = data.tags;
@@ -778,7 +778,7 @@ export abstract class ReadableDex<TEntry extends Entry> implements IReadableDex<
  * Used to freeze a copy of an existing dex.
  */
 
-export class ArchiDex<TEntry extends Entry> extends ReadableDex<TEntry> {
+export class ArchiDex<TEntry extends Entry> extends ReadOnlyDex<TEntry> {
   constructor(original: IReadableDex<TEntry>) {
     super(original);
     Object.freeze(this);

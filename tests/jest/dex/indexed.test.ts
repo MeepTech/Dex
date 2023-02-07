@@ -1,6 +1,7 @@
 import { Config, InDex, IndexedConfig, NoisyDex } from "../../../src/lib"
 import { describe, test, expect } from '@jest/globals';
 import { buildSimpleMockDex } from "./shared";
+import { ReadOnlyDex } from '../../../src/objects/dexes/read';
 
 type TestEntry = {
   key: number;
@@ -66,6 +67,12 @@ describe("constructor(...)", () => {
     const base = new NoisyDex<TestEntry>();
     const index = new InDex(base, { indexGenerator });
 
+    expect(index[0]).toBeUndefined();
+  });
+  test("(ReadOnlyDex, {indexGenerator})", () => {
+    const indexGenerator = (entry: TestEntry) => entry.key;
+    const index = new InDex(dex as ReadOnlyDex<TestEntry>, { indexGenerator });
+    
     expect(index[0]).toBeUndefined();
   });
 });

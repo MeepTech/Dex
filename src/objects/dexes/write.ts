@@ -7,6 +7,9 @@ import HashKey from "../subsets/hashes";
 import Tags, { Tag, TagOrTags } from "../subsets/tags";
 import { IReadableDex } from "./read";
 
+/**
+ * Interface for a Dex with write/edit access.
+ */
 export default interface IWriteableDex<TEntry extends Entry> {
 
   /**

@@ -25,7 +25,6 @@
     "skipLibCheck": true,
     "emitDeclarationOnly": true,
     "sourceMap": true,
-    "experimentalDecorators": true,
     "noImplicitAny": true,
     "moduleResolution": "node",
     "declaration": true,

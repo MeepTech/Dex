@@ -7,17 +7,20 @@
  */
 
 // dex classes
-import Dex, {IDex} from './objects/dexes/dex';
+import Dex, { IDex } from './objects/dexes/dex';
 export default Dex;
 export { IDex };
 export { Config, hash } from './objects/dexes/dex';
 
 export {
-  IReadableDex as IReadOnlyDex,
-  ReadableDex as ReadOnlyDex,
+  IReadableDex,
+  ReadOnlyDex,
   ArchiDex,
   ArchiDex as Archive
 } from './objects/dexes/read';
+
+import IWriteableDex from './objects/dexes/write';
+export { IWriteableDex }
 
 export {
   FaçaDex,
@@ -42,7 +45,7 @@ export {
   Listener,
   Listeners
 } from './objects/dexes/noisy';
-  
+
 import InDex from './objects/dexes/indexed';
 export {
   InDex,
@@ -50,8 +53,8 @@ export {
 }
 export {
   Config as IndexedConfig
-}from './objects/dexes/indexed'
-  
+} from './objects/dexes/indexed'
+
 // sub types and sets
 export {
   Entry,

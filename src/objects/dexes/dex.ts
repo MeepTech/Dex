@@ -35,7 +35,7 @@ import {
   ResultType,
   RESULT_TYPES
 } from "../queries/results";
-import { IReadableDex, ReadableDex } from "./read";
+import { IReadableDex, ReadOnlyDex } from "./read";
 import { DexError, InvalidEntryError, NotImplementedError } from "../errors";
 import Loop from "../../utilities/iteration";
 import { InternalRDexSymbols } from "./read"
@@ -88,7 +88,7 @@ export function isDex(symbol: any, options?: { andIsWriteable?: false }): symbol
       return false;
     }
   } else {
-    return symbol instanceof ReadableDex;
+    return symbol instanceof ReadOnlyDex;
   }
 
   return symbol instanceof Dex;
@@ -184,7 +184,7 @@ export interface Config<TEntry extends Entry = Entry> {
 
 export type CtorProps<TEntry extends Entry, TConfig extends Config<TEntry> = Config<TEntry>> = [
   values?:
-  ReadableDex<TEntry>
+  ReadOnlyDex<TEntry>
   | Map<OrNone<TEntry>, TagOrTags>
   | Config<TEntry>
   | TagOrTags
@@ -209,7 +209,7 @@ export interface IDex<TEntry extends Entry> extends IReadableDex<TEntry>, IWrite
  * 
  * This represents a many to many replationship of Tags to Entries.
  */
-export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntry> implements IDex<TEntry>, IReadableDex<TEntry>, IWriteableDex<TEntry> {
+export default class Dex<TEntry extends Entry = Entry> extends ReadOnlyDex<TEntry> implements IDex<TEntry>, IReadableDex<TEntry>, IWriteableDex<TEntry> {
   // lazy
   // - queries
   #take?: Queries.Full<TEntry, ResultType.Array, TEntry>;
@@ -298,7 +298,7 @@ export default class Dex<TEntry extends Entry = Entry> extends ReadableDex<TEntr
   /**
    * Copy a new dex from an existing one
    */
-  constructor(original: ReadableDex<TEntry>, options?: Config<TEntry>)
+  constructor(original: ReadOnlyDex<TEntry>, options?: Config<TEntry>)
 
   /**
    * Make a new dex from a map

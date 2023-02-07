@@ -1,23 +1,90 @@
 import Dex, { Config as BaseConfig, CtorProps, EntryOf, IDex, InternalDexSymbols } from './dex'
-import { IReadableDex, ReadableDex } from './read'
+import { IReadableDex, ReadOnlyDex } from './read'
 import Entry from '../subsets/entries'
 import HashKey from '../subsets/hashes'
-import { AccessError, DexError, InvalidEntryError } from '../errors';
+import { AccessError, InvalidEntryError } from '../errors';
+import { NO_RESULT, NoEntryFound } from '../queries/results';
+import IWriteableDex from './write';
 
 export type Config<TEntry extends Entry, TIndex extends HashKey, TBase extends BaseConfig<TEntry> = BaseConfig<TEntry>> = TBase & {
+  canSetViaIndex?: false,
+  canDeleteViaIndex?: false,
   indexGenerator?: (entry: TEntry, thisDex: InDex<TEntry, TIndex, any>) => TIndex,
   indexGuard?: (key: TIndex, thisDex: InDex<TEntry, TIndex, any>) => boolean,
   onIndexAdded?: (key: TIndex, thisDex: InDex<TEntry, TIndex, any>) => void,
-  onIndexRemoved?: (key: TIndex, thisDex: InDex<TEntry, TIndex, any>) => void,
+  onIndexRemoved?: (key: TIndex, effectedEntry: TEntry, thisDex: InDex<TEntry, TIndex, any>) => void,
 }
 
+/**
+ * Returned when an index isn't found.
+ */
+export const NO_INDEX_FOUND = -1 as const;
+
+/**
+ * A Dex with an index.
+ */
 type InDex<
   TEntry extends Entry = Entry,
   TIndex extends HashKey = HashKey,
-  TDex extends IReadableDex<TEntry> = ReadableDex<TEntry>,
+  TDex extends IReadableDex<TEntry> = ReadOnlyDex<TEntry>,
+  CanSetViaIndex extends boolean = TDex extends IWriteableDex<TEntry> ? true : false,
+  CanDeleteViaIndex extends boolean = TDex extends IWriteableDex<TEntry> ? true : false,
 > = TDex
-  & { [index in TIndex]: TEntry };
+  & (TDex extends IWriteableDex<TEntry>
+    ? (
+      (CanSetViaIndex extends true
+        ? {
 
+          /**
+           * Get or set the entry at a given index.
+           */
+          [index in TIndex]: TEntry | NoEntryFound
+        } : {
+
+          /**
+           * Get or set the entry at a given index.
+           */
+          readonly [key in TIndex]: TEntry | NoEntryFound;
+        }
+      ) & (CanDeleteViaIndex extends true
+        ? {
+
+          /**
+           * Used to remove entries by index
+           */
+          delete(atIndex: TIndex): boolean;
+        } : {}
+      )
+    ) : {
+
+      /**
+       * Get or set the entry at a given index.
+       */
+      readonly [index in TIndex]: TEntry | NoEntryFound
+    }
+  ) & {
+
+    /**
+     * Get the index of an entry or it's hashkey.
+     * 
+     * @returns the found entry or NO_INDEX_FOUND = -1
+     */
+    indexOf(entry: HashKey | TEntry): TIndex | typeof NO_INDEX_FOUND;
+
+    /**
+     * Get the hash of an entry at a given index.
+     */
+    hashOf(index: TIndex): HashKey | NoEntryFound;
+
+    /**
+     * Get the entry at a given index
+     */
+    entryOf(index: TIndex): TEntry | NoEntryFound;
+  };
+
+/**
+ * Make an InDex.
+ */
 const InDex: {
   new <
     TDex extends IReadableDex<TEntry>,
@@ -54,7 +121,7 @@ const InDex: {
     TConfig extends Config<TEntry, TIndex, TBaseConfig>,
     TBaseConfig extends BaseConfig<TEntry>,
     TIndex extends HashKey,
-  >(...args: [Exclude<CtorProps<TEntry, TConfig>[0], ReadableDex<TEntry>>, CtorProps<TEntry, TConfig>[1]]): InDex<TEntry, TIndex, TDex>;
+  >(...args: [Exclude<CtorProps<TEntry, TConfig>[0], ReadOnlyDex<TEntry>>, CtorProps<TEntry, TConfig>[1]]): InDex<TEntry, TIndex, TDex>;
   new <
     TEntry extends Entry = Entry,
     TIndex extends HashKey = HashKey,
@@ -62,6 +129,7 @@ const InDex: {
   >(...args: CtorProps<TEntry, Config<TEntry, TIndex>>): InDex<TEntry, TIndex, TDex>;
   isConfig(value: any): value is Config<any, any, any>;
   is(value: any): value is InDex<any, any, any>;
+  NOT_FOUND: typeof NO_INDEX_FOUND
 } = (
     (function InDexConstructor<
       TDex extends IReadableDex<TEntry>,
@@ -74,7 +142,7 @@ const InDex: {
       ...args: [original: TDex] | [original: TDex, config: TConfig] | CtorProps<TEntry, TConfig>
     ): InDex<TEntry, TIndex, TDex> {
       let inDex: TDex;
-      if (args[0] instanceof ReadableDex) {
+      if (args[0] instanceof ReadOnlyDex) {
         inDex = new ((args[0] as IReadableDex<TEntry> as TDex).constructor as any)(...args);
       } else {
         inDex = new Dex<TEntry>(...(args as any)) as IReadableDex<TEntry> as TDex;
@@ -87,7 +155,9 @@ const InDex: {
           ? args[0] as TConfig
           : undefined;
 
-      const readonly = ReadableDex.is(inDex);
+      const readonly = ReadOnlyDex.is(inDex);
+      const canSet = !readonly && (config?.canSetViaIndex !== false);
+      const canDelete = !readonly && (config?.canDeleteViaIndex !== false);
       const indexGenerator = config?.indexGenerator;
       const indexGuard = config?.indexGuard;
       const onIndexAdded = config?.onIndexAdded;
@@ -109,6 +179,34 @@ const InDex: {
             onIndexAdded
           )
         }
+      }
+
+      if (canDelete) {
+        (proxy as any).delete = function deleteAtIndex(index: TIndex): boolean {
+          return delete (proxy as any)[index];
+        }
+      }
+
+      proxy.indexOf = function indexOf(entry: HashKey | TEntry) {
+        const hash = proxy.hash(entry);
+        if (hash === undefined) {
+          return NO_INDEX_FOUND;
+        }
+
+        return indexesByHash.get(hash) ?? NO_INDEX_FOUND;
+      }
+
+      proxy.hashOf = function hashOf(index: TIndex) {
+        return hashesByIndex.get(index) ?? NO_RESULT;
+      }
+
+      proxy.entryOf = function entryOf(index: TIndex) {
+        const hash = hashesByIndex.get(index);
+        if (hash === undefined) {
+          return NO_RESULT;
+        }
+
+        return inDex.get(hash);
       }
 
       return proxy;
@@ -167,7 +265,7 @@ const InDex: {
             return (target as any)[key];
           },
           set(target: TDex, key: string | symbol | number, newValue: TEntry | HashKey): boolean {
-            if (!readonly) {
+            if (!readonly && canSet) {
               if (Dex.isTag(newValue)) {
                 if (!(target as any as IDex<TEntry>).canContain(newValue)) {
                   newValue = target.get(newValue)!;
@@ -193,7 +291,7 @@ const InDex: {
             throw new AccessError("Cannot set values via Index on a Read-only InDex.")
           },
           deleteProperty(target: TDex, key: string | symbol | number): boolean {
-            if (!readonly) {
+            if (!readonly && canDelete) {
               if (hashesByIndex.has(key as TIndex)) {
                 return removeByIndex(key, target, onIndexRemoved)
               } else {
@@ -210,13 +308,15 @@ const InDex: {
       function removeByIndex(
         key: string | number | symbol,
         target: TDex,
-        onIndexRemoved: ((key: TIndex, thisDex: InDex<TEntry, TIndex, any>) => void) | undefined
+        onIndexRemoved: ((key: TIndex, entry: TEntry, thisDex: InDex<TEntry, TIndex, any>) => void) | undefined
       ): boolean {
         const currentHash = hashesByIndex.get(key as TIndex)!
         hashesByIndex.delete(key as TIndex)
         indexesByHash.delete(currentHash);
+        const entry = target.get(currentHash)!;
+
         if ((target as any as IDex<TEntry>).remove(currentHash).wasRemoved ?? false) {
-          onIndexRemoved?.(key as TIndex, target);
+          onIndexRemoved?.(key as TIndex, entry, target);
           return true;
         };
 
@@ -297,5 +397,7 @@ InDex.is = function isAnInDex(value: any): value is InDex<any, any, any> {
 
   return false;
 };
+
+InDex.NOT_FOUND = NO_INDEX_FOUND;
 
 export default InDex;
