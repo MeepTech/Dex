@@ -197,7 +197,7 @@ namespace Loop {
     }
   ): void {
     if (!options) {
-      if (Check.isArray(over)) {
+      if (Check.isIterable(over)) {
         let index = 0;
         for (const each of over) {
           toLoop(...[each, index++] as TArgs);
@@ -234,7 +234,7 @@ namespace Loop {
       }
     
       // loop
-      const count = overIsArray ? over.length : over;
+      const count : number = overIsArray ? over.length : Check.isIterable(over) ? Loop.count(over as Iterable<any>) : over as number;
       for (let index = 0; index < count; index++) {
         const params = args.map(get => get(index));
         const result = toLoop(...params as TArgs);

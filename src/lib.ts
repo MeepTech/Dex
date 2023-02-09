@@ -109,9 +109,11 @@ export {
 import IUnique from './objects/unique'
 import Check from './utilities/validators';
 import Loop from './utilities/iteration';
+import { lazy } from './utilities/lazy';
 
 export {
   IUnique,
   Check,
   Loop,
+  lazy
 }

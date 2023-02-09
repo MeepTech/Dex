@@ -29,6 +29,14 @@ export enum WardedKey {
 export type WardedKeys = `${WardedKey}`;
 
 /**
+ * Type for all warded keys.
+ */
+export type AllWardedKeysArray = [WardedKey.Set, WardedKey.Put, WardedKey.Add,
+  WardedKey.Update, WardedKey.Take, WardedKey.Remove, WardedKey.Tag,
+  WardedKey.Untag, WardedKey.Drop, WardedKey.Reset, WardedKey.Clean,
+  WardedKey.Clear, WardedKey.CopyFrom];
+
+/**
  * The default warded dex property keys.
  */
 export const WARDED_KEYS_ARRAY = Object.freeze(
@@ -235,6 +243,8 @@ export const FaçaDex
 
 /**
  * A decorator used to indicate members of a dex to hide in a facade by default.
+ * 
+ * TODO: implement this when metadata is sorted out.
  */
 export function hideInFacade<TKey extends string[]>(...keysToHideInFacadesByDefault: TKey | [TKey]): ClassDecorator {
   return function setHiddenKeysForType<T>(thisClass: T): T {

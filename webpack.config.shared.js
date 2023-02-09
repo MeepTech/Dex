@@ -18,18 +18,6 @@ module.exports = (env = {}) => ({
         test: /\.ts$/,
         include: path.resolve(__dirname, 'src'),
         use: [
-          /*// *.ts => *.d.ts
-          {
-            loader: 'awesome-typescript-loader', options: {
-              useBabel: true,
-              transpileOnly: true,
-              configFileName: path.resolve(
-                __dirname,
-                !env.dev
-                  ? 'tsconfig.prod.json'
-                  : 'tsconfig.dev.json')
-            }
-          },*/
           // lib.ts => lib.js
           { loader: 'babel-loader' }
         ]

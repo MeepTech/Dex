@@ -23,6 +23,7 @@ import Loop from "../../utilities/iteration";
 import Dex, { Config, isDex } from "./dex";
 import { NoEntryFound, ResultType } from "../queries/results";
 import { ReadOnlyCopier, ReadOnlyCopierConstructor } from "../helpers/copy";
+import { lazy } from "../../utilities/lazy";
 
 //#region Symbols
 
@@ -489,8 +490,9 @@ export abstract class ReadOnlyDex<TEntry extends Entry> implements IReadableDex<
 
   //#region Generic
 
+  @lazy()
   get query(): Queries.Full<TEntry, ResultType, TEntry> {
-    return this.#query ??= Queries.FullQueryConstructor(
+    return Queries.FullQueryConstructor(
       this,
       ResultType.Array,
     );

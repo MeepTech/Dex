@@ -181,7 +181,9 @@ export interface Config<TEntry extends Entry = Entry> {
   hasher?: IHasher
 }
 
-
+/**
+ * Constructor props for a dex.
+ */
 export type CtorProps<TEntry extends Entry, TConfig extends Config<TEntry> = Config<TEntry>> = [
   values?:
   ReadOnlyDex<TEntry>

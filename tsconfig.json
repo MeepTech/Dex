@@ -16,14 +16,16 @@
     },
     "incremental": true,
     "strict": true,
-    "target": "es2021",
+    "target": "ESNext",
     "module": "commonjs",
     "lib": [
       "dom",
-      "es2021"
+      "es2021",
+      "ESNext"
     ],
     "skipLibCheck": true,
     "emitDeclarationOnly": true,
+    "experimentalDecorators": false,
     "sourceMap": true,
     "noImplicitAny": true,
     "moduleResolution": "node",
